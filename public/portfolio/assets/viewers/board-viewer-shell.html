@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Board Viewer</title>
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0c0c14;
+        color: rgba(255, 255, 255, 0.8);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      #viewer {
+        position: fixed;
+        inset: 0;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+
+      canvas:active {
+        cursor: grabbing;
+      }
+
+      .hint {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 18px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: rgba(15, 18, 32, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.45);
+        pointer-events: none;
+      }
+
+      .hint kbd {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.75);
+        font: inherit;
+      }
+
+      .error {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        background: radial-gradient(circle at top, #151a2e, #0c0c14 65%);
+        color: rgba(255, 255, 255, 0.82);
+      }
+
+      .error.visible {
+        display: flex;
+      }
+
+      .error-card {
+        max-width: 34rem;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 28px;
+        box-shadow: 0 30px 100px rgba(0, 0, 0, 0.4);
+      }
+
+      .error-card h1 {
+        margin: 0 0 12px;
+        font-size: 1.2rem;
+      }
+
+      .error-card p {
+        margin: 0;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.62);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="viewer"></div>
+    <div class="hint" id="hint">
+      <span><kbd>Drag</kbd> Rotate</span>
+      <span><kbd>Scroll</kbd> Zoom</span>
+      <span><kbd>Right drag</kbd> Pan</span>
+    </div>
+    <div class="error" id="error">
+      <div class="error-card">
+        <h1>3D viewer could not be initialized</h1>
+        <p id="error-message">The board geometry or rendering context failed to load.</p>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/portfolio/assets/scripts/viewer/board-model-data.js"></script>
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const asset = params.get("asset") === "control" ? "control" : "power";
+        const mount = document.getElementById("viewer");
+        const hint = document.getElementById("hint");
+        const errorEl = document.getElementById("error");
+        const errorMessageEl = document.getElementById("error-message");
+
+        let renderer;
+        let scene;
+        let camera;
+        let boardGroup;
+        let maxDimension = 100;
+        let state;
+        let defaults;
+        let wireframe = false;
+        let drag = null;
+        let touch = null;
+
+        function showError(message) {
+          errorMessageEl.textContent = message;
+          errorEl.classList.add("visible");
+        }
+
+        function updateCamera() {
+          camera.position.set(
+            state.tx + state.r * Math.sin(state.phi) * Math.cos(state.theta),
+            state.ty + state.r * Math.cos(state.phi),
+            state.tz + state.r * Math.sin(state.phi) * Math.sin(state.theta),
+          );
+          camera.lookAt(state.tx, state.ty, state.tz);
+        }
+
+        function resize() {
+          const width = mount.clientWidth;
+          const height = mount.clientHeight;
+          if (!width || !height) {
+            return;
+          }
+
+          renderer.setSize(width, height);
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+        }
+
+        function resetView() {
+          Object.assign(state, defaults);
+          updateCamera();
+        }
+
+        function topView() {
+          state.theta = Math.PI / 2;
+          state.phi = 0.04;
+          state.r = maxDimension * 1.2;
+          state.tx = 0;
+          state.ty = 0;
+          state.tz = 0;
+          updateCamera();
+        }
+
+        function toggleWireframe() {
+          wireframe = !wireframe;
+          boardGroup.children.forEach(function (mesh) {
+            mesh.material.wireframe = wireframe;
+          });
+        }
+
+        function bindControls(canvas) {
+          canvas.addEventListener("contextmenu", function (event) {
+            event.preventDefault();
+          });
+
+          canvas.addEventListener("mousedown", function (event) {
+            drag = { button: event.button, x: event.clientX, y: event.clientY, snapshot: Object.assign({}, state) };
+            hint.style.opacity = "0";
+          });
+
+          window.addEventListener("mouseup", function () {
+            drag = null;
+          });
+
+          window.addEventListener("mousemove", function (event) {
+            if (!drag) {
+              return;
+            }
+
+            const dx = event.clientX - drag.x;
+            const dy = event.clientY - drag.y;
+
+            if (drag.button === 0) {
+              state.theta = drag.snapshot.theta - dx * 0.011;
+              state.phi = Math.max(0.04, Math.min(Math.PI - 0.04, drag.snapshot.phi - dy * 0.011));
+            } else if (drag.button === 2) {
+              const panScale = state.r * 0.0013;
+              state.tx = drag.snapshot.tx - Math.cos(state.theta) * dx * panScale;
+              state.ty = drag.snapshot.ty + dy * panScale;
+              state.tz = drag.snapshot.tz + Math.sin(state.theta) * dx * panScale;
+            }
+
+            updateCamera();
+          });
+
+          canvas.addEventListener(
+            "wheel",
+            function (event) {
+              event.preventDefault();
+              state.r = Math.max(maxDimension * 0.1, Math.min(maxDimension * 10, state.r * (1 + event.deltaY * 0.0009)));
+              updateCamera();
+              hint.style.opacity = "0";
+            },
+            { passive: false },
+          );
+
+          canvas.addEventListener(
+            "touchstart",
+            function (event) {
+              event.preventDefault();
+              hint.style.opacity = "0";
+
+              if (event.touches.length === 1) {
+                touch = {
+                  count: 1,
+                  x: event.touches[0].clientX,
+                  y: event.touches[0].clientY,
+                  snapshot: Object.assign({}, state),
+                };
+              } else if (event.touches.length === 2) {
+                const dx = event.touches[0].clientX - event.touches[1].clientX;
+                const dy = event.touches[0].clientY - event.touches[1].clientY;
+                touch = {
+                  count: 2,
+                  distance: Math.hypot(dx, dy),
+                  snapshot: Object.assign({}, state),
+                };
+              }
+            },
+            { passive: false },
+          );
+
+          canvas.addEventListener(
+            "touchmove",
+            function (event) {
+              event.preventDefault();
+              if (!touch) {
+                return;
+              }
+
+              if (touch.count === 1 && event.touches.length === 1) {
+                state.theta = touch.snapshot.theta - (event.touches[0].clientX - touch.x) * 0.011;
+                state.phi = Math.max(0.04, Math.min(Math.PI - 0.04, touch.snapshot.phi - (event.touches[0].clientY - touch.y) * 0.011));
+              } else if (touch.count === 2 && event.touches.length >= 2) {
+                const dx = event.touches[0].clientX - event.touches[1].clientX;
+                const dy = event.touches[0].clientY - event.touches[1].clientY;
+                state.r = Math.max(maxDimension * 0.1, Math.min(maxDimension * 10, touch.snapshot.r * (touch.distance / Math.hypot(dx, dy))));
+              }
+
+              updateCamera();
+            },
+            { passive: false },
+          );
+
+          canvas.addEventListener("touchend", function () {
+            touch = null;
+          });
+        }
+
+        function buildScene() {
+          if (!window.THREE) {
+            throw new Error("Three.js failed to load.");
+          }
+
+          const geometrySource = asset === "control" ? PCB_GEO_CTRL : PCB_GEO;
+          if (!geometrySource || !geometrySource.meshes || !geometrySource.meshes.length) {
+            throw new Error("Board geometry is missing.");
+          }
+
+          renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          renderer.setClearColor(0x0c0c14, 1);
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = 1.15;
+          mount.appendChild(renderer.domElement);
+
+          scene = new THREE.Scene();
+          camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
+          boardGroup = new THREE.Group();
+
+          for (const meshData of geometrySource.meshes) {
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute("position", new THREE.Float32BufferAttribute(meshData.v, 3));
+            geometry.setIndex(meshData.i);
+            geometry.computeVertexNormals();
+
+            const r = meshData.color[0];
+            const g = meshData.color[1];
+            const b = meshData.color[2];
+            const isGold = r > 0.6 && g > 0.5 && b < 0.4;
+            const isSilver = r > 0.68 && g > 0.68 && b > 0.68 && Math.abs(r - g) < 0.06;
+
+            const material = new THREE.MeshPhysicalMaterial({
+              color: new THREE.Color(r, g, b),
+              metalness: isGold ? 0.65 : isSilver ? 0.55 : 0.0,
+              roughness: isGold ? 0.25 : isSilver ? 0.35 : 0.82,
+            });
+
+            boardGroup.add(new THREE.Mesh(geometry, material));
+          }
+
+          boardGroup.rotation.x = -Math.PI / 2;
+          boardGroup.rotation.z = asset === "control" ? -Math.PI / 2 : 0;
+
+          const box = new THREE.Box3().setFromObject(boardGroup);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          boardGroup.position.sub(center);
+          scene.add(boardGroup);
+
+          const recenteredBox = new THREE.Box3().setFromObject(boardGroup);
+          const size = new THREE.Vector3();
+          recenteredBox.getSize(size);
+          maxDimension = Math.max(size.x, size.y, size.z);
+
+          camera.near = maxDimension * 0.01;
+          camera.far = maxDimension * 10;
+          camera.updateProjectionMatrix();
+
+          const grid = new THREE.GridHelper(maxDimension * 3, 40, 0x141a28, 0x0e1320);
+          grid.position.y = recenteredBox.min.y - 0.002;
+          scene.add(grid);
+
+          scene.add(new THREE.AmbientLight(0x8898c8, 0.6));
+          const key = new THREE.DirectionalLight(0xffffff, 0.95);
+          key.position.set(1, 2, 1.5);
+          scene.add(key);
+          const fill = new THREE.DirectionalLight(0xc0d4ff, 0.45);
+          fill.position.set(-1.5, 1, -0.8);
+          scene.add(fill);
+          const rim = new THREE.DirectionalLight(0x50e890, 0.2);
+          rim.position.set(0, -1, -1.5);
+          scene.add(rim);
+
+          defaults = { theta: -0.5, phi: 1.0, r: maxDimension * 1.5, tx: 0, ty: 0, tz: 0 };
+          state = Object.assign({}, defaults);
+          updateCamera();
+          resize();
+          bindControls(renderer.domElement);
+
+          function animate() {
+            requestAnimationFrame(animate);
+            resize();
+            renderer.render(scene, camera);
+          }
+
+          animate();
+        }
+
+        window.addEventListener("message", function (event) {
+          if (event.origin !== window.location.origin || !event.data || typeof event.data.type !== "string") {
+            return;
+          }
+
+          if (!camera || !boardGroup) {
+            return;
+          }
+
+          if (event.data.type === "reset") {
+            resetView();
+          } else if (event.data.type === "top") {
+            topView();
+          } else if (event.data.type === "wireframe") {
+            toggleWireframe();
+          }
+        });
+
+        window.addEventListener("resize", resize);
+
+        try {
+          buildScene();
+        } catch (error) {
+          showError(error instanceof Error ? error.message : "Unknown viewer error.");
+        }
+      })();
+    </script>
+  </body>
+</html>

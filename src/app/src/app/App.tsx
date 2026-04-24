@@ -1,7 +1,10 @@
 import { Layout } from "./components/Layout";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 export default function App() {
   return (
-    <Layout />
+    <ThemeProvider>
+      <Layout />
+    </ThemeProvider>
   );
 }

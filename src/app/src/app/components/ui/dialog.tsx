@@ -38,7 +38,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[var(--overlay-default)] backdrop-blur-sm",
         className,
       )}
       {...props}
@@ -48,12 +48,17 @@ function DialogOverlay({
 
 function DialogContent({
   className,
+  overlayClassName,
+  closeClassName,
   children,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  overlayClassName?: string;
+  closeClassName?: string;
+}) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
@@ -63,7 +68,7 @@ function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <DialogPrimitive.Close className={cn("ring-offset-background focus:ring-ring absolute top-4 right-4 z-20 rounded-full border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--text-strong)] opacity-95 shadow-[var(--shadow-soft)] transition-colors hover:bg-[var(--surface-3)] hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:block [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4", closeClassName)}>
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

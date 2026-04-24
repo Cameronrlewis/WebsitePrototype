@@ -1,103 +1,166 @@
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
+import { useState } from "react";
+import { motion } from "motion/react";
+import { Download, Github, Linkedin, Mail, MapPin, Send } from "lucide-react";
+
+import { documents, profile, socialLinks } from "../data/portfolio";
+import { MonogramText } from "./MonogramText";
 import { Button } from "./ui/button";
-import { Label } from "./ui/label";
+import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { Mail, Github, Linkedin, MapPin, Phone, Send, Download } from "lucide-react";
 
-export function Contact() {
+interface ContactProps {
+  onOpenResume: () => void;
+}
+
+export function Contact({ onOpenResume }: ContactProps) {
+  const [sent, setSent] = useState(false);
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f8faf9" }}>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Contact & Profile</h1>
-          <p className="text-muted-foreground mt-1">
-            Let's talk internships, collaborations, or just circuits over coffee.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Contact &amp; Profile</h1>
+      </motion.section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1 p-6 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/20">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-                <span className="text-primary-foreground text-2xl font-semibold">LG</span>
-              </div>
-              <h3 className="mt-4">Liam Gallagher</h3>
-              <p className="text-sm text-muted-foreground">EE Student · Class of 2026</p>
+      <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, delay: 0.05 }}
+          className="rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-6 shadow-[var(--shadow-card)]"
+        >
+          <div className="flex flex-col items-center text-center">
+            <div className="flex size-24 items-center justify-center rounded-full bg-primary text-[2rem] font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
+              <MonogramText value={profile.initials} />
+            </div>
+            <h2 className="mt-5 text-[1.9rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{profile.name}</h2>
+            <p className="mt-1 text-base text-[var(--text-muted)]">{profile.headline} - Class of 2029</p>
+          </div>
 
-              <div className="w-full mt-6 space-y-3 text-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Mail className="w-4 h-4 text-primary" />
-                  </div>
-                  <span>liam@example.com</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Phone className="w-4 h-4 text-primary" />
-                  </div>
-                  <span>+44 7700 900123</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-primary" />
-                  </div>
-                  <span>Manchester, UK</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Github className="w-4 h-4 text-primary" />
-                  </div>
-                  <span>github.com/liamg</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Linkedin className="w-4 h-4 text-primary" />
-                  </div>
-                  <span>linkedin.com/in/liamg</span>
-                </div>
-              </div>
+          <div className="mt-6 space-y-3">
+            <a href={socialLinks[0].href} className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]">
+              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
+                <Mail className="size-4" />
+              </span>
+              <span>{socialLinks[0].value}</span>
+            </a>
 
-              <Button className="w-full mt-6 bg-gradient-to-br from-primary to-primary/80">
-                <Download className="w-4 h-4 mr-2" /> Download Resume
+            <div className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)]">
+              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
+                <MapPin className="size-4" />
+              </span>
+              <span>{profile.location}</span>
+            </div>
+
+            <a
+              href={socialLinks[1].href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]"
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
+                <Github className="size-4" />
+              </span>
+              <span>{socialLinks[1].value}</span>
+            </a>
+
+            <a
+              href={socialLinks[2].href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]"
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
+                <Linkedin className="size-4" />
+              </span>
+              <span>{socialLinks[2].value}</span>
+            </a>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <Button className="rounded-[1rem] shadow-[var(--shadow-button)]" onClick={onOpenResume}>
+              <Download className="size-4" />
+              Open Resume
+            </Button>
+            <Button asChild variant="outline" className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]">
+              <a href={documents.resume} download>
+                <Download className="size-4" />
+                Download
+              </a>
+            </Button>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, delay: 0.1 }}
+          className="rounded-[1.8rem] border border-[color:var(--outline-strong)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+        >
+          <h2 className="text-[1.7rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">Send a message</h2>
+
+          <form
+            className="mt-6 space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSent(true);
+            }}
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--text-body)]">Your name</span>
+                <Input
+                  required
+                  placeholder="Cameron Lewis"
+                  className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--text-body)]">Email</span>
+                <Input
+                  required
+                  type="email"
+                  placeholder="name@example.com"
+                  className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
+                />
+              </label>
+            </div>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-[var(--text-body)]">Subject</span>
+              <Input
+                required
+                placeholder="Internship, project, or collaboration"
+                className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-[var(--text-body)]">Message</span>
+              <Textarea
+                required
+                rows={8}
+                placeholder="Briefly describe the role, team, timeline, or what you need help with."
+                className="min-h-[10.5rem] rounded-[1.2rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 py-3 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
+              />
+            </label>
+
+            <p className="pt-2 text-sm text-[var(--text-muted)]">
+              {sent ? "Prototype form submitted locally. Hook a delivery target in later if you want real sending." : "This prototype keeps the form flow local for now."}
+            </p>
+
+            <div className="flex justify-start pt-1 sm:justify-end">
+              <Button className="w-full rounded-[1rem] px-5 shadow-[var(--shadow-button)] sm:w-auto sm:min-w-[17rem]" type="submit">
+                <Send className="size-4" />
+                Send Message
               </Button>
             </div>
-          </Card>
-
-          <Card className="lg:col-span-2 p-6">
-            <h3 className="mb-4">Send a message</h3>
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Your name</Label>
-                  <Input id="name" placeholder="Jane Doe" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="jane@company.com" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" placeholder="Internship opportunity at..." />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="message">Message</Label>
-                <Textarea
-                  id="message"
-                  rows={6}
-                  placeholder="Tell me about the role, project, or idea..."
-                />
-              </div>
-              <Button
-                type="submit"
-                className="bg-gradient-to-br from-primary to-primary/80"
-              >
-                <Send className="w-4 h-4 mr-2" /> Send Message
-              </Button>
-            </form>
-          </Card>
-        </div>
+          </form>
+        </motion.section>
       </div>
     </div>
   );

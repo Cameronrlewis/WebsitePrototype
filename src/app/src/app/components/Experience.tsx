@@ -1,99 +1,123 @@
-import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Briefcase, Calendar, MapPin } from "lucide-react";
+import { motion } from "motion/react";
+import { CalendarDays, MapPin } from "lucide-react";
 
-const experiences = [
-  {
-    role: "Electrical Engineering Intern",
-    company: "Siemens Energy",
-    location: "Manchester, UK",
-    period: "Jun 2025 – Sep 2025",
-    description:
-      "Supported the power systems team in testing medium-voltage switchgear. Built a Python tool to automate load-flow report generation, cutting analysis time by 40%.",
-    tags: ["Power Systems", "Python", "MATLAB", "Testing"],
-  },
-  {
-    role: "Research Assistant",
-    company: "University Power Electronics Lab",
-    location: "On-campus",
-    period: "Jan 2025 – May 2025",
-    description:
-      "Designed and prototyped a bidirectional DC-DC converter for solar storage applications. Co-authored a conference paper on efficiency improvements.",
-    tags: ["DC-DC Converter", "PCB Design", "LTspice", "Research"],
-  },
-  {
-    role: "Embedded Systems Intern",
-    company: "Nexus Robotics",
-    location: "Remote",
-    period: "Jun 2024 – Aug 2024",
-    description:
-      "Developed firmware for an STM32-based motor controller. Implemented CAN bus communication and PID speed regulation for industrial automation prototypes.",
-    tags: ["STM32", "C", "CAN Bus", "Firmware"],
-  },
-  {
-    role: "Teaching Assistant — Circuits I",
-    company: "University of Manchester",
-    location: "On-campus",
-    period: "Sep 2023 – May 2024",
-    description:
-      "Led weekly lab sessions for 30+ students on circuit analysis, oscilloscope use, and breadboard prototyping. Graded assignments and held office hours.",
-    tags: ["Teaching", "Circuit Analysis", "Mentoring"],
-  },
-];
+import { experience } from "../data/portfolio";
+
+const CARD_PADDING = 24;
+const MARKER_SHELL_SIZE = 40;
+const MARKER_CENTER_X = 20;
 
 export function Experience() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f8faf9" }}>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Work Experience</h1>
-          <p className="text-muted-foreground mt-1">
-            Internships, research, and teaching roles across power systems and embedded tech.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Work Experience</h1>
+        <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
+          Internships, team projects, and hands-on hardware work across PCB design, documentation, and embedded systems.
+        </p>
+      </motion.section>
 
-        <div className="relative">
-          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent" />
+      <div className="relative space-y-0">
+        <div className="absolute left-[20px] top-0 hidden h-full w-px bg-[var(--text-strong)] lg:block" />
 
-          <div className="space-y-6">
-            {experiences.map((exp, i) => (
-              <div key={i} className="relative pl-16">
-                <div className="absolute left-2 top-6 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg ring-4 ring-background">
-                  <Briefcase className="w-4 h-4 text-primary-foreground" />
+        {experience.map((entry, index) => {
+          const { logoSize, markerImageSize, markerTop } = getExperienceSizing(entry.company);
+
+          return (
+            <motion.article
+              key={`${entry.company}-${entry.period}`}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.06 }}
+              className="relative pb-8 last:pb-0 lg:pl-16"
+            >
+              <div
+                className="absolute left-0 hidden items-center justify-center rounded-full border-2 border-[color:var(--text-strong)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)] lg:flex"
+                style={{
+                  top: `${markerTop}px`,
+                  width: `${MARKER_SHELL_SIZE}px`,
+                  height: `${MARKER_SHELL_SIZE}px`,
+                  left: `${MARKER_CENTER_X - MARKER_SHELL_SIZE / 2}px`,
+                }}
+              >
+                <img
+                  src={entry.marker || entry.logo}
+                  alt=""
+                  className="object-contain"
+                  style={{ width: `${markerImageSize}px`, height: `${markerImageSize}px` }}
+                />
+              </div>
+
+              <div className="rounded-[18px] border-2 border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
+                  <div className="flex min-w-0 flex-1 items-start gap-[14px]">
+                    <img
+                      src={entry.logo}
+                      alt={entry.company}
+                      className="shrink-0 object-contain"
+                      style={{
+                        width: `${logoSize}px`,
+                        height: `${logoSize}px`,
+                        marginLeft: entry.company.includes("Paradigm") ? "8px" : "0px",
+                        marginTop: entry.company.includes("Paradigm") ? "10px" : "0px",
+                      }}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-[1.65rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{entry.role}</h2>
+                      <p className="mt-1 text-lg text-[var(--text-body)] lg:whitespace-nowrap">{entry.company}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 text-sm text-[var(--text-body)] lg:justify-end">
+                    <div className="inline-flex items-center gap-2">
+                      <CalendarDays className="size-4" />
+                      {entry.period}
+                    </div>
+                    <div className="inline-flex items-center gap-1.5">
+                      <MapPin className="size-4" />
+                      {entry.location}
+                    </div>
+                  </div>
                 </div>
 
-                <Card className="p-6 hover:shadow-lg transition-shadow bg-gradient-to-br from-card to-primary/5 border-primary/10">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-                    <div>
-                      <h3 className="text-lg">{exp.role}</h3>
-                      <p className="text-primary">{exp.company}</p>
-                    </div>
-                    <div className="flex flex-col md:items-end gap-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4" /> {exp.period}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4" /> {exp.location}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground mt-3">{exp.description}</p>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {exp.tags.map((t) => (
-                      <Badge
-                        key={t}
-                        className="bg-primary/10 text-primary border-primary/20"
-                      >
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                </Card>
+                <div className="mt-6 space-y-3">
+                  {entry.bullets.map((bullet) => (
+                    <p key={bullet.slice(0, 24)} className="text-[0.98rem] leading-8 text-[var(--text-strong)]">
+                      {bullet}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {entry.tags.map((tag) => (
+                    <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </motion.article>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+function getExperienceSizing(company: string) {
+  const isParadigm = company.includes("Paradigm");
+  const logoSize = isParadigm ? 58 : 75;
+  const markerImageSize = isParadigm ? 28 : 30;
+  const markerTop = CARD_PADDING + logoSize / 2 - MARKER_SHELL_SIZE / 2;
+
+  return {
+    logoSize,
+    markerImageSize,
+    markerTop,
+  };
 }
