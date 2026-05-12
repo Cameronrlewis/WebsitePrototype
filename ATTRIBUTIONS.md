@@ -1,3 +1,5 @@
-This Figma Make file includes components from [shadcn/ui](https://ui.shadcn.com/) used under [MIT license](https://github.com/shadcn-ui/ui/blob/main/LICENSE.md).
+# Attributions
 
-This Figma Make file includes photos from [Unsplash](https://unsplash.com) used under [license](https://unsplash.com/license).
+- UI primitives are adapted from [shadcn/ui](https://ui.shadcn.com/) under the MIT license.
+- Icons are provided by [Lucide](https://lucide.dev/) under the ISC license.
+- Portfolio project media, documents, and PCB assets are owned or provided by Cameron Lewis unless otherwise noted.

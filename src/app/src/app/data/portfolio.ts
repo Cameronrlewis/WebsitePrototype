@@ -88,7 +88,10 @@ export interface ProjectRecord {
   reportAsset?: string;
   reportPages?: string[];
   viewer3d?: boolean;
-  viewerAsset?: "power" | "control";
+  viewerMode?: "bundle" | "wrl";
+  viewerAsset?: "power" | "control" | "brick";
+  viewerModelUrl?: string;
+  bomUrl?: string;
   designDecisions?: string;
   challenges: string;
   takeaways: string;
@@ -179,7 +182,7 @@ export const profile: ProfileRecord = {
 
 export const stats: StatRecord[] = [
   { label: "GPA", value: "3.8", detail: "out of 4.0" },
-  { label: "Projects", value: "5", detail: "documented builds" },
+  { label: "Projects", value: "6", detail: "documented builds" },
   { label: "Experience", value: "2", detail: "engineering roles" },
   { label: "Grad Date", value: "2029", detail: "expected B.Eng" },
 ];
@@ -335,6 +338,7 @@ export const projects: ProjectRecord[] = [
       "A custom auxiliary control board for Paradigm Engineering's autonomous kart, managing power distribution and signal routing across subsystems.",
     tags: ["LDOs", "Level Shifters", "Protection", "Noise Management"],
     viewer3d: true,
+    viewerMode: "bundle",
     viewerAsset: "control",
     designDecisions:
       "This board was designed as a complete second revision, with the goal of optimising and improving every aspect of the original design. When the team decided to split the original single massive board into two separate boards, several components including the steering controller and the 3.3V to 5V level shifting were moved onto this control board to evenly distribute the electrical sections across both boards. Having a clean slate for this revision gave us the opportunity to rethink layout and component selection from scratch rather than patching what we had before.\n\nLDO selection was driven by noise performance rather than efficiency. Several of the connected sensors were sensitive to supply ripple, and at the current levels involved the efficiency penalty of an LDO over a switching regulator was acceptable for the benefit of cleaner output rails. Each regulator was sized with margin above its worst-case load to stay well clear of dropout under the transient current spikes that embedded systems generate during communication bursts and GPIO switching. Logic-level translation between the STM32 microcontroller and peripheral devices running at 5V was handled with bidirectional level shifters placed as close as practical to their respective connectors to minimise stub length on the translated lines. Ground plane strategy was deliberate from the start: separate analog and digital planes tied at a single point near the primary power input, keeping return paths short and predictable and preventing switching noise from coupling into the sensor lines.",
@@ -367,6 +371,7 @@ export const projects: ProjectRecord[] = [
       "A compact power regulation and distribution PCB for Paradigm Engineering's autonomous kart, responsible for conditioning and distributing battery power to all vehicle subsystems.",
     tags: ["Buck Conversion", "Protection", "Remote E-Stop", "IPC-2221"],
     viewer3d: true,
+    viewerMode: "bundle",
     viewerAsset: "power",
     designDecisions:
       "This board came out of a complete overhaul after our previous power board revision turned out to be non-functional during testing. That failure prompted a full review of the electrical architecture, and the team decided to split the original single board into two: a dedicated power board and a separate control board. Components like the steering controller and the 3.3V to 5V level shifting were moved off to the control board, which freed up space and allowed this revision to focus entirely on clean power regulation and distribution.\n\nOne of the most significant findings during the review was that the original board carried a 48V to 24V buck converter and a 24V to 12V buck converter, but very few components actually required the 24V rail. Removing those two converters eliminated an unnecessary intermediate conversion stage, simplified the power path considerably, and opened up enough board real estate to fit the remote e-stop circuitry that had previously been difficult to accommodate. Overcurrent protection was implemented per output rail using resettable polyfuses rather than a single fuse at the input, ensuring that a fault in one subsystem would trip its own protection without interrupting power to the rest of the vehicle. Trace widths were calculated from IPC-2221 guidelines based on each rail's maximum sustained current and then increased further to account for the thermal demands of continuous operation at race conditions.",
@@ -374,6 +379,35 @@ export const projects: ProjectRecord[] = [
       "The failure of the initial revision came down to the buck converter IC manufactured by OnSemi. The component's library footprint had incorrect pad designators on two of its pins, which caused us to inadvertently short the low-side gate pin of the MOSFET to an adjacent net. That short rendered the entire converter non-functional. Making matters worse, the affected trace ran directly underneath the IC package, so within the timeframe we had there was no practical way to desolder the chip, rework the trace, and resolder a replacement. Because the error originated inside the manufacturer's own footprint rather than in our schematic or layout, the DRC checker had no way to flag it, and the issue only surfaced during bench testing when the board failed to regulate.\n\nThat experience fundamentally shaped how we approached the second revision. Every footprint in the library was manually verified against its datasheet pin-for-pin before placement, and we introduced additional peer review steps into the design process that specifically targeted the gap between what automated DRC can catch and what it cannot. It was a difficult lesson in never taking manufacturer-provided assets at face value, and it reinforced how critical it is to prototype and validate early rather than assume that a clean DRC report means a board is ready for fabrication.",
     takeaways:
       "The revised power board brought a level of delivery reliability that the previous approach could not achieve. Subsystems that had previously browned out under peak load now draw cleanly from regulated rails, and the per-rail overcurrent protection has given the team confidence during testing that a fault in one area will not cascade across the vehicle. The board is now in its final testing phase ahead of the Paradigm AKS competition in May 2026.\n\nMore broadly, the entire arc of this project, from the initial failure caused by a manufacturer footprint error through the full architectural review, the board split, and the redesigned second revision, was one of the most formative engineering experiences I have had. It demonstrated that robust power delivery is not just about choosing the right topology and components; it requires a verification process that accounts for every assumption in the design chain, including the ones that come from sources you would normally trust without question. That mindset now carries into every board I work on.",
+  },
+  {
+    id: 6,
+    slug: "brick-buck-board",
+    organizationId: "paradigm-engineering",
+    title: "Brick Buck Board",
+    category: "Power Electronics",
+    status: "completed",
+    featured: true,
+    cardImg: `${assetBase}/media/projects/brick-buck-board-card.jpg`,
+    bannerImg: `${assetBase}/media/projects/brick-buck-board-layout-hero.png`,
+    hoverImg: `${assetBase}/media/projects/brick-buck-board-schematic.png`,
+    cardBackground: "#000f28",
+    hoverBackground: "#f5f4ef",
+    modalContain: true,
+    modalBackground: "#000f28",
+    viewer3d: true,
+    viewerMode: "bundle",
+    viewerAsset: "brick",
+    bomUrl: `${assetBase}/bom/brick-buck/IBOM.html`,
+    description:
+      "A backup competition power board for Paradigm Engineering that replaces the custom 48V to 12V stage with a premade Mornsun DC-DC brick while keeping a custom on-board 12V to 5V buck for the lower-voltage electronics.",
+    tags: ["Backup Board", "Mornsun Brick", "12V to 5V Buck", "Competition Fallback"],
+    designDecisions:
+      "This board was designed as a contingency plan for competition rather than as the team's primary power architecture. After working through the failure and redesign cycle on the earlier aux power board, we wanted a path to swap in a known-good fallback if the latest revision showed issues late in testing. The central design choice was to stop re-solving the full 48V to 12V conversion stage on this backup board and instead use a premade Mornsun brick converter for that rail, then keep the 12V to 5V stage on-board where I could still control layout, component selection, and validation directly.\n\nThat split kept the board pragmatic. The premade brick removed a large portion of the high-risk power-stage design effort from the backup path, while the on-board 12V to 5V buck still let us tailor the low-voltage rail around the actual subsystem loads and connector arrangement on the kart. Layout decisions were then driven by serviceability and swap-readiness: connectors stayed aligned to the existing subsystem harness expectations, the board kept clear labelling for rapid replacement, and the power path was arranged so this board could slot into the vehicle without the rest of the electrical stack needing a redesign.",
+    challenges:
+      "The hardest part of the project was not the buck design itself, but sourcing a converter that was efficient enough to justify on-vehicle use without pushing cost beyond what made sense for a backup board. We wanted a premade 48V to 12V solution comfortably above the 94% efficiency range, but the set of parts that met that target narrowed quickly once price and lead time were considered. The module we settled on was originally manufactured by Mornsun, but availability through our supplier had already become limited because of U.S. sanctions affecting the product line. That meant we were making a design decision around a part that was effectively living on borrowed time from a supply perspective.\n\nBecause this board was only intended as a fallback for competition, that tradeoff was still acceptable, but it changed how the whole design had to be thought about. Instead of chasing the most elegant long-term architecture, the focus became short-term robustness: use the limited-stock brick where it reduced risk the most, keep the custom circuitry to the 12V to 5V stage that I could validate directly, and make sure the finished board was documented clearly enough that the team could deploy it quickly if the primary power board ever had to come out of the kart.",
+    takeaways:
+      "This project reinforced that there is a real engineering difference between a primary design and a contingency design. The right answer for a backup board is not always the most custom or technically ambitious solution; it is the one that reduces failure modes, can be validated quickly, and gives the team a realistic path to keep moving under competition pressure. In that context, pairing a premade high-efficiency brick with a custom downstream buck was the right balance between control and pragmatism.\n\nIt also sharpened how I think about supply-chain risk as part of hardware design rather than as a separate procurement problem. A part can be electrically perfect and still be the wrong choice if its availability makes the design brittle. In this case the limited-stock Mornsun module was acceptable only because the board was intentionally scoped as a backup. That distinction matters, and working through it made the design process more disciplined than simply choosing components on electrical performance alone.",
   },
   {
     id: 2,
@@ -409,7 +443,7 @@ export const projects: ProjectRecord[] = [
     tags: ["KiCad", "CAN Bus", "DJI M600", "PCB", "Sensors"],
     github: "https://github.com",
     challenges:
-      "The DJI M600's payload budget left little room for error, and every gram of mount and PCB had to be justified. Maintaining signal integrity on CAN bus traces while the airframe vibrates continuously took deliberate layout choices around termination and trace routing. Power delivery to the sensors was similarly tricky: connectors and strain relief needed to handle the constant mechanical stress of flight without introducing voltage glitches. Keeping analog sensor lines away from the broadband EMI generated by six brushless motors and their ESCs was the final puzzle piece.",
+      "The DJI M600's payload budget left little room for error, and every gram of mount and PCB had to be justified. Maintaining signal integrity on CAN bus traces while the airframe vibrates continuously took deliberate layout choices around termination and trace routing. Power delivery to the sensors was similarly tricky: connectors and strain relief needed to handle the constant mechanical stress of flight without introducing voltage glitches. Keeping analog sensor lines away from broadband EMI from six brushless motors and their ESCs was the final puzzle piece.",
     takeaways:
       "The finished system gave the M600 a clean, purpose-built sensor payload capability that slotted into the existing avionics stack without modification. It met the weight budget, survived the vibration environment of extended flight operations, and delivered reliable data across surveying missions, turning a general-purpose drone platform into a capable tool for environmental and remote sensing work.",
   },
@@ -462,6 +496,23 @@ export const organizations: OrganizationRecord[] = [
         media: `${assetBase}/media/projects/aux-control-board-banner.png`,
         mediaBackground: "#000f28",
         projectSlug: "aux-control-board",
+      },
+      {
+        id: "paradigm-brick-buck",
+        title: "Brick Buck Backup Board",
+        period: "Apr 2026",
+        summary:
+          "Designed a backup competition power board that uses a premade Mornsun 48V to 12V brick and a custom on-board 12V to 5V buck so the team can swap hardware quickly if the primary aux power board shows issues.",
+        bullets: [
+          "Moved the highest-risk conversion stage to a premade brick converter while keeping the 12V to 5V section custom so the low-voltage rail could still be laid out and validated around our actual subsystem loads.",
+          "Kept the connector strategy and power-distribution intent aligned with the existing kart wiring so the board could serve as a realistic competition fallback rather than an isolated lab prototype.",
+          "Worked through the sourcing constraint of a limited-stock Mornsun module and accepted that tradeoff only because this board was intentionally scoped as a backup, not the long-term production path.",
+        ],
+        tags: ["Backup Strategy", "Mornsun Brick", "12V to 5V Buck", "Competition Prep"],
+        media: `${assetBase}/media/projects/brick-buck-board-layout.png`,
+        mediaBackground: "#000f28",
+        mediaContain: true,
+        projectSlug: "brick-buck-board",
       },
       {
         id: "paradigm-validation",
@@ -576,4 +627,5 @@ export function getProjectBySlug(projectSlug: string) {
   return projects.find((project) => project.slug === projectSlug) ?? null;
 }
 
-export const featuredProject = projects.find((project) => project.slug === "aux-control-board") ?? projects[0];
+export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
+export const featuredProject = featuredBoardProjects[0] ?? projects[0];

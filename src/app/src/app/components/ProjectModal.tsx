@@ -212,12 +212,22 @@ export function ProjectModal({
                     >
                       <div className="relative aspect-[16/9]">
                         {hasHeroMedia ? (
-                          <img
-                            src={project.cardImg ?? project.bannerImg}
-                            alt={`${project.title} 3D preview`}
-                            className="h-full w-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-[1.02]"
-                            style={{ objectPosition: project.cardImgPosition ?? "center" }}
-                          />
+                          <div
+                            className="h-full w-full"
+                            style={{ background: project.cardBackground ?? "#0c0c14" }}
+                          >
+                            <img
+                              src={project.cardImg ?? project.bannerImg}
+                              alt={`${project.title} 3D preview`}
+                              className="h-full w-full opacity-80 transition-transform duration-500 group-hover:scale-[1.02]"
+                              style={{
+                                objectFit: project.cardContain ? "contain" : "cover",
+                                objectPosition: project.cardImgPosition ?? "center",
+                                transform: project.cardScale ? `scale(${project.cardScale})` : undefined,
+                                transformOrigin: "center",
+                              }}
+                            />
+                          </div>
                         ) : (
                           <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_58%)]">
                             <Orbit className="size-20 text-white/80" />

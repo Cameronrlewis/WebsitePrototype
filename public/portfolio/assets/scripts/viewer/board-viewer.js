@@ -30,7 +30,8 @@ function init3DViewer() {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(m.v, 3));
     geo.setIndex(m.i);
-    geo.computeVertexNormals();
+    if (m.n && m.n.length === m.v.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(m.n, 3));
+    else geo.computeVertexNormals();
     const [r,g,b] = m.color;
     const isGold = (r > 0.6 && g > 0.5 && b < 0.4);
     const isSilver = (r > 0.68 && g > 0.68 && b > 0.68 && Math.abs(r-g) < 0.06);
@@ -38,6 +39,7 @@ function init3DViewer() {
       color: new THREE.Color(r, g, b),
       metalness: isGold ? 0.65 : isSilver ? 0.55 : 0.0,
       roughness: isGold ? 0.25 : isSilver ? 0.35 : 0.82,
+      side: THREE.DoubleSide,
     });
     v3dGroup.add(new THREE.Mesh(geo, mat));
   }
@@ -212,7 +214,8 @@ function initPreview3D() {
     var geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(m.v, 3));
     geo.setIndex(m.i);
-    geo.computeVertexNormals();
+    if (m.n && m.n.length === m.v.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(m.n, 3));
+    else geo.computeVertexNormals();
     var r = m.color[0], g = m.color[1], b = m.color[2];
     var isGold = (r > 0.6 && g > 0.5 && b < 0.4);
     var isSilver = (r > 0.68 && g > 0.68 && b > 0.68 && Math.abs(r-g) < 0.06);
@@ -220,6 +223,7 @@ function initPreview3D() {
       color: new THREE.Color(r, g, b),
       metalness: isGold ? 0.65 : isSilver ? 0.55 : 0.0,
       roughness: isGold ? 0.25 : isSilver ? 0.35 : 0.82,
+      side: THREE.DoubleSide,
     });
     prevGroup.add(new THREE.Mesh(geo, mat));
   }

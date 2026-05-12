@@ -113,11 +113,17 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chevrotain@10.4.1/lib/chevrotain.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/VRMLLoader.js"></script>
     <script src="/portfolio/assets/scripts/viewer/board-model-data.js"></script>
     <script>
       (function () {
         const params = new URLSearchParams(window.location.search);
-        const asset = params.get("asset") === "control" ? "control" : "power";
+        const mode = params.get("mode") === "wrl" ? "wrl" : "bundle";
+        const assetParam = params.get("asset");
+        const asset = assetParam === "control" || assetParam === "brick" ? assetParam : "power";
+        const modelParam = params.get("model");
+        const modelUrl = modelParam ? new URL(modelParam, window.location.origin).toString() : null;
         const mount = document.getElementById("viewer");
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
@@ -177,8 +183,17 @@
 
         function toggleWireframe() {
           wireframe = !wireframe;
-          boardGroup.children.forEach(function (mesh) {
-            mesh.material.wireframe = wireframe;
+          boardGroup.traverse(function (node) {
+            if (!node.isMesh) {
+              return;
+            }
+
+            const materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+              if (material && "wireframe" in material) {
+                material.wireframe = wireframe;
+              }
+            });
           });
         }
 
@@ -281,32 +296,23 @@
           });
         }
 
-        function buildScene() {
-          if (!window.THREE) {
-            throw new Error("Three.js failed to load.");
-          }
-
-          const geometrySource = asset === "control" ? PCB_GEO_CTRL : PCB_GEO;
+        function createBundleGroup() {
+          const geometrySource = asset === "control" ? PCB_GEO_CTRL : asset === "brick" ? PCB_GEO_BRICK : PCB_GEO;
           if (!geometrySource || !geometrySource.meshes || !geometrySource.meshes.length) {
             throw new Error("Board geometry is missing.");
           }
 
-          renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-          renderer.setClearColor(0x0c0c14, 1);
-          renderer.toneMapping = THREE.ACESFilmicToneMapping;
-          renderer.toneMappingExposure = 1.15;
-          mount.appendChild(renderer.domElement);
-
-          scene = new THREE.Scene();
-          camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
-          boardGroup = new THREE.Group();
+          const group = new THREE.Group();
 
           for (const meshData of geometrySource.meshes) {
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute("position", new THREE.Float32BufferAttribute(meshData.v, 3));
             geometry.setIndex(meshData.i);
-            geometry.computeVertexNormals();
+            if (meshData.n && meshData.n.length === meshData.v.length) {
+              geometry.setAttribute("normal", new THREE.Float32BufferAttribute(meshData.n, 3));
+            } else {
+              geometry.computeVertexNormals();
+            }
 
             const r = meshData.color[0];
             const g = meshData.color[1];
@@ -318,13 +324,75 @@
               color: new THREE.Color(r, g, b),
               metalness: isGold ? 0.65 : isSilver ? 0.55 : 0.0,
               roughness: isGold ? 0.25 : isSilver ? 0.35 : 0.82,
+              side: THREE.DoubleSide,
             });
 
-            boardGroup.add(new THREE.Mesh(geometry, material));
+            group.add(new THREE.Mesh(geometry, material));
           }
 
-          boardGroup.rotation.x = -Math.PI / 2;
-          boardGroup.rotation.z = asset === "control" ? -Math.PI / 2 : 0;
+          group.rotation.x = -Math.PI / 2;
+          group.rotation.z = asset === "control" ? -Math.PI / 2 : 0;
+          return group;
+        }
+
+        function createWrlGroup() {
+          if (!window.THREE || !THREE.VRMLLoader) {
+            throw new Error("VRML loader failed to load.");
+          }
+
+          if (!modelUrl) {
+            throw new Error("A WRL model URL was not provided.");
+          }
+
+          return new Promise(function (resolve, reject) {
+            const loader = new THREE.VRMLLoader();
+            loader.load(
+              modelUrl,
+              function (object) {
+                object.rotation.x = -Math.PI / 2;
+                object.traverse(function (node) {
+                  if (!node.isMesh) {
+                    return;
+                  }
+
+                  node.castShadow = false;
+                  node.receiveShadow = false;
+                  const materials = Array.isArray(node.material) ? node.material : [node.material];
+                  materials.forEach(function (material) {
+                    if (!material) {
+                      return;
+                    }
+
+                    material.side = THREE.DoubleSide;
+                  });
+                });
+                resolve(object);
+              },
+              undefined,
+              function (error) {
+                reject(error instanceof Error ? error : new Error("WRL model failed to load."));
+              }
+            );
+          });
+        }
+
+        async function buildScene() {
+          if (!window.THREE) {
+            throw new Error("Three.js failed to load.");
+          }
+
+          const brickLightingBoost = asset === "brick";
+
+          renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          renderer.setClearColor(0x0c0c14, 1);
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = brickLightingBoost ? 1.23 : 1.15;
+          mount.appendChild(renderer.domElement);
+
+          scene = new THREE.Scene();
+          camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
+          boardGroup = mode === "wrl" ? await createWrlGroup() : createBundleGroup();
 
           const box = new THREE.Box3().setFromObject(boardGroup);
           const center = new THREE.Vector3();
@@ -345,18 +413,25 @@
           grid.position.y = recenteredBox.min.y - 0.002;
           scene.add(grid);
 
-          scene.add(new THREE.AmbientLight(0x8898c8, 0.6));
-          const key = new THREE.DirectionalLight(0xffffff, 0.95);
+          scene.add(new THREE.AmbientLight(0x8898c8, brickLightingBoost ? 0.68 : 0.6));
+          const key = new THREE.DirectionalLight(0xffffff, brickLightingBoost ? 1.05 : 0.95);
           key.position.set(1, 2, 1.5);
           scene.add(key);
-          const fill = new THREE.DirectionalLight(0xc0d4ff, 0.45);
+          const fill = new THREE.DirectionalLight(0xc0d4ff, brickLightingBoost ? 0.52 : 0.45);
           fill.position.set(-1.5, 1, -0.8);
           scene.add(fill);
-          const rim = new THREE.DirectionalLight(0x50e890, 0.2);
+          const rim = new THREE.DirectionalLight(0x50e890, brickLightingBoost ? 0.24 : 0.2);
           rim.position.set(0, -1, -1.5);
           scene.add(rim);
 
-          defaults = { theta: -0.5, phi: 1.0, r: maxDimension * 1.5, tx: 0, ty: 0, tz: 0 };
+          defaults = {
+            theta: mode === "wrl" ? -0.62 : -0.5,
+            phi: mode === "wrl" ? 1.08 : 1.0,
+            r: maxDimension * (mode === "wrl" ? 1.7 : 1.5),
+            tx: 0,
+            ty: 0,
+            tz: 0,
+          };
           state = Object.assign({}, defaults);
           updateCamera();
           resize();
@@ -391,11 +466,9 @@
 
         window.addEventListener("resize", resize);
 
-        try {
-          buildScene();
-        } catch (error) {
+        Promise.resolve(buildScene()).catch(function (error) {
           showError(error instanceof Error ? error.message : "Unknown viewer error.");
-        }
+        });
       })();
     </script>
   </body>

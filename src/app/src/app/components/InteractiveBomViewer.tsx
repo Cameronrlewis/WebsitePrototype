@@ -18,6 +18,13 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
       return;
     }
 
+    if (project.bomUrl) {
+      setIframeUrl(project.bomUrl);
+      return () => {
+        setIframeUrl(null);
+      };
+    }
+
     let active = true;
     let createdUrl: string | null = null;
 

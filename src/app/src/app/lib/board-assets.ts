@@ -3,6 +3,7 @@ import type { ProjectRecord } from "../data/portfolio";
 export interface BoardMeshData {
   color: [number, number, number];
   v: number[];
+  n?: number[];
   i: number[];
 }
 
@@ -13,6 +14,7 @@ export interface BoardGeometryData {
 interface BoardAssetBundle {
   power: BoardGeometryData;
   control: BoardGeometryData;
+  brick: BoardGeometryData;
 }
 
 interface BomBundle {
@@ -57,11 +59,13 @@ export async function loadBoardGeometry() {
   if (!window.__portfolioBoardGeometryPromise) {
     window.__portfolioBoardGeometryPromise = fetchText(modelUrl).then((source) => {
       const powerRaw = extractConstValue(source, "const PCB_GEO = ", "\nconst PCB_GEO_CTRL = ");
-      const controlRaw = extractConstValue(source, "const PCB_GEO_CTRL = ");
+      const controlRaw = extractConstValue(source, "const PCB_GEO_CTRL = ", "\nconst PCB_GEO_BRICK = ");
+      const brickRaw = extractConstValue(source, "const PCB_GEO_BRICK = ");
 
       return {
         power: JSON.parse(powerRaw) as BoardGeometryData,
         control: JSON.parse(controlRaw) as BoardGeometryData,
+        brick: JSON.parse(brickRaw) as BoardGeometryData,
       };
     });
   }
@@ -74,6 +78,10 @@ function decodeBase64Html(payload: string) {
 }
 
 export async function loadInteractiveBom(project: ProjectRecord) {
+  if (project.bomUrl) {
+    return fetchText(project.bomUrl);
+  }
+
   if (!window.__portfolioBomPromise) {
     window.__portfolioBomPromise = fetchText(viewerUrl).then((source) => {
       const ctrlMarker = 'var IBOM_B64_CTRL = "';
@@ -96,5 +104,9 @@ export async function loadInteractiveBom(project: ProjectRecord) {
   }
 
   const bundle = await window.__portfolioBomPromise;
-  return project.viewerAsset === "control" ? bundle.control : bundle.power;
+  if (project.viewerAsset === "control") {
+    return bundle.control;
+  }
+
+  return bundle.power;
 }
