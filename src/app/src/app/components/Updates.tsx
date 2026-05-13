@@ -9,14 +9,22 @@ const MONTH_MAP: Record<string, number> = {
   Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
 };
 
+function parseWeekSortKey(week: string): number {
+  // "Week of Jan 18, 2026" → 20260118
+  const m = week.match(/Week of ([A-Za-z]+)\s+(\d+),\s+(\d{4})/);
+  if (!m) return 0;
+  const month = MONTH_MAP[m[1]] ?? 1;
+  return parseInt(m[3]) * 10000 + month * 100 + parseInt(m[2]);
+}
+
 function parsePeriodStart(period: string): number {
   const token = period.split("—")[0].trim();
   const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (monthMatch) {
-    return parseInt(monthMatch[2]) * 100 + (MONTH_MAP[monthMatch[1]] ?? 1);
+    return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1]] ?? 1) * 100;
   }
   const yearMatch = token.match(/^(\d{4})/);
-  if (yearMatch) return parseInt(yearMatch[1]) * 100;
+  if (yearMatch) return parseInt(yearMatch[1]) * 10000;
   return 0;
 }
 
@@ -26,6 +34,7 @@ interface FeedEntry {
   buildId: string;
   title: string;
   period: string;
+  week?: string;
   summary: string;
   bullets: string[];
   tags: string[];
@@ -41,12 +50,16 @@ function buildFeed(): FeedEntry[] {
   for (const org of organizations) {
     if (!SOURCE_ORG_IDS.includes(org.id)) continue;
     for (const build of org.builds) {
+      const sortKey = build.week
+        ? parseWeekSortKey(build.week)
+        : parsePeriodStart(build.period);
       entries.push({
         orgId: org.id,
         orgName: org.name,
         buildId: build.id,
         title: build.title,
         period: build.period,
+        week: build.week,
         summary: build.summary,
         bullets: build.bullets,
         tags: build.tags,
@@ -54,7 +67,7 @@ function buildFeed(): FeedEntry[] {
         mediaBackground: build.mediaBackground,
         mediaContain: build.mediaContain,
         mediaPosition: build.mediaPosition,
-        sortKey: parsePeriodStart(build.period),
+        sortKey,
       });
     }
   }
@@ -88,8 +101,7 @@ export function Updates() {
           >
             <div className={entry.media ? "grid xl:grid-cols-[1.1fr_0.9fr]" : ""}>
               <div className="space-y-5 p-6 sm:p-8">
-                {/* Header */}
-                <div className="flex flex-wrap items-center gap-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-[0.14em] ${
                       entry.orgId === "paradigm-engineering"
@@ -99,20 +111,21 @@ export function Updates() {
                   >
                     {entry.orgName}
                   </span>
-                  <span className="text-[var(--text-muted)]">{entry.period}</span>
+                  {entry.week ? (
+                    <span className="text-sm text-[var(--text-muted)]">{entry.week}</span>
+                  ) : (
+                    <span className="text-sm text-[var(--text-muted)]">{entry.period}</span>
+                  )}
                 </div>
 
-                {/* Title */}
                 <h2 className="text-[1.7rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
                   {entry.title}
                 </h2>
 
-                {/* Summary */}
                 <p className="text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.04rem]">
                   {entry.summary}
                 </p>
 
-                {/* Bullets */}
                 <ul className="space-y-3">
                   {entry.bullets.map((bullet) => (
                     <li key={bullet.slice(0, 32)} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
@@ -122,7 +135,6 @@ export function Updates() {
                   ))}
                 </ul>
 
-                {/* Tags */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {entry.tags.map((tag) => (
                     <span
@@ -135,7 +147,6 @@ export function Updates() {
                 </div>
               </div>
 
-              {/* Media panel */}
               {entry.media ? (
                 <div
                   className="border-t border-[color:var(--outline-soft)] xl:border-t-0 xl:border-l"
