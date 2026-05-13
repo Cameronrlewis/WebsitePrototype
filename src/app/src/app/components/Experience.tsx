@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { CalendarDays, MapPin } from "lucide-react";
+import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 
 import { experience } from "../data/portfolio";
 
@@ -7,7 +7,11 @@ const CARD_PADDING = 24;
 const MARKER_SHELL_SIZE = 40;
 const MARKER_CENTER_X = 20;
 
-export function Experience() {
+interface ExperienceProps {
+  onOpenOrganization?: (orgId: string) => void;
+}
+
+export function Experience({ onOpenOrganization }: ExperienceProps) {
   return (
     <div className="space-y-6">
       <motion.section
@@ -93,12 +97,24 @@ export function Experience() {
                   ))}
                 </div>
 
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {entry.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
-                      {tag}
-                    </span>
-                  ))}
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {entry.tags.map((tag) => (
+                      <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {entry.company.includes("Paradigm") && onOpenOrganization ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenOrganization("paradigm-engineering")}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-1)]"
+                    >
+                      Team Context
+                      <ArrowRight className="size-4" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </motion.article>

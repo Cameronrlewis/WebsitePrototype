@@ -19,6 +19,7 @@ import { ReportViewer } from "./ReportViewer";
 import { ResumeViewer } from "./ResumeViewer";
 import { Sidebar } from "./Sidebar";
 import { Skills } from "./Skills";
+import { Updates } from "./Updates";
 
 export function Layout() {
   const mainRef = useRef<HTMLElement | null>(null);
@@ -36,6 +37,13 @@ export function Layout() {
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPage, projectsViewMode]);
+
+  const openOrganizationById = (orgId: string) => {
+    const organization = getOrganizationById(orgId);
+    if (!organization) return;
+    setOrganizationReturnProject(null);
+    setSelectedOrganization(organization);
+  };
 
   const openOrganization = (project: ProjectRecord, restoreProject: boolean) => {
     const organization = getOrganizationById(project.organizationId);
@@ -71,7 +79,9 @@ export function Layout() {
           />
         );
       case "experience":
-        return <Experience />;
+        return <Experience onOpenOrganization={openOrganizationById} />;
+      case "updates":
+        return <Updates onOpenOrganization={openOrganizationById} />;
       case "projects":
         return (
           <Projects

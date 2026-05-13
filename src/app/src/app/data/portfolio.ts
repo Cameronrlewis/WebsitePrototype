@@ -4,7 +4,8 @@ export type PageId =
   | "projects"
   | "skills"
   | "education"
-  | "contact";
+  | "contact"
+  | "updates";
 
 export type ProjectStatus = "in-progress" | "completed" | "";
 export type OrganizationKind = "team" | "work" | "personal" | "coursework";
