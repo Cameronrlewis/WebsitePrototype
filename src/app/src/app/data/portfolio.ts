@@ -630,3 +630,4 @@ export function getProjectBySlug(projectSlug: string) {
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
 export const featuredProject = featuredBoardProjects[0] ?? projects[0];
+

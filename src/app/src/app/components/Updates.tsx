@@ -1,12 +1,8 @@
 import { motion } from "motion/react";
-import { ArrowRight } from "lucide-react";
 
 import { organizations } from "../data/portfolio";
-import type { OrganizationRecord } from "../data/portfolio";
 
-interface UpdatesProps {
-  onOpenOrganization: (orgId: string) => void;
-}
+const SOURCE_ORG_IDS = ["paradigm-engineering", "personal-lab"];
 
 const MONTH_MAP: Record<string, number> = {
   Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
@@ -17,40 +13,47 @@ function parsePeriodStart(period: string): number {
   const token = period.split("—")[0].trim();
   const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (monthMatch) {
-    const month = MONTH_MAP[monthMatch[1]] ?? 1;
-    return parseInt(monthMatch[2]) * 100 + month;
+    return parseInt(monthMatch[2]) * 100 + (MONTH_MAP[monthMatch[1]] ?? 1);
   }
   const yearMatch = token.match(/^(\d{4})/);
-  if (yearMatch) {
-    return parseInt(yearMatch[1]) * 100;
-  }
+  if (yearMatch) return parseInt(yearMatch[1]) * 100;
   return 0;
 }
 
-interface UpdateEntry {
-  org: OrganizationRecord;
+interface FeedEntry {
+  orgId: string;
+  orgName: string;
   buildId: string;
   title: string;
   period: string;
   summary: string;
+  bullets: string[];
   tags: string[];
+  media?: string;
+  mediaBackground?: string;
+  mediaContain?: boolean;
+  mediaPosition?: string;
   sortKey: number;
 }
 
-const SOURCE_ORG_IDS = ["paradigm-engineering", "personal-lab"];
-
-function buildUpdateEntries(): UpdateEntry[] {
-  const entries: UpdateEntry[] = [];
+function buildFeed(): FeedEntry[] {
+  const entries: FeedEntry[] = [];
   for (const org of organizations) {
     if (!SOURCE_ORG_IDS.includes(org.id)) continue;
     for (const build of org.builds) {
       entries.push({
-        org,
+        orgId: org.id,
+        orgName: org.name,
         buildId: build.id,
         title: build.title,
         period: build.period,
         summary: build.summary,
+        bullets: build.bullets,
         tags: build.tags,
+        media: build.media,
+        mediaBackground: build.mediaBackground,
+        mediaContain: build.mediaContain,
+        mediaPosition: build.mediaPosition,
         sortKey: parsePeriodStart(build.period),
       });
     }
@@ -58,13 +61,8 @@ function buildUpdateEntries(): UpdateEntry[] {
   return entries.sort((a, b) => b.sortKey - a.sortKey);
 }
 
-const ORG_LABEL: Record<string, string> = {
-  "paradigm-engineering": "Paradigm Engineering",
-  "personal-lab": "Personal Lab",
-};
-
-export function Updates({ onOpenOrganization }: UpdatesProps) {
-  const entries = buildUpdateEntries();
+export function Updates() {
+  const feed = buildFeed();
 
   return (
     <div className="space-y-6">
@@ -75,67 +73,87 @@ export function Updates({ onOpenOrganization }: UpdatesProps) {
       >
         <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Updates</h1>
         <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-          A running log of project activity across Paradigm Engineering and my personal builds.
+          A combined log of all project and team context updates — newest first.
         </p>
       </motion.section>
 
-      <div className="relative space-y-0">
-        <div className="absolute left-[20px] top-0 hidden h-full w-px bg-[var(--text-strong)] lg:block" />
-
-        {entries.map((entry, index) => (
+      <div className="space-y-6">
+        {feed.map((entry, index) => (
           <motion.article
             key={entry.buildId}
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-            className="relative pb-6 last:pb-0 lg:pl-16"
+            transition={{ duration: 0.3, delay: index * 0.04 }}
+            className="overflow-hidden rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)]"
           >
-            {/* Timeline dot */}
-            <div
-              className="absolute left-0 hidden size-10 items-center justify-center rounded-full border-2 border-[color:var(--text-strong)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)] lg:flex"
-              style={{ top: "24px" }}
-            >
-              {entry.org.logo ? (
-                <img src={entry.org.logo} alt="" className="size-6 object-contain" />
-              ) : (
-                <span className="text-xs font-semibold text-[var(--text-strong)]">
-                  {(entry.org.monogram ?? entry.org.name).slice(0, 2)}
-                </span>
-              )}
-            </div>
-
-            <div className="rounded-[18px] border-2 border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-0.5 text-xs font-medium text-[var(--chip-text)]">
-                      {ORG_LABEL[entry.org.id]}
-                    </span>
-                    <span className="text-sm text-[var(--text-muted)]">{entry.period}</span>
-                  </div>
-                  <h2 className="text-[1.45rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
-                    {entry.title}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenOrganization(entry.org.id)}
-                  className="inline-flex shrink-0 items-center gap-2 self-start rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-1)]"
-                >
-                  Open context
-                  <ArrowRight className="size-4" />
-                </button>
-              </div>
-
-              <p className="mt-3 text-[0.98rem] leading-8 text-[var(--text-soft)]">{entry.summary}</p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {entry.tags.map((tag) => (
-                  <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
-                    {tag}
+            <div className={entry.media ? "grid xl:grid-cols-[1.1fr_0.9fr]" : ""}>
+              <div className="space-y-5 p-6 sm:p-8">
+                {/* Header */}
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span
+                    className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-[0.14em] ${
+                      entry.orgId === "paradigm-engineering"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-[var(--surface-4)] text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {entry.orgName}
                   </span>
-                ))}
+                  <span className="text-[var(--text-muted)]">{entry.period}</span>
+                </div>
+
+                {/* Title */}
+                <h2 className="text-[1.7rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                  {entry.title}
+                </h2>
+
+                {/* Summary */}
+                <p className="text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.04rem]">
+                  {entry.summary}
+                </p>
+
+                {/* Bullets */}
+                <ul className="space-y-3">
+                  {entry.bullets.map((bullet) => (
+                    <li key={bullet.slice(0, 32)} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
+                      <span className="mt-3 size-2 shrink-0 rounded-full bg-[var(--text-muted)]" />
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {entry.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-[0.95rem] border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1.5 font-mono text-[0.82rem] uppercase tracking-[0.08em] text-[var(--chip-text)]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              {/* Media panel */}
+              {entry.media ? (
+                <div
+                  className="border-t border-[color:var(--outline-soft)] xl:border-t-0 xl:border-l"
+                  style={{ background: entry.mediaBackground ?? "#0b1018" }}
+                >
+                  <div className="h-full min-h-[18rem] p-4 sm:p-5">
+                    <img
+                      src={entry.media}
+                      alt={entry.title}
+                      className="h-full w-full rounded-[1.25rem]"
+                      style={{
+                        objectFit: entry.mediaContain ? "contain" : "cover",
+                        objectPosition: entry.mediaPosition ?? "center",
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </motion.article>
         ))}

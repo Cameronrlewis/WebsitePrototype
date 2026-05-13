@@ -81,7 +81,7 @@ export function Layout() {
       case "experience":
         return <Experience onOpenOrganization={openOrganizationById} />;
       case "updates":
-        return <Updates onOpenOrganization={openOrganizationById} />;
+        return <Updates />;
       case "projects":
         return (
           <Projects
