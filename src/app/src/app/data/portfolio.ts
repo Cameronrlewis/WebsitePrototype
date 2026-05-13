@@ -536,6 +536,41 @@ export const organizations: OrganizationRecord[] = [
         mediaBackground: "#000f28",
         mediaContain: true,
       },
+      {
+        id: "paradigm-aux-hiccup-fix",
+        title: "Aux Power Board Hiccup Mode Root Cause Found and Fixed",
+        period: "Apr — May 2026",
+        week: "Apr 29th - May 4th, 2026",
+        summary:
+          "Traced intermittent LED flashing on the aux power board to the buck regulator IC entering hiccup mode at startup. The FB voltage divider had a capacitor that prevented the FB pin from reaching its 0.6 V regulation threshold, causing the IC to repeatedly toggle on and off.",
+        bullets: [
+          "Identified hiccup mode as the failure mechanism by correlating the flash frequency with the IC's fault-restart timing rather than a firmware or load issue.",
+          "Traced the root cause to a capacitor on the feedback divider that was holding the FB pin below threshold long enough for the IC to time out and restart on every startup attempt.",
+          "Desoldered the capacitor from both buck circuits on the board — powered it back on and both rails came up cleanly with no flashing.",
+        ],
+        tags: ["Buck Regulator", "Hiccup Mode", "Debug", "Bring-Up", "Aux Power Board"],
+        media: `${assetBase}/media/projects/aux-power-hiccup-fix.jpg`,
+        mediaBackground: "#0d1117",
+        mediaContain: false,
+        projectSlug: "aux-power-board",
+      },
+      {
+        id: "paradigm-brick-buck-kart",
+        title: "Brick Buck Board Passes Battery and Autonomous Kart Testing",
+        period: "May 2026",
+        week: "May 10th - 16th, 2026",
+        summary:
+          "Confirmed all voltage outputs on the bench, then connected the Brick Buck Board to both the 20 Ah and 50 Ah competition batteries — it worked perfectly on both. Later in the week the team moved into full autonomous kart testing with computer vision for track time, and the board passed with no issues throughout.",
+        bullets: [
+          "Verified regulated output rails under real battery conditions across both pack sizes before signing off on the board for vehicle integration.",
+          "Board held up through a full autonomous kart testing session, supplying power to the compute and sensing stack without any dropouts or thermal issues.",
+          "Result confirms the Brick Buck as a viable competition fallback and validates the design decisions made during layout and bring-up.",
+        ],
+        tags: ["Autonomous Testing", "Battery Integration", "Competition Prep", "Brick Buck Board"],
+        media: `${assetBase}/media/projects/brick-buck-kart-testing.jpg`,
+        mediaBackground: "var(--surface-1)",
+        mediaContain: true,
+      },
     ],
   },
   {
