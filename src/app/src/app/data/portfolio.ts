@@ -306,7 +306,7 @@ export const projects: ProjectRecord[] = [
     modalBackground: "#f5f4ef",
     description:
       "A personal project building a handheld thermal imaging camera from scratch using an ESP32 microcontroller and a low-cost infrared sensor array.",
-    tags: ["ESP32", "AMG8833", "Display Pipeline", "PCB Layout"],
+    tags: ["ESP32", "ILI9341 LCD Screen", "MLX90640 Thermal Sensor"],
     github: "https://github.com/Cameronrlewis/Thermal-Camera-Project",
     designDecisions:
       "The ESP32 was chosen as the core processor for its dual-core architecture and how easily its configurability allows sensor polling and display rendering to run in parallel without blocking each other. Its native SPI and I2C peripheral support simplified the hardware interface to both the IR sensor array and the colour display, reducing the amount of manual bit-banging needed at the firmware level. The mature development ecosystem around the ESP32 was equally important, as having reliable community libraries for display drivers and sensor communication meant the early stages of the build could focus on system-level integration rather than low-level peripheral bring-up.\n\nThe AMG8833 IR array was selected for its I2C simplicity and its 8x8 native resolution, which provides a 64-point temperature grid that the firmware scales up through bicubic interpolation into a smooth, readable colour map. The colour palette is computed from a pre-built lookup table rather than floating-point math at runtime, which keeps the rendering loop tight enough to maintain a responsive frame rate within the microcontroller's clock constraints. Power architecture was deliberately kept simple with a single lithium cell and a 3.3V LDO, prioritising a compact BOM and a portable form factor over the added complexity of a switching regulator for a device that draws modest current.",
@@ -336,7 +336,7 @@ export const projects: ProjectRecord[] = [
     modalBackground: "#000f28",
     description:
       "A custom auxiliary control board for Paradigm Engineering's autonomous kart, managing power distribution and signal routing across subsystems.",
-    tags: ["LDOs", "Level Shifters", "Protection", "Noise Management"],
+    tags: ["LDO Voltage Regulator", "Level Shifter", "STM32", "USB to UART"],
     viewer3d: true,
     viewerMode: "bundle",
     viewerAsset: "control",
@@ -369,7 +369,7 @@ export const projects: ProjectRecord[] = [
     modalBackground: "#000f28",
     description:
       "A compact power regulation and distribution PCB for Paradigm Engineering's autonomous kart, responsible for conditioning and distributing battery power to all vehicle subsystems.",
-    tags: ["Buck Conversion", "Protection", "Remote E-Stop", "IPC-2221"],
+    tags: ["48-12V Buck Converters", "Hotswap Battery Circuit", "Remote E-Stop"],
     viewer3d: true,
     viewerMode: "bundle",
     viewerAsset: "power",
@@ -401,7 +401,7 @@ export const projects: ProjectRecord[] = [
     bomUrl: `${assetBase}/bom/brick-buck/IBOM.html`,
     description:
       "A backup competition power board for Paradigm Engineering that replaces the custom 48V to 12V stage with a premade Mornsun DC-DC brick while keeping a custom on-board 12V to 5V buck for the lower-voltage electronics.",
-    tags: ["Backup Board", "Mornsun Brick", "12V to 5V Buck", "Competition Fallback"],
+    tags: ["12-5V Buck Converter", "48-12V Brick Buck Converters", "Circuit Protection"],
     designDecisions:
       "This board was designed as a contingency plan for competition rather than as the team's primary power architecture. After working through the failure and redesign cycle on the earlier aux power board, we wanted a path to swap in a known-good fallback if the latest revision showed issues late in testing. The central design choice was to stop re-solving the full 48V to 12V conversion stage on this backup board and instead use a premade Mornsun brick converter for that rail, then keep the 12V to 5V stage on-board where I could still control layout, component selection, and validation directly.\n\nThat split kept the board pragmatic. The premade brick removed a large portion of the high-risk power-stage design effort from the backup path, while the on-board 12V to 5V buck still let us tailor the low-voltage rail around the actual subsystem loads and connector arrangement on the kart. Layout decisions were then driven by serviceability and swap-readiness: connectors stayed aligned to the existing subsystem harness expectations, the board kept clear labelling for rapid replacement, and the power path was arranged so this board could slot into the vehicle without the rest of the electrical stack needing a redesign.",
     challenges:
