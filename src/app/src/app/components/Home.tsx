@@ -43,6 +43,8 @@ const statIcons = {
   "Grad Date": Sparkles,
 } as const;
 
+const HEADSHOT = "/portfolio/assets/headshot.jpg";
+
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
   const [typedText, setTypedText] = useState("");
@@ -117,41 +119,61 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
             <span className="ml-1 inline-block h-5 w-px animate-pulse bg-primary/60 align-[-2px]" />
           </p>
         </div>
-
       </motion.section>
 
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.04 }}
-        className="rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+        className="overflow-hidden rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-card)]"
       >
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-          <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-primary text-3xl font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
-            <MonogramText value={profile.initials} />
+        <div className="flex flex-col lg:flex-row lg:items-stretch">
+          <div className="flex flex-1 flex-col gap-5 p-6 lg:flex-row lg:items-start">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-primary text-3xl font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
+              <MonogramText value={profile.initials} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[1.9rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">About Me</h2>
+              <p className="mt-3 max-w-4xl text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.05rem]">
+                {profile.about[0]}
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--text-body)]">
+                <span className="flex items-center gap-2">
+                  <MapPin className="size-4" />
+                  {profile.location}
+                </span>
+                <a href={socialLinks[0].href} className="flex items-center gap-2 transition-colors hover:text-[var(--text-strong)]">
+                  <Mail className="size-4" />
+                  {socialLinks[0].value}
+                </a>
+                <a href={socialLinks[1].href} target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--text-strong)]">
+                  {socialLinks[1].value}
+                </a>
+                <a href={socialLinks[2].href} target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--text-strong)]">
+                  {socialLinks[2].value}
+                </a>
+              </div>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[1.9rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">About Me</h2>
-            <p className="mt-3 max-w-4xl text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.05rem]">
-              {profile.about[0]}
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--text-body)]">
-              <span className="flex items-center gap-2">
-                <MapPin className="size-4" />
-                {profile.location}
-              </span>
-              <a href={socialLinks[0].href} className="flex items-center gap-2 transition-colors hover:text-[var(--text-strong)]">
-                <Mail className="size-4" />
-                {socialLinks[0].value}
-              </a>
-              <a href={socialLinks[1].href} target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--text-strong)]">
-                {socialLinks[1].value}
-              </a>
-              <a href={socialLinks[2].href} target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--text-strong)]">
-                {socialLinks[2].value}
-              </a>
+          <div className="relative w-full shrink-0 overflow-hidden lg:w-56 xl:w-64">
+            <div className="relative h-56 w-full lg:hidden">
+              <img
+                src={HEADSHOT}
+                alt={profile.name}
+                className="h-full w-full object-cover object-top"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-1)]/60 to-transparent" />
+            </div>
+            <div className="absolute inset-0 hidden lg:block">
+              <img
+                src={HEADSHOT}
+                alt={profile.name}
+                className="h-full w-full object-cover object-top"
+              />
+              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--surface-1)] to-transparent" />
             </div>
           </div>
         </div>

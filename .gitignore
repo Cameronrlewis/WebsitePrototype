@@ -8,3 +8,4 @@ node-local
 .env
 .env.*
 !.env.example
+.claude/
