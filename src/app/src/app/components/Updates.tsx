@@ -10,11 +10,12 @@ const MONTH_MAP: Record<string, number> = {
 };
 
 function parseWeekSortKey(week: string): number {
-  // "Week of Jan 18, 2026" → 20260118
-  const m = week.match(/Week of ([A-Za-z]+)\s+(\d+),\s+(\d{4})/);
-  if (!m) return 0;
+  // "Apr 12th - 18th, 2026" → extract month, start day, year
+  const m = week.match(/^([A-Za-z]+)\s+(\d+)/);
+  const y = week.match(/(\d{4})$/);
+  if (!m || !y) return 0;
   const month = MONTH_MAP[m[1]] ?? 1;
-  return parseInt(m[3]) * 10000 + month * 100 + parseInt(m[2]);
+  return parseInt(y[1]) * 10000 + month * 100 + parseInt(m[2]);
 }
 
 function parsePeriodStart(period: string): number {

@@ -471,7 +471,7 @@ export const organizations: OrganizationRecord[] = [
         id: "paradigm-power-board",
         title: "Aux Power Board Re-Architecture",
         period: "Jan 2026",
-        week: "Week of Jan 18, 2026",
+        week: "Jan 18th - 24th, 2026",
         summary:
           "Reworked Paradigm's power architecture after the original revision failed bench testing, splitting the electrical stack into a dedicated power board and a separate control board.",
         bullets: [
@@ -488,7 +488,7 @@ export const organizations: OrganizationRecord[] = [
         id: "paradigm-control-board",
         title: "Aux Control Board Revision",
         period: "Feb 2026 — Mar 2026",
-        week: "Week of Feb 22, 2026",
+        week: "Feb 22nd - 28th, 2026",
         summary:
           "Built the second-revision control board around cleaner regulated rails, logic-level translation, and a tighter overall footprint for the kart's control hardware.",
         bullets: [
@@ -505,7 +505,7 @@ export const organizations: OrganizationRecord[] = [
         id: "paradigm-brick-buck",
         title: "Brick Buck Backup Board",
         period: "Apr 2026",
-        week: "Week of Apr 12, 2026",
+        week: "Apr 12th - 18th, 2026",
         summary:
           "Designed a backup competition power board that uses a premade Mornsun 48V to 12V brick and a custom on-board 12V to 5V buck so the team can swap hardware quickly if the primary aux power board shows issues.",
         bullets: [
@@ -523,7 +523,7 @@ export const organizations: OrganizationRecord[] = [
         id: "paradigm-validation",
         title: "Bring-Up & Integration Testing",
         period: "Mar 2026 — Present",
-        week: "Week of Mar 29, 2026",
+        week: "Mar 29th - Apr 4th, 2026",
         summary:
           "Moved both board revisions into validation and team integration work, closing the loop between design decisions on paper and behavior on the bench.",
         bullets: [
@@ -557,7 +557,7 @@ export const organizations: OrganizationRecord[] = [
         id: "personal-umpire",
         title: "Digital Table Tennis Umpire",
         period: "2025",
-        week: "Week of Nov 9, 2025",
+        week: "Nov 9th - 15th, 2025",
         summary:
           "Built an automated line-judge system that uses vibration sensing and real-time processing to call in-or-out table tennis shots with less subjectivity than manual judging.",
         bullets: [
@@ -572,7 +572,7 @@ export const organizations: OrganizationRecord[] = [
         id: "personal-thermal-camera",
         title: "Handheld Thermal Camera",
         period: "2026 — Present",
-        week: "Week of Jan 11, 2026",
+        week: "Jan 11th - 17th, 2026",
         summary:
           "Designing a handheld thermal imager around an ESP32 and AMG8833 sensor array, with the current focus on completing layout and validating the embedded rendering pipeline.",
         bullets: [
