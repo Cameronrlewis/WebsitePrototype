@@ -127,13 +127,13 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[96vh] max-h-[96vh] max-w-[min(1380px,calc(100vw-1rem))] overflow-hidden rounded-[1.8rem] border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-0 text-[var(--text-strong)] shadow-[var(--shadow-strong)] sm:max-w-[min(1380px,calc(100vw-2rem))]">
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] px-6 py-4 pr-18 sm:pr-20">
-            <div>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] px-6 py-4 pr-18 sm:pr-20">
+            <div className="min-w-0">
               <DialogTitle className="text-xl text-[var(--text-strong)]">Cameron Lewis - Resume</DialogTitle>
               <p className="mt-1 text-sm text-[var(--text-soft)]">Interactive PDF preview with zoom and page controls.</p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2">
               <Button variant="outline" className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]" onClick={() => setScale((current) => Math.max(fitScale * 0.5, current - fitScale * 0.2))}>
                 <Minus className="size-4" />
               </Button>
@@ -154,7 +154,7 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--outline-soft)] px-6 py-3 text-sm text-[var(--text-soft)]">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--outline-soft)] px-6 py-3 text-sm text-[var(--text-soft)]">
             <div>
               Page {currentPage} of {totalPages}
             </div>
