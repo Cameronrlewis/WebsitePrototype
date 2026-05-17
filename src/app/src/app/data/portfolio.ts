@@ -153,8 +153,8 @@ export const socialLinks: SocialLink[] = [
   },
   {
     label: "LinkedIn",
-    value: "linkedin.com/in/cameronrlewis",
-    href: "https://www.linkedin.com/in/cameronrlewis",
+    value: "linkedin.com/in/cameron-lewis-",
+    href: "https://www.linkedin.com/in/cameron-lewis-/",
   },
   {
     label: "Live Site",
@@ -672,4 +672,3 @@ export function getProjectBySlug(projectSlug: string) {
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
 export const featuredProject = featuredBoardProjects[0] ?? projects[0];
-
