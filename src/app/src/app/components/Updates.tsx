@@ -1,82 +1,9 @@
 import { motion } from "motion/react";
 
-import { organizations } from "../data/portfolio";
-
-const SOURCE_ORG_IDS = ["paradigm-engineering", "personal-lab"];
-
-const MONTH_MAP: Record<string, number> = {
-  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
-};
-
-function parseWeekSortKey(week: string): number {
-  // "Apr 12th - 18th, 2026" → extract month, start day, year
-  const m = week.match(/^([A-Za-z]+)\s+(\d+)/);
-  const y = week.match(/(\d{4})$/);
-  if (!m || !y) return 0;
-  const month = MONTH_MAP[m[1]] ?? 1;
-  return parseInt(y[1]) * 10000 + month * 100 + parseInt(m[2]);
-}
-
-function parsePeriodStart(period: string): number {
-  const token = period.split("—")[0].trim();
-  const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
-  if (monthMatch) {
-    return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1]] ?? 1) * 100;
-  }
-  const yearMatch = token.match(/^(\d{4})/);
-  if (yearMatch) return parseInt(yearMatch[1]) * 10000;
-  return 0;
-}
-
-interface FeedEntry {
-  orgId: string;
-  orgName: string;
-  buildId: string;
-  title: string;
-  period: string;
-  week?: string;
-  summary: string;
-  bullets: string[];
-  tags: string[];
-  media?: string;
-  mediaBackground?: string;
-  mediaContain?: boolean;
-  mediaPosition?: string;
-  sortKey: number;
-}
-
-function buildFeed(): FeedEntry[] {
-  const entries: FeedEntry[] = [];
-  for (const org of organizations) {
-    if (!SOURCE_ORG_IDS.includes(org.id)) continue;
-    for (const build of org.builds) {
-      const sortKey = build.week
-        ? parseWeekSortKey(build.week)
-        : parsePeriodStart(build.period);
-      entries.push({
-        orgId: org.id,
-        orgName: org.name,
-        buildId: build.id,
-        title: build.title,
-        period: build.period,
-        week: build.week,
-        summary: build.summary,
-        bullets: build.bullets,
-        tags: build.tags,
-        media: build.media,
-        mediaBackground: build.mediaBackground,
-        mediaContain: build.mediaContain,
-        mediaPosition: build.mediaPosition,
-        sortKey,
-      });
-    }
-  }
-  return entries.sort((a, b) => b.sortKey - a.sortKey);
-}
+import { updateFeed } from "../data/portfolio";
 
 export function Updates() {
-  const feed = buildFeed();
+  const feed = updateFeed;
 
   return (
     <div className="space-y-6">
@@ -128,8 +55,8 @@ export function Updates() {
                 </p>
 
                 <ul className="space-y-3">
-                  {entry.bullets.map((bullet) => (
-                    <li key={bullet.slice(0, 32)} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
+                  {entry.bullets.map((bullet, i) => (
+                    <li key={i} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
                       <span className="mt-3 size-2 shrink-0 rounded-full bg-[var(--text-muted)]" />
                       <span>{bullet}</span>
                     </li>
@@ -157,6 +84,7 @@ export function Updates() {
                     <img
                       src={entry.media}
                       alt={entry.title}
+                      loading="lazy"
                       className="h-full w-full rounded-[1.25rem]"
                       style={{
                         objectFit: entry.mediaContain ? "contain" : "cover",

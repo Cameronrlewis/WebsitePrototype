@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import {
   getOrganizationById,
+  getProjectBySlug,
   type OrganizationRecord,
   type PageId,
   type ProjectRecord,
@@ -16,16 +17,42 @@ import { OrganizationContextModal } from "./OrganizationContextModal";
 import { ProjectModal } from "./ProjectModal";
 import { Projects } from "./Projects";
 import { ReportViewer } from "./ReportViewer";
-import { ResumeViewer } from "./ResumeViewer";
 import { Sidebar } from "./Sidebar";
 import { Skills } from "./Skills";
 import { Updates } from "./Updates";
 
+// Loaded on demand so pdfjs-dist stays out of the main bundle.
+const ResumeViewer = lazy(() =>
+  import("./ResumeViewer").then((module) => ({ default: module.ResumeViewer })),
+);
+
+const PAGE_IDS: PageId[] = ["home", "experience", "projects", "skills", "education", "contact", "updates"];
+
+// Parses "#/projects/aux-power-board" → { page, project } so views are deep-linkable.
+function parseHash(hash: string): { page: PageId; project: ProjectRecord | null } {
+  const segments = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const [pageSegment, slug] = segments;
+
+  if (pageSegment === "projects" && slug) {
+    const project = getProjectBySlug(slug);
+    if (project) {
+      return { page: "projects", project };
+    }
+  }
+
+  if (PAGE_IDS.includes(pageSegment as PageId)) {
+    return { page: pageSegment as PageId, project: null };
+  }
+
+  return { page: "home", project: null };
+}
+
 export function Layout() {
   const mainRef = useRef<HTMLElement | null>(null);
-  const [currentPage, setCurrentPage] = useState<PageId>("home");
+  const initialRoute = parseHash(window.location.hash);
+  const [currentPage, setCurrentPage] = useState<PageId>(initialRoute.page);
   const [projectsViewMode, setProjectsViewMode] = useState<"all" | "featured">("featured");
-  const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(initialRoute.project);
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationRecord | null>(null);
   const [organizationReturnProject, setOrganizationReturnProject] = useState<ProjectRecord | null>(null);
   const [viewerReturnProject, setViewerReturnProject] = useState<ProjectRecord | null>(null);
@@ -37,6 +64,24 @@ export function Layout() {
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPage, projectsViewMode]);
+
+  useEffect(() => {
+    const nextHash = selectedProject ? `#/projects/${selectedProject.slug}` : `#/${currentPage}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, "", nextHash);
+    }
+  }, [currentPage, selectedProject]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const route = parseHash(window.location.hash);
+      setCurrentPage(route.page);
+      setSelectedProject(route.project);
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   const openOrganizationById = (orgId: string) => {
     const organization = getOrganizationById(orgId);
@@ -97,20 +142,6 @@ export function Layout() {
         return <Education />;
       case "contact":
         return <Contact onOpenResume={() => setResumeOpen(true)} />;
-      default:
-        return (
-          <Home
-            onNavigate={setCurrentPage}
-            onOpenProject={setSelectedProject}
-            onOpenOrganization={(project) => openOrganization(project, false)}
-            onOpenResume={() => setResumeOpen(true)}
-            onOpen3D={(project) => {
-              setViewerReturnProject(null);
-              setSelectedProject(null);
-              setBoardProject(project);
-            }}
-          />
-        );
     }
   })();
 
@@ -175,7 +206,11 @@ export function Layout() {
         }}
       />
 
-      <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
+      {resumeOpen ? (
+        <Suspense fallback={null}>
+          <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
+        </Suspense>
+      ) : null}
 
       <ReportViewer
         project={reportProject}

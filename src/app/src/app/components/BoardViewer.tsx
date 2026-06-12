@@ -3,7 +3,7 @@ import { Layers3, RotateCcw, ScanEye } from "lucide-react";
 
 import type { ProjectRecord } from "../data/portfolio";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 
 interface BoardViewerProps {
   project: ProjectRecord | null;
@@ -46,7 +46,7 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-6 py-4 pr-18 sm:pr-20">
             <div>
               <DialogTitle className="text-xl text-[var(--text-strong)]">{project.title} - 3D Board Viewer</DialogTitle>
-              <p className="mt-1 text-sm text-[var(--text-soft)]">Rotate, inspect, switch to top view, or open the interactive BOM.</p>
+              <DialogDescription className="mt-1 text-sm text-[var(--text-soft)]">Rotate, inspect, switch to top view, or open the interactive BOM.</DialogDescription>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button

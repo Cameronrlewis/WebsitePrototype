@@ -69,59 +69,56 @@ export function Projects({
       </motion.section>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {visibleProjects.map((project, index) => (
-          <motion.article
-            key={project.id}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, delay: index * 0.04 }}
-          >
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => onOpenProject(project)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onOpenProject(project);
-                }
-              }}
-              className="flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+        {visibleProjects.map((project, index) => {
+          const organization = getOrganizationById(project.organizationId);
+
+          return (
+            <motion.article
+              key={project.id}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, delay: index * 0.04 }}
             >
               <div
-                className="relative h-56 overflow-hidden border-b border-[color:var(--outline-soft)]"
-                style={{ background: project.cardBackground ?? "var(--surface-3)" }}
-              >
-                {project.cardImg || project.bannerImg ? (
-                  <img
-                    src={project.cardImg ?? project.bannerImg}
-                    alt={project.title}
-                    className="h-full w-full"
-                    style={{
-                      objectFit: project.cardContain ? "contain" : "cover",
-                      objectPosition: project.cardImgPosition ?? "center",
-                      transform: project.cardScale ? `scale(${project.cardScale})` : undefined,
-                      transformOrigin: "center",
-                    }}
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent_60%)]">
-                    <div className="flex size-20 items-center justify-center rounded-[1.4rem] bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
-                      <span className="text-3xl">{fallbackProjectGlyph(project)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-1 flex-col p-5">
-                {(() => {
-                  const organization = getOrganizationById(project.organizationId);
-
-                  if (!organization) {
-                    return null;
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpenProject(project)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpenProject(project);
                   }
+                }}
+                className="flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+              >
+                <div
+                  className="relative h-56 overflow-hidden border-b border-[color:var(--outline-soft)]"
+                  style={{ background: project.cardBackground ?? "var(--surface-3)" }}
+                >
+                  {project.cardImg || project.bannerImg ? (
+                    <img
+                      src={project.cardImg ?? project.bannerImg}
+                      alt={project.title}
+                      loading="lazy"
+                      className="h-full w-full"
+                      style={{
+                        objectFit: project.cardContain ? "contain" : "cover",
+                        objectPosition: project.cardImgPosition ?? "center",
+                        transform: project.cardScale ? `scale(${project.cardScale})` : undefined,
+                        transformOrigin: "center",
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent_60%)]">
+                      <div className="flex size-20 items-center justify-center rounded-[1.4rem] bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
+                        <span className="text-3xl">{fallbackProjectGlyph(project)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                  return (
+                <div className="flex flex-1 flex-col p-5">
+                  {organization ? (
                     <div className="mb-4 flex items-start justify-between gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-3">
                       <button
                         type="button"
@@ -144,48 +141,50 @@ export function Projects({
                         {organizationKindLabel[organization.kind]}
                       </span>
                     </div>
-                  );
-                })()}
+                  ) : null}
 
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2 text-[0.73rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">
-                    <span>{project.category}</span>
-                    {project.status ? <span className="text-[var(--text-muted)]">{project.status === "in-progress" ? "In Progress" : "Completed"}</span> : null}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-[0.73rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">
+                      <span>{project.category}</span>
+                      {project.status ? <span className="text-[var(--text-muted)]">{project.status === "in-progress" ? "In Progress" : "Completed"}</span> : null}
+                    </div>
+                    <h2 className="text-[1.38rem] font-semibold leading-tight tracking-[-0.04em] text-[var(--text-strong)]">{project.title}</h2>
+                    <p className="text-[0.98rem] leading-7 text-[var(--text-soft)]">{truncateCopy(project.description, 170)}</p>
                   </div>
-                  <h2 className="text-[1.38rem] font-semibold leading-tight tracking-[-0.04em] text-[var(--text-strong)]">{project.title}</h2>
-                  <p className="text-[0.98rem] leading-7 text-[var(--text-soft)]">{truncateCopy(project.description, 170)}</p>
-                </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {project.tags.slice(0, 4).map((tag) => (
-                    <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {project.tags.slice(0, 4).map((tag) => (
+                      <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
 
-                <div className="mt-auto flex items-center justify-between gap-3 pt-6">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onOpenOrganization(project);
-                    }}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-soft)] transition-colors hover:text-[var(--text-strong)]"
-                  >
-                    <span>Open context</span>
-                    <ArrowRight className="size-4" />
-                  </button>
+                  <div className="mt-auto flex items-center justify-between gap-3 pt-6">
+                    {organization ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenOrganization(project);
+                        }}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-soft)] transition-colors hover:text-[var(--text-strong)]"
+                      >
+                        <span>Open context</span>
+                        <ArrowRight className="size-4" />
+                      </button>
+                    ) : <span />}
 
-                  <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-strong)]">
-                    <span>Open project</span>
-                    {project.viewer3d ? <Orbit className="size-4" /> : <ArrowRight className="size-4" />}
+                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-strong)]">
+                      <span>Open project</span>
+                      {project.viewer3d ? <Orbit className="size-4" /> : <ArrowRight className="size-4" />}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.article>
-        ))}
+            </motion.article>
+          );
+        })}
       </div>
     </div>
   );

@@ -157,9 +157,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               const active = item.id === currentPage;
               const hovered = hoveredItem === item.id;
               const showTriangle = !isOpen && hoveredItem === item.id;
-              const openInverted = active || hovered;
-              const closedInverted = active || hovered;
-              const darkState = isOpen ? openInverted : closedInverted;
+              const isHighlighted = active || hovered;
 
               return (
                 <div
@@ -169,6 +167,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                   onMouseLeave={() => setHoveredItem((current) => (current === item.id ? null : current))}
                 >
                   <button
+                    type="button"
                     onClick={() => {
                       onPageChange(item.id);
                       setIsOpen(true);
@@ -179,13 +178,13 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                       isOpen
                         ? cn(
                             "flex w-full items-center gap-4 rounded-[1.15rem] border px-4 py-3 text-left",
-                            openInverted
+                            isHighlighted
                               ? "border-[color:var(--sidebar-active-border)] bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] shadow-[var(--shadow-button)]"
                               : "border-[color:var(--sidebar-item-border)] bg-[var(--sidebar-item-bg)] text-[var(--sidebar-item-text)]",
                           )
                         : cn(
                             "flex size-12 items-center justify-center rounded-full border",
-                            closedInverted
+                            isHighlighted
                               ? cn(
                                   "text-[var(--sidebar-active-text)] shadow-[var(--shadow-soft)]",
                                   active
@@ -197,7 +196,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     )}
                   >
                     <AnimatePresence initial={false}>
-                      {darkState ? (
+                      {isHighlighted ? (
                         <motion.span
                           key={`${item.id}-glow`}
                           initial={{ opacity: 0, scale: 0.96 }}
@@ -215,7 +214,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         isOpen
                           ? cn(
                               "size-10 rounded-2xl",
-                              openInverted
+                              isHighlighted
                                 ? "bg-[var(--sidebar-active-icon-bg)] text-current"
                                 : "bg-[var(--sidebar-icon-bg)] text-[var(--sidebar-icon-text)] shadow-[var(--shadow-soft)]",
                             )
@@ -236,7 +235,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                           className="relative z-10 min-w-0 flex-1"
                         >
                           <div className="font-medium">{item.label}</div>
-                          <div className={cn("text-sm", openInverted ? "text-[var(--sidebar-active-muted)]" : "text-[var(--sidebar-item-muted)]")}>{item.description}</div>
+                          <div className={cn("text-sm", isHighlighted ? "text-[var(--sidebar-active-muted)]" : "text-[var(--sidebar-item-muted)]")}>{item.description}</div>
                         </motion.div>
                       ) : null}
                     </AnimatePresence>

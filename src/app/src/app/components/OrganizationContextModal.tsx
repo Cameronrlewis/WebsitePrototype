@@ -9,7 +9,7 @@ import {
 import { OrganizationAvatar } from "./OrganizationAvatar";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 
 interface OrganizationContextModalProps {
   organization: OrganizationRecord | null;
@@ -37,6 +37,8 @@ export function OrganizationContextModal({
         overlayClassName="bg-[var(--org-overlay)] backdrop-blur-md"
         closeClassName="border-[color:var(--org-close-border)] bg-[var(--org-close-bg)] text-[var(--org-close-text)] shadow-none hover:bg-[var(--surface-4)]"
       >
+        <DialogTitle className="sr-only">{organization.name}</DialogTitle>
+        <DialogDescription className="sr-only">{organization.cardSummary}</DialogDescription>
         <div className="h-full overflow-y-auto bg-[var(--org-shell)]">
           <div className="mx-auto max-w-[1220px] px-6 py-8 sm:px-8 sm:py-10">
             <header className="space-y-6 border-b border-[color:var(--org-border)] pb-8">
@@ -75,8 +77,8 @@ export function OrganizationContextModal({
               <div className="space-y-5">
                 <h3 className="text-[1.6rem] font-medium tracking-[-0.03em] text-[var(--org-text)]">Overview</h3>
                 <div className="max-w-[78rem] space-y-5 text-[1.05rem] leading-9 text-[var(--org-text-soft)] sm:text-[1.12rem]">
-                  {organization.overview.map((paragraph) => (
-                    <p key={paragraph.slice(0, 24)}>{paragraph}</p>
+                  {organization.overview.map((paragraph, i) => (
+                    <p key={i}>{paragraph}</p>
                   ))}
                 </div>
               </div>
@@ -122,8 +124,8 @@ export function OrganizationContextModal({
                             </p>
 
                             <ul className="space-y-3">
-                              {build.bullets.map((bullet) => (
-                                <li key={bullet.slice(0, 32)} className="flex gap-3 text-[1rem] leading-8 text-[var(--org-text-soft)]">
+                              {build.bullets.map((bullet, i) => (
+                                <li key={i} className="flex gap-3 text-[1rem] leading-8 text-[var(--org-text-soft)]">
                                   <span className="mt-3 size-2 shrink-0 rounded-full bg-[var(--org-bullet)]" />
                                   <span>{bullet}</span>
                                 </li>
@@ -153,6 +155,7 @@ export function OrganizationContextModal({
                                 <img
                                   src={build.media}
                                   alt={build.title}
+                                  loading="lazy"
                                   className="h-full w-full rounded-[1.25rem]"
                                   style={{
                                     objectFit: build.mediaContain ? "contain" : "cover",

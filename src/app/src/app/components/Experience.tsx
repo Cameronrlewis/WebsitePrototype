@@ -29,7 +29,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
         <div className="absolute left-[20px] top-0 hidden h-full w-px bg-[var(--text-strong)] lg:block" />
 
         {experience.map((entry, index) => {
-          const { logoSize, markerImageSize, markerTop } = getExperienceSizing(entry.company);
+          const { logoSize, markerImageSize, markerTop } = getExperienceSizing(entry.orgId);
 
           return (
             <motion.article
@@ -66,8 +66,8 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                       style={{
                         width: `${logoSize}px`,
                         height: `${logoSize}px`,
-                        marginLeft: entry.company.includes("Paradigm") ? "8px" : "0px",
-                        marginTop: entry.company.includes("Paradigm") ? "10px" : "0px",
+                        marginLeft: entry.orgId === "paradigm-engineering" ? "8px" : "0px",
+                        marginTop: entry.orgId === "paradigm-engineering" ? "10px" : "0px",
                       }}
                     />
 
@@ -90,8 +90,8 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  {entry.bullets.map((bullet) => (
-                    <p key={bullet.slice(0, 24)} className="text-[0.98rem] leading-8 text-[var(--text-strong)]">
+                  {entry.bullets.map((bullet, i) => (
+                    <p key={i} className="text-[0.98rem] leading-8 text-[var(--text-strong)]">
                       {bullet}
                     </p>
                   ))}
@@ -105,7 +105,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                       </span>
                     ))}
                   </div>
-                  {entry.company.includes("Paradigm") && onOpenOrganization ? (
+                  {entry.orgId === "paradigm-engineering" && onOpenOrganization ? (
                     <button
                       type="button"
                       onClick={() => onOpenOrganization("paradigm-engineering")}
@@ -125,8 +125,8 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
   );
 }
 
-function getExperienceSizing(company: string) {
-  const isParadigm = company.includes("Paradigm");
+function getExperienceSizing(orgId: string | undefined) {
+  const isParadigm = orgId === "paradigm-engineering";
   const logoSize = isParadigm ? 58 : 75;
   const markerImageSize = isParadigm ? 28 : 30;
   const markerTop = CARD_PADDING + logoSize / 2 - MARKER_SHELL_SIZE / 2;

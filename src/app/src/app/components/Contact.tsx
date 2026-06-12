@@ -14,6 +14,10 @@ interface ContactProps {
 
 export function Contact({ onOpenResume }: ContactProps) {
   const [sent, setSent] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
 
   return (
     <div className="space-y-6">
@@ -106,6 +110,8 @@ export function Contact({ onOpenResume }: ContactProps) {
             className="mt-6 space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
+              const body = `${message}\n\n— ${name} (${email})`;
+              window.location.href = `mailto:${profile.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
               setSent(true);
             }}
           >
@@ -114,7 +120,9 @@ export function Contact({ onOpenResume }: ContactProps) {
                 <span className="text-sm font-medium text-[var(--text-body)]">Your name</span>
                 <Input
                   required
-                  placeholder="Cameron Lewis"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Jane Smith"
                   className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
                 />
               </label>
@@ -124,6 +132,8 @@ export function Contact({ onOpenResume }: ContactProps) {
                 <Input
                   required
                   type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="name@example.com"
                   className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
                 />
@@ -134,6 +144,8 @@ export function Contact({ onOpenResume }: ContactProps) {
               <span className="text-sm font-medium text-[var(--text-body)]">Subject</span>
               <Input
                 required
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
                 placeholder="Internship, project, or collaboration"
                 className="h-11 rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
               />
@@ -143,15 +155,17 @@ export function Contact({ onOpenResume }: ContactProps) {
               <span className="text-sm font-medium text-[var(--text-body)]">Message</span>
               <Textarea
                 required
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
                 rows={8}
                 placeholder="Briefly describe the role, team, timeline, or what you need help with."
                 className="min-h-[10.5rem] rounded-[1.2rem] border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 py-3 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
               />
             </label>
 
-            <p className="pt-2 text-sm text-[var(--text-muted)]">
-              {sent ? "Prototype form submitted locally. Hook a delivery target in later if you want real sending." : "This prototype keeps the form flow local for now."}
-            </p>
+            {sent ? (
+              <p className="pt-2 text-sm text-[var(--text-muted)]">Your email client should have opened with the message ready to send.</p>
+            ) : null}
 
             <div className="flex justify-start pt-1 sm:justify-end">
               <Button className="w-full rounded-[1rem] px-5 shadow-[var(--shadow-button)] sm:w-auto sm:min-w-[17rem]" type="submit">

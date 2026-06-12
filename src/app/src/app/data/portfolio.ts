@@ -7,7 +7,7 @@ export type PageId =
   | "contact"
   | "updates";
 
-export type ProjectStatus = "in-progress" | "completed" | "";
+export type ProjectStatus = "in-progress" | "completed";
 export type OrganizationKind = "team" | "work" | "personal" | "coursework";
 
 export interface SocialLink {
@@ -38,6 +38,7 @@ export interface ProfileRecord {
 
 export interface ExperienceRecord {
   company: string;
+  orgId?: string;
   role: string;
   location: string;
   period: string;
@@ -62,7 +63,7 @@ export interface ProjectRecord {
   organizationId: string;
   title: string;
   category: string;
-  status: ProjectStatus;
+  status?: ProjectStatus;
   featured: boolean;
   description: string;
   tags: string[];
@@ -94,8 +95,8 @@ export interface ProjectRecord {
   viewerModelUrl?: string;
   bomUrl?: string;
   designDecisions?: string;
-  challenges: string;
-  takeaways: string;
+  challenges?: string;
+  takeaways?: string;
 }
 
 export interface OrganizationBuildRecord {
@@ -124,6 +125,7 @@ export interface OrganizationRecord {
   tags: string[];
   logo?: string;
   monogram?: string;
+  showInUpdates?: boolean;
   builds: OrganizationBuildRecord[];
 }
 
@@ -208,6 +210,7 @@ export const experience: ExperienceRecord[] = [
   },
   {
     company: "Paradigm Engineering — MUN Student Design Team",
+    orgId: "paradigm-engineering",
     role: "Electrical Team Member",
     location: "St. John's, NL",
     period: "September 2025 — Present",
@@ -422,7 +425,6 @@ export const projects: ProjectRecord[] = [
     description:
       "An automated line-judge system for table tennis that uses vibration sensors and real-time signal processing to detect ball impact location and call in or out decisions.",
     tags: ["Arduino", "Sensors", "Python", "LCD", "Real-Time"],
-    github: "https://github.com",
     challenges:
       "High-speed ball impacts and environmental table vibration look remarkably similar to a sensor, and tuning the detection threshold was an iterative process of physical testing across ball types, strike intensities, and edge cases. False positives were the persistent enemy, and eliminating them without making the system under-sensitive required careful filtering logic. On the firmware side, the event pipeline had to be interrupt-driven and tightly synchronised to ensure the LCD update never lagged behind the call.",
     takeaways:
@@ -434,7 +436,6 @@ export const projects: ProjectRecord[] = [
     organizationId: "memorial-coursework",
     title: "DJI M600 Sensor Mount",
     category: "PCB Design",
-    status: "",
     featured: false,
     cardImg: `${assetBase}/media/projects/dji-m600-sensor-mount-card.jpg`,
     bannerImg: `${assetBase}/media/projects/dji-m600-sensor-mount-banner.jpg`,
@@ -443,7 +444,6 @@ export const projects: ProjectRecord[] = [
     description:
       "A custom payload mounting system designed for the DJI M600 hexacopter, pairing a mechanical mount with a purpose-built interface PCB to integrate multiple survey sensors with the flight controller over CAN bus.",
     tags: ["KiCad", "CAN Bus", "DJI M600", "PCB", "Sensors"],
-    github: "https://github.com",
     challenges:
       "The DJI M600's payload budget left little room for error, and every gram of mount and PCB had to be justified. Maintaining signal integrity on CAN bus traces while the airframe vibrates continuously took deliberate layout choices around termination and trace routing. Power delivery to the sensors was similarly tricky: connectors and strain relief needed to handle the constant mechanical stress of flight without introducing voltage glitches. Keeping analog sensor lines away from broadband EMI from six brushless motors and their ESCs was the final puzzle piece.",
     takeaways:
@@ -458,6 +458,7 @@ export const organizations: OrganizationRecord[] = [
     kind: "team",
     role: "Electrical Team",
     period: "Jan 2026 — Present",
+    showInUpdates: true,
     cardSummary:
       "Autonomous kart design team work spanning power distribution, control hardware, board bring-up, and system integration.",
     overview: [
@@ -579,6 +580,7 @@ export const organizations: OrganizationRecord[] = [
     kind: "personal",
     role: "Independent Builds",
     period: "2025 — Present",
+    showInUpdates: true,
     cardSummary:
       "Self-directed embedded and instrumentation projects scoped, prototyped, debugged, and documented independently.",
     overview: [
@@ -672,3 +674,70 @@ export function getProjectBySlug(projectSlug: string) {
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
 export const featuredProject = featuredBoardProjects[0] ?? projects[0];
+
+export interface UpdateFeedEntry {
+  orgId: string;
+  orgName: string;
+  buildId: string;
+  title: string;
+  period: string;
+  week?: string;
+  summary: string;
+  bullets: string[];
+  tags: string[];
+  media?: string;
+  mediaBackground?: string;
+  mediaContain?: boolean;
+  mediaPosition?: string;
+  sortKey: number;
+}
+
+const MONTH_MAP: Record<string, number> = {
+  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+};
+
+// "Apr 12th - 18th, 2026" → numeric key from year, month, start day
+function parseWeekSortKey(week: string): number {
+  const m = week.match(/^([A-Za-z]+)\s+(\d+)/);
+  const y = week.match(/(\d{4})$/);
+  if (!m || !y) return 0;
+  const month = MONTH_MAP[m[1]] ?? 1;
+  return parseInt(y[1]) * 10000 + month * 100 + parseInt(m[2]);
+}
+
+function parsePeriodStart(period: string): number {
+  const token = period.split("—")[0].trim();
+  const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (monthMatch) {
+    return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1]] ?? 1) * 100;
+  }
+  const yearMatch = token.match(/^(\d{4})/);
+  if (yearMatch) return parseInt(yearMatch[1]) * 10000;
+  return 0;
+}
+
+export const updateFeed: UpdateFeedEntry[] = organizations
+  .filter((org) => org.showInUpdates)
+  .flatMap((org) =>
+    org.builds.map((build) => ({
+      orgId: org.id,
+      orgName: org.name,
+      buildId: build.id,
+      title: build.title,
+      period: build.period,
+      week: build.week,
+      summary: build.summary,
+      bullets: build.bullets,
+      tags: build.tags,
+      media: build.media,
+      mediaBackground: build.mediaBackground,
+      mediaContain: build.mediaContain,
+      mediaPosition: build.mediaPosition,
+      sortKey: build.week ? parseWeekSortKey(build.week) : parsePeriodStart(build.period),
+    })),
+  )
+  .sort((a, b) => b.sortKey - a.sortKey);
+
+export const latestUpdate = updateFeed[0] ?? null;
+

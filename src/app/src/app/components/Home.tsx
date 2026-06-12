@@ -17,6 +17,7 @@ import {
 import {
   featuredBoardProjects,
   getOrganizationById,
+  latestUpdate,
   organizationKindLabel,
   profile,
   socialLinks,
@@ -47,6 +48,9 @@ const HEADSHOT = "/portfolio/assets/headshot.jpg";
 
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
+  const emailLink = socialLinks.find((l) => l.label === "Email")!;
+  const githubLink = socialLinks.find((l) => l.label === "GitHub")!;
+  const linkedInLink = socialLinks.find((l) => l.label === "LinkedIn")!;
   const [typedText, setTypedText] = useState("");
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,6 +64,11 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
   const featuredOrganization = activeProject ? getOrganizationById(activeProject.organizationId) : null;
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTypedText(currentPhrase);
+      return;
+    }
+
     const speed = isDeleting ? 36 : 58;
     const timeout = window.setTimeout(() => {
       if (!isDeleting && typedText.length < currentPhrase.length) {
@@ -84,16 +93,6 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
     return () => window.clearTimeout(timeout);
   }, [currentPhrase, isDeleting, typedText]);
 
-  useEffect(() => {
-    setActiveBoardIndex((value) => {
-      if (featuredBoardProjects.length === 0) {
-        return 0;
-      }
-
-      return Math.min(value, featuredBoardProjects.length - 1);
-    });
-  }, []);
-
   const cycleFeaturedBoard = (direction: -1 | 1) => {
     if (featuredBoardProjects.length <= 1) {
       return;
@@ -116,8 +115,25 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
           </h1>
           <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
             {typedText}
-            <span className="ml-1 inline-block h-5 w-px animate-pulse bg-primary/60 align-[-2px]" />
+            <span aria-hidden="true" className="ml-1 inline-block h-5 w-px animate-pulse bg-primary/60 align-[-2px]" />
           </p>
+
+          {latestUpdate ? (
+            <button
+              type="button"
+              onClick={() => onNavigate("updates")}
+              className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-1.5 text-sm text-[var(--text-soft)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-strong)]"
+            >
+              <span className="relative flex size-2 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                <span className="relative inline-flex size-2 rounded-full bg-primary" />
+              </span>
+              <span className="truncate">
+                Now: {latestUpdate.title} · {latestUpdate.week ?? latestUpdate.period}
+              </span>
+              <ArrowRight className="size-3.5 shrink-0" />
+            </button>
+          ) : null}
         </div>
       </motion.section>
 
@@ -144,15 +160,15 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   <MapPin className="size-4" />
                   {profile.location}
                 </span>
-                <a href={socialLinks[0].href} className="flex items-center gap-2 transition-colors hover:text-[var(--text-strong)]">
+                <a href={emailLink.href} className="flex items-center gap-2 transition-colors hover:text-[var(--text-strong)]">
                   <Mail className="size-4" />
-                  {socialLinks[0].value}
+                  {emailLink.value}
                 </a>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <a
-                  href={socialLinks[1].href}
+                  href={githubLink.href}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
@@ -163,7 +179,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   GitHub
                 </a>
                 <a
-                  href={socialLinks[2].href}
+                  href={linkedInLink.href}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"

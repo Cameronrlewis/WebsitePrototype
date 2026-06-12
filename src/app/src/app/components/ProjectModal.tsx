@@ -25,8 +25,8 @@ function renderParagraphs(copy?: string) {
     return null;
   }
 
-  return copy.split("\n\n").map((paragraph) => (
-    <p key={paragraph.slice(0, 24)} className="text-[0.98rem] leading-8 text-[var(--text-soft)]">
+  return copy.split("\n\n").map((paragraph, i) => (
+    <p key={i} className="text-[0.98rem] leading-8 text-[var(--text-soft)]">
       {paragraph}
     </p>
   ));
@@ -219,6 +219,7 @@ export function ProjectModal({
                             <img
                               src={project.cardImg ?? project.bannerImg}
                               alt={`${project.title} 3D preview`}
+                              loading="lazy"
                               className="h-full w-full opacity-80 transition-transform duration-500 group-hover:scale-[1.02]"
                               style={{
                                 objectFit: project.cardContain ? "contain" : "cover",
@@ -256,15 +257,19 @@ export function ProjectModal({
                   </section>
                 ) : null}
 
-                <section className="space-y-4">
-                  <h3 className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Challenges</h3>
-                  <div className="space-y-4">{renderParagraphs(project.challenges)}</div>
-                </section>
+                {project.challenges ? (
+                  <section className="space-y-4">
+                    <h3 className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Challenges</h3>
+                    <div className="space-y-4">{renderParagraphs(project.challenges)}</div>
+                  </section>
+                ) : null}
 
-                <section className="space-y-4 pb-8">
-                  <h3 className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Takeaways</h3>
-                  <div className="space-y-4">{renderParagraphs(project.takeaways)}</div>
-                </section>
+                {project.takeaways ? (
+                  <section className="space-y-4 pb-8">
+                    <h3 className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Takeaways</h3>
+                    <div className="space-y-4">{renderParagraphs(project.takeaways)}</div>
+                  </section>
+                ) : null}
               </div>
             </div>
           </div>
