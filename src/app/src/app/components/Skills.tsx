@@ -79,7 +79,7 @@ export function Skills() {
         </div>
       </motion.section>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr_1fr]">
         {emphasisCards.map((item, index) => {
           const Icon = item.icon;
 
@@ -89,7 +89,11 @@ export function Skills() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, delay: index * 0.06 }}
-              className="rounded-[1.75rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
+              className={
+                index === 0
+                  ? "rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-7 shadow-[var(--shadow-card)]"
+                  : "rounded-[1.2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
+              }
             >
               <div className="flex size-12 items-center justify-center rounded-[1rem] bg-[var(--toggle-active-bg)] text-[var(--toggle-active-text)] shadow-[var(--shadow-button)]">
                 <Icon className="size-5" />

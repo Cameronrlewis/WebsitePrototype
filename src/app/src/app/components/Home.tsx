@@ -222,9 +222,11 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         </div>
       </motion.section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-6">
         {stats.map((stat, index) => {
           const Icon = statIcons[stat.label as keyof typeof statIcons] ?? Sparkles;
+          const inverted = index === stats.length - 1;
+          const wide = index === 0 || inverted;
 
           return (
             <motion.div
@@ -232,15 +234,23 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, delay: 0.08 + index * 0.05 }}
-              className="rounded-[1.6rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-5 shadow-[var(--shadow-soft)]"
+              className={`${wide ? "xl:col-span-2" : "xl:col-span-1"} ${
+                inverted
+                  ? "rounded-[1rem] bg-primary p-5 text-primary-foreground shadow-[var(--shadow-button)]"
+                  : "rounded-[1.6rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-5 shadow-[var(--shadow-soft)]"
+              }`}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex h-full items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-[var(--text-muted)]">{stat.label}</p>
-                  <div className="mt-1 text-[2.05rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{stat.value}</div>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{stat.detail}</p>
+                  <p className={`text-sm ${inverted ? "text-primary-foreground/75" : "text-[var(--text-muted)]"}`}>{stat.label}</p>
+                  <div className={`mt-1 text-[2.05rem] font-semibold tracking-[-0.04em] ${inverted ? "text-primary-foreground" : "text-[var(--text-strong)]"}`}>{stat.value}</div>
+                  <p className={`mt-1 text-sm ${inverted ? "text-primary-foreground/75" : "text-[var(--text-muted)]"}`}>{stat.detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-full bg-[var(--surface-4)] text-[var(--text-strong)]">
+                <div
+                  className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
+                    inverted ? "bg-primary-foreground/15 text-primary-foreground" : "bg-[var(--surface-4)] text-[var(--text-strong)]"
+                  }`}
+                >
                   <Icon className="size-5" />
                 </div>
               </div>

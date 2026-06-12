@@ -6,6 +6,7 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -37,6 +38,7 @@ function resolveInitialTheme(): ThemeMode {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(resolveInitialTheme);
+  const poweringTimeout = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -44,6 +46,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const setTheme = useCallback((nextTheme: ThemeMode) => {
+    // Run the power-on cascade for the duration of the switch.
+    const root = document.documentElement;
+    root.classList.add("theme-powering");
+    if (poweringTimeout.current !== null) {
+      window.clearTimeout(poweringTimeout.current);
+    }
+    poweringTimeout.current = window.setTimeout(() => {
+      root.classList.remove("theme-powering");
+      poweringTimeout.current = null;
+    }, 850);
+
     setThemeState(nextTheme);
     window.localStorage.setItem(STORAGE_KEY, nextTheme);
   }, []);

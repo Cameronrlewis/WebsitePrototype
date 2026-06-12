@@ -78,6 +78,7 @@ export function Projects({
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, delay: index * 0.04 }}
+              className={index === 0 ? "md:col-span-2" : ""}
             >
               <div
                 role="button"
@@ -89,10 +90,22 @@ export function Projects({
                     onOpenProject(project);
                   }
                 }}
-                className="flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+                onMouseMove={project.viewer3d ? tiltCard : undefined}
+                onMouseLeave={project.viewer3d ? resetTilt : undefined}
+                className="group relative flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none transition-transform duration-200 ease-out will-change-transform focus-visible:ring-2 focus-visible:ring-ring/25"
               >
+                {project.viewer3d ? (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                    style={{
+                      background:
+                        "radial-gradient(circle at var(--glint-x, 50%) var(--glint-y, 50%), rgba(255, 255, 255, 0.13), transparent 55%)",
+                    }}
+                  />
+                ) : null}
                 <div
-                  className="relative h-56 overflow-hidden border-b border-[color:var(--outline-soft)]"
+                  className={`relative overflow-hidden border-b border-[color:var(--outline-soft)] ${index === 0 ? "h-56 md:h-80" : "h-56"}`}
                   style={{ background: project.cardBackground ?? "var(--surface-3)" }}
                 >
                   {project.cardImg || project.bannerImg ? (
@@ -100,7 +113,7 @@ export function Projects({
                       src={project.cardImg ?? project.bannerImg}
                       alt={project.title}
                       loading="lazy"
-                      className="h-full w-full"
+                      className={`h-full w-full ${project.hoverImg ? "transition-opacity duration-500 group-hover:opacity-0" : ""}`}
                       style={{
                         objectFit: project.cardContain ? "contain" : "cover",
                         objectPosition: project.cardImgPosition ?? "center",
@@ -115,6 +128,32 @@ export function Projects({
                       </div>
                     </div>
                   )}
+
+                  {project.hoverImg ? (
+                    <>
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                        style={{ background: project.hoverBackground ?? "#f5f4ef" }}
+                      >
+                        <img
+                          src={project.hoverImg}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full"
+                          style={{
+                            objectFit: "contain",
+                            objectPosition: project.hoverImgPosition ?? "center",
+                            transform: project.hoverScale ? `scale(${project.hoverScale})` : undefined,
+                            transformOrigin: "center",
+                          }}
+                        />
+                      </div>
+                      <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-full bg-primary px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-primary-foreground opacity-0 shadow-[var(--shadow-button)] transition-opacity delay-150 duration-300 group-hover:opacity-100">
+                        Schematic
+                      </span>
+                    </>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-1 flex-col p-5">
@@ -188,6 +227,26 @@ export function Projects({
       </div>
     </div>
   );
+}
+
+// 3D "pick up the board" tilt — only applied to cards with a physical PCB (viewer3d).
+function tiltCard(event: React.MouseEvent<HTMLDivElement>) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  const el = event.currentTarget;
+  const rect = el.getBoundingClientRect();
+  const px = (event.clientX - rect.left) / rect.width - 0.5;
+  const py = (event.clientY - rect.top) / rect.height - 0.5;
+
+  el.style.transform = `perspective(950px) rotateX(${(-py * 5).toFixed(2)}deg) rotateY(${(px * 7).toFixed(2)}deg) translateY(-3px)`;
+  el.style.setProperty("--glint-x", `${((px + 0.5) * 100).toFixed(1)}%`);
+  el.style.setProperty("--glint-y", `${((py + 0.5) * 100).toFixed(1)}%`);
+}
+
+function resetTilt(event: React.MouseEvent<HTMLDivElement>) {
+  event.currentTarget.style.transform = "";
 }
 
 function truncateCopy(copy: string, maxLength: number) {

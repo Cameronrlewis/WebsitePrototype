@@ -27,7 +27,7 @@ export function Updates() {
             transition={{ duration: 0.3, delay: index * 0.04 }}
             className="overflow-hidden rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)]"
           >
-            <div className={entry.media ? "grid xl:grid-cols-[1.1fr_0.9fr]" : ""}>
+            <div className={entry.media ? (index % 2 === 1 ? "grid xl:grid-cols-[0.9fr_1.1fr]" : "grid xl:grid-cols-[1.1fr_0.9fr]") : ""}>
               <div className="space-y-5 p-6 sm:p-8">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -77,7 +77,9 @@ export function Updates() {
 
               {entry.media ? (
                 <div
-                  className="border-t border-[color:var(--outline-soft)] xl:border-t-0 xl:border-l"
+                  className={`border-t border-[color:var(--outline-soft)] xl:border-t-0 ${
+                    index % 2 === 1 ? "xl:order-first xl:border-r" : "xl:border-l"
+                  }`}
                   style={{ background: entry.mediaBackground ?? "#0b1018" }}
                 >
                   <div className="h-full min-h-[18rem] p-4 sm:p-5">

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Deep blue-charcoal tile matching the site's dark surface -->
+  <rect width="64" height="64" rx="14" fill="#10141c" />
+  <!-- Faint copper glow behind the bolt -->
+  <circle cx="33" cy="32" r="22" fill="#ff6b35" opacity="0.14" />
+  <!-- Signal-orange lightning bolt -->
+  <path
+    d="M37 4 L12 38 L27.5 38 L25 60 L52 25 L34.5 25 Z"
+    fill="#ff6b35"
+    stroke="#ff8a5c"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+  />
+</svg>
