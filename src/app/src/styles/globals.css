@@ -397,23 +397,28 @@ html.theme-powering * {
   }
 }
 
-html.theme-powering main > * > * {
+html.theme-powering main section,
+html.theme-powering main article {
   animation: rail-up 0.5s ease both;
 }
 
-html.theme-powering main > * > *:nth-child(2) {
+html.theme-powering main section:nth-of-type(2),
+html.theme-powering main article:nth-of-type(2) {
   animation-delay: 70ms;
 }
 
-html.theme-powering main > * > *:nth-child(3) {
+html.theme-powering main section:nth-of-type(3),
+html.theme-powering main article:nth-of-type(3) {
   animation-delay: 140ms;
 }
 
-html.theme-powering main > * > *:nth-child(4) {
+html.theme-powering main section:nth-of-type(4),
+html.theme-powering main article:nth-of-type(4) {
   animation-delay: 210ms;
 }
 
-html.theme-powering main > * > *:nth-child(n + 5) {
+html.theme-powering main section:nth-of-type(n + 5),
+html.theme-powering main article:nth-of-type(n + 5) {
   animation-delay: 280ms;
 }
 
@@ -424,7 +429,8 @@ html.theme-powering main > * > *:nth-child(n + 5) {
     transition: none;
   }
 
-  html.theme-powering main > * > * {
+  html.theme-powering main section,
+  html.theme-powering main article {
     animation: none;
   }
 }

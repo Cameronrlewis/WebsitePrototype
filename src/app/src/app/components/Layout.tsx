@@ -27,31 +27,48 @@ const ResumeViewer = lazy(() =>
   import("./ResumeViewer").then((module) => ({ default: module.ResumeViewer })),
 );
 
-const PAGE_IDS: PageId[] = ["home", "experience", "projects", "skills", "education", "contact", "updates"];
+const SECTION_IDS = ["home", "education", "experience", "projects", "skills", "contact"] as const;
+export type SectionId = (typeof SECTION_IDS)[number];
+type ViewId = "portfolio" | "updates";
 
-// Parses "#/projects/aux-power-board" → { page, project } so views are deep-linkable.
-function parseHash(hash: string): { page: PageId; project: ProjectRecord | null } {
+function isSectionId(value: string): value is SectionId {
+  return (SECTION_IDS as readonly string[]).includes(value);
+}
+
+// Parses "#/updates", "#/education", "#/projects/aux-power-board" so every
+// view, section, and project stays deep-linkable.
+function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
   const segments = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-  const [pageSegment, slug] = segments;
+  const [first, slug] = segments;
 
-  if (pageSegment === "projects" && slug) {
+  if (first === "updates") {
+    return { view: "updates", section: "home", project: null };
+  }
+
+  if (first === "projects" && slug) {
     const project = getProjectBySlug(slug);
     if (project) {
-      return { page: "projects", project };
+      return { view: "portfolio", section: "projects", project };
     }
   }
 
-  if (PAGE_IDS.includes(pageSegment as PageId)) {
-    return { page: pageSegment as PageId, project: null };
+  if (first && isSectionId(first)) {
+    return { view: "portfolio", section: first, project: null };
   }
 
-  return { page: "home", project: null };
+  return { view: "portfolio", section: "home", project: null };
 }
 
 export function Layout() {
   const mainRef = useRef<HTMLElement | null>(null);
+  const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement | null>>>({});
   const initialRoute = parseHash(window.location.hash);
-  const [currentPage, setCurrentPage] = useState<PageId>(initialRoute.page);
+  const pendingSectionRef = useRef<SectionId | null>(
+    initialRoute.view === "portfolio" && initialRoute.section !== "home" ? initialRoute.section : null,
+  );
+
+  const [view, setView] = useState<ViewId>(initialRoute.view);
+  const [activeSection, setActiveSection] = useState<SectionId>(initialRoute.section);
   const [projectsViewMode, setProjectsViewMode] = useState<"all" | "featured">("featured");
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(initialRoute.project);
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationRecord | null>(null);
@@ -62,22 +79,108 @@ export function Layout() {
   const [boardProject, setBoardProject] = useState<ProjectRecord | null>(null);
   const [bomProject, setBomProject] = useState<ProjectRecord | null>(null);
 
+  const scrollToSection = (sectionId: SectionId) => {
+    const element = sectionRefs.current[sectionId];
+    if (!element) {
+      return;
+    }
+
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    element.scrollIntoView({ behavior, block: "start" });
+  };
+
+  const handleNavigate = (target: PageId) => {
+    if (target === "updates") {
+      setView("updates");
+      return;
+    }
+
+    if (view !== "portfolio") {
+      pendingSectionRef.current = target;
+      setView("portfolio");
+      return;
+    }
+
+    setActiveSection(target);
+    scrollToSection(target);
+  };
+
+  // Handles the deferred scroll after switching back to the portfolio view
+  // (also covers the initial deep-link scroll on mount).
   useEffect(() => {
-    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentPage, projectsViewMode]);
+    if (view === "portfolio" && pendingSectionRef.current) {
+      const sectionId = pendingSectionRef.current;
+      pendingSectionRef.current = null;
+      setActiveSection(sectionId);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToSection(sectionId));
+      });
+    }
+
+    if (view === "updates") {
+      mainRef.current?.scrollTo({ top: 0 });
+      window.scrollTo({ top: 0 });
+    }
+  }, [view]);
+
+  // Scroll spy: highlight the section currently in the middle of the screen.
+  useEffect(() => {
+    if (view !== "portfolio") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.getAttribute("data-section");
+            if (sectionId && isSectionId(sectionId)) {
+              setActiveSection(sectionId);
+            }
+          }
+        }
+      },
+      { rootMargin: "-35% 0px -55% 0px", threshold: 0 },
+    );
+
+    for (const sectionId of SECTION_IDS) {
+      const element = sectionRefs.current[sectionId];
+      if (element) {
+        observer.observe(element);
+      }
+    }
+
+    return () => observer.disconnect();
+  }, [view]);
 
   useEffect(() => {
-    const nextHash = selectedProject ? `#/projects/${selectedProject.slug}` : `#/${currentPage}`;
+    const nextHash = selectedProject
+      ? `#/projects/${selectedProject.slug}`
+      : view === "updates"
+        ? "#/updates"
+        : `#/${activeSection}`;
     if (window.location.hash !== nextHash) {
       window.history.replaceState(null, "", nextHash);
     }
-  }, [currentPage, selectedProject]);
+  }, [view, activeSection, selectedProject]);
 
   useEffect(() => {
     const onHashChange = () => {
       const route = parseHash(window.location.hash);
-      setCurrentPage(route.page);
+      setView(route.view);
       setSelectedProject(route.project);
+
+      if (route.view === "portfolio") {
+        pendingSectionRef.current = route.section;
+        requestAnimationFrame(() => {
+          if (pendingSectionRef.current) {
+            const sectionId = pendingSectionRef.current;
+            pendingSectionRef.current = null;
+            setActiveSection(sectionId);
+            scrollToSection(sectionId);
+          }
+        });
+      }
     };
 
     window.addEventListener("hashchange", onHashChange);
@@ -108,43 +211,54 @@ export function Layout() {
     setSelectedOrganization(organization);
   };
 
-  const pageContent = (() => {
-    switch (currentPage) {
-      case "home":
-        return (
-          <Home
-            onNavigate={setCurrentPage}
-            onOpenProject={setSelectedProject}
-            onOpenOrganization={(project) => openOrganization(project, false)}
-            onOpenResume={() => setResumeOpen(true)}
-            onOpen3D={(project) => {
-              setViewerReturnProject(null);
-              setSelectedProject(null);
-              setBoardProject(project);
-            }}
-          />
-        );
-      case "experience":
-        return <Experience onOpenOrganization={openOrganizationById} />;
-      case "updates":
-        return <Updates />;
-      case "projects":
-        return (
-          <Projects
-            onOpenProject={setSelectedProject}
-            onOpenOrganization={(project) => openOrganization(project, false)}
-            viewMode={projectsViewMode}
-            onViewModeChange={setProjectsViewMode}
-          />
-        );
-      case "skills":
-        return <Skills />;
-      case "education":
-        return <Education />;
-      case "contact":
-        return <Contact onOpenResume={() => setResumeOpen(true)} />;
-    }
-  })();
+  const sectionClass = "scroll-mt-32 lg:scroll-mt-2";
+
+  const registerSection = (sectionId: SectionId) => (element: HTMLElement | null) => {
+    sectionRefs.current[sectionId] = element;
+  };
+
+  const portfolioContent = (
+    <div className="space-y-16 lg:space-y-24">
+      <section ref={registerSection("home")} data-section="home" className={sectionClass}>
+        <Home
+          onNavigate={handleNavigate}
+          onOpenProject={setSelectedProject}
+          onOpenOrganization={(project) => openOrganization(project, false)}
+          onOpenResume={() => setResumeOpen(true)}
+          onOpen3D={(project) => {
+            setViewerReturnProject(null);
+            setSelectedProject(null);
+            setBoardProject(project);
+          }}
+        />
+      </section>
+
+      <section ref={registerSection("education")} data-section="education" className={sectionClass}>
+        <Education />
+      </section>
+
+      <section ref={registerSection("experience")} data-section="experience" className={sectionClass}>
+        <Experience onOpenOrganization={openOrganizationById} />
+      </section>
+
+      <section ref={registerSection("projects")} data-section="projects" className={sectionClass}>
+        <Projects
+          onOpenProject={setSelectedProject}
+          onOpenOrganization={(project) => openOrganization(project, false)}
+          viewMode={projectsViewMode}
+          onViewModeChange={setProjectsViewMode}
+        />
+      </section>
+
+      <section ref={registerSection("skills")} data-section="skills" className={sectionClass}>
+        <Skills />
+      </section>
+
+      <section ref={registerSection("contact")} data-section="contact" className={sectionClass}>
+        <Contact onOpenResume={() => setResumeOpen(true)} />
+      </section>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -154,11 +268,14 @@ export function Layout() {
       </div>
 
       <div className="relative mx-auto max-w-[1500px] px-4 py-4 lg:flex lg:gap-6 lg:px-5">
-        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+        <Sidebar
+          activeItem={view === "updates" ? "updates" : activeSection}
+          onSelect={handleNavigate}
+        />
         <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
           <div className="relative">
-            <CircuitTrace scrollRef={mainRef} pageKey={currentPage} />
-            <div className="relative z-10">{pageContent}</div>
+            <CircuitTrace scrollRef={mainRef} pageKey={view} />
+            <div className="relative z-10">{view === "updates" ? <Updates /> : portfolioContent}</div>
           </div>
         </main>
       </div>

@@ -26,7 +26,7 @@ export function Contact({ onOpenResume }: ContactProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Contact &amp; Profile</h1>
+        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Connect</h1>
       </motion.section>
 
       <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
