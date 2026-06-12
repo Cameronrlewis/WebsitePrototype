@@ -275,7 +275,8 @@ export function Layout() {
         <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
           <div className="relative">
             <CircuitTrace scrollRef={mainRef} pageKey={view} />
-            <div className="relative z-10">{view === "updates" ? <Updates /> : portfolioContent}</div>
+            {/* lg:pl-12 reserves a gutter corridor for the circuit trace spine */}
+            <div className="relative z-10 lg:pl-12">{view === "updates" ? <Updates /> : portfolioContent}</div>
           </div>
         </main>
       </div>
