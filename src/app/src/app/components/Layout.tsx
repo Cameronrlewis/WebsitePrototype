@@ -8,6 +8,7 @@ import {
   type ProjectRecord,
 } from "../data/portfolio";
 import { BoardViewer } from "./BoardViewer";
+import { CircuitTrace } from "./CircuitTrace";
 import { Contact } from "./Contact";
 import { Education } from "./Education";
 import { Experience } from "./Experience";
@@ -155,7 +156,10 @@ export function Layout() {
       <div className="relative mx-auto max-w-[1500px] px-4 py-4 lg:flex lg:gap-6 lg:px-5">
         <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
         <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
-          {pageContent}
+          <div className="relative">
+            <CircuitTrace scrollRef={mainRef} pageKey={currentPage} />
+            <div className="relative z-10">{pageContent}</div>
+          </div>
         </main>
       </div>
 
