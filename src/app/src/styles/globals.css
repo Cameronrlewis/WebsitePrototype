@@ -4,7 +4,7 @@
   --font-size: 16px;
   --background: #f4f1ea;
   --foreground: #2a2520;
-  --card: #fdfcf8;
+  --card: rgba(253, 252, 248, 0.82);
   --card-foreground: #2a2520;
   --popover: #fdfcf8;
   --popover-foreground: #2a2520;
@@ -39,8 +39,8 @@
   --sidebar-accent-foreground: #2a2520;
   --sidebar-border: #ddd6c8;
   --sidebar-ring: #e85d2a;
-  --surface-1: #fdfcf8;
-  --surface-2: #f7f4ec;
+  --surface-1: rgba(253, 252, 248, 0.82);
+  --surface-2: rgba(247, 244, 236, 0.82);
   --surface-3: #f0ece2;
   --surface-4: #e9e4d7;
   --text-strong: #2a2520;
@@ -106,7 +106,7 @@
 .dark {
   --background: #10141c;
   --foreground: #f0f2f7;
-  --card: #161c28;
+  --card: rgba(22, 28, 40, 0.82);
   --card-foreground: #f0f2f7;
   --popover: #161c28;
   --popover-foreground: #f0f2f7;
@@ -131,8 +131,8 @@
   --sidebar-accent-foreground: #f0f2f7;
   --sidebar-border: #2c3649;
   --sidebar-ring: #ff8a5c;
-  --surface-1: #161c28;
-  --surface-2: #1b2230;
+  --surface-1: rgba(22, 28, 40, 0.82);
+  --surface-2: rgba(27, 34, 48, 0.82);
   --surface-3: #20283a;
   --surface-4: #273043;
   --text-strong: #f0f2f7;
