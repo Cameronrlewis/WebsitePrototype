@@ -434,3 +434,27 @@ html.theme-powering main article:nth-of-type(n + 5) {
     animation: none;
   }
 }
+
+/* Circuit trace effects (only applied from the reduced-motion-gated branch) */
+@keyframes circuit-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes circuit-pulse {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}

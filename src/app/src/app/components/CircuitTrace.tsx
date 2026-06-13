@@ -27,7 +27,10 @@ interface OverlayComponent {
   y: number;
   type: OverlayType;
   orientation: "v" | "h";
+  // Direction current flows through the component: +1 = down/right, -1 = up/left.
+  dir: 1 | -1;
   triggerDist: number;
+  scale: number;
 }
 
 interface Branch {
@@ -50,6 +53,8 @@ interface TraceGeometry {
   vias: Marker[];
   junctions: Marker[];
   display: { x: number; y: number } | null;
+  ambientPaths: string[];
+  ambientPads: Array<{ x: number; y: number }>;
   width: number;
   height: number;
   totalLength: number;
@@ -68,10 +73,37 @@ const SMALL_CYCLE: OverlayType[] = [
   "switch",
   "potentiometer",
   "battery",
-  "ground",
 ];
 const LARGE_CYCLE: OverlayType[] = ["ic", "opamp", "transformer"];
 const BRANCH_CYCLE: OverlayType[] = ["capacitor", "diode", "led"];
+
+// Half-extent of each symbol body along the wire axis (unscaled). Each
+// component paints a background-colored occluder over this span so the wire
+// doesn't show through the symbol. (The path itself must stay one continuous
+// subpath — an M-break would restart the dash pattern per subpath and ruin
+// the scroll reveal.)
+const BODY_HALF: Record<OverlayType, number> = {
+  led: 9,
+  capacitor: 6,
+  diode: 9,
+  fuse: 10,
+  mosfet: 9,
+  polcap: 8,
+  crystal: 8,
+  switch: 9,
+  battery: 4,
+  potentiometer: 14,
+  ground: 0,
+  ic: 14,
+  opamp: 12,
+  transformer: 13,
+  rectifier: 78,
+};
+
+// Flow-dash overlay: dash period and march speed (px/ms).
+const FLOW_PERIOD = 20;
+const FLOW_SPEED = 0.03;
+const FLOW_WINDOW = 800;
 
 // Seven-segment layout: A top, B top-right, C bottom-right, D bottom,
 // E bottom-left, F top-left, G middle. Digit cell is 14x24.
@@ -214,6 +246,8 @@ function horizontalInductor(pb: PathBuilder, y: number, dir: number) {
 // a 7-seg readout in the last gap.
 function buildTrace(width: number, height: number, gaps: Array<{ top: number; bottom: number }>): TraceGeometry {
   const rightX = Math.max(width - 26, LEFT_X + 200);
+  const span = rightX - LEFT_X;
+  const mid = (LEFT_X + rightX) / 2;
   const allowBranches = width >= 500;
   const rand = mulberry32(Math.round(width) * 31 + Math.round(height));
   const between = (a: number, b: number) => a + rand() * (b - a);
@@ -225,22 +259,28 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   let smallIndex = 0;
   let largeIndex = 0;
   let branchCompIndex = 0;
-  let side: "L" | "R" = "L";
 
   const nextSmall = (): OverlayType => SMALL_CYCLE[smallIndex++ % SMALL_CYCLE.length];
   const nextLarge = (): OverlayType => LARGE_CYCLE[largeIndex++ % LARGE_CYCLE.length];
   const nextBranch = (): OverlayType => BRANCH_CYCLE[branchCompIndex++ % BRANCH_CYCLE.length];
 
-  const pb = createPathBuilder(LEFT_X, 0);
-  let y = 0;
+  const pb = createPathBuilder(between(LEFT_X, mid), 0);
 
-  const spineX = () => (side === "L" ? LEFT_X : rightX);
-  // Deepest a detour or branch may reach toward the page center.
-  const maxDepth = Math.min(220, (rightX - LEFT_X) * 0.42);
+  // Branches and centerpieces lean toward whichever half has more room.
+  const dirFor = (x: number) => (x < mid ? 1 : -1);
 
-  // A rectangular parallel branch alongside a spine run, splitting near the
-  // top and merging partway down — all 90° corners.
-  const emitSpineBranch = (x: number, yStart: number, run: number) => {
+  // Pick the next column in the opposite half so the route sweeps the full
+  // page width as it descends.
+  const pickColumn = (cur: number): number => {
+    const toRight = cur < mid;
+    const lo = toRight ? mid + span * 0.08 : LEFT_X;
+    const hi = toRight ? rightX : mid - span * 0.08;
+    return between(lo, hi);
+  };
+
+  // A rectangular parallel branch alongside a vertical leg, splitting near
+  // the top and merging partway down — all 90° corners.
+  const emitSpineBranch = (x: number, yStart: number, run: number, dir: number) => {
     const ySplit = yStart + run * between(0.08, 0.18);
     const yMerge = yStart + run * between(0.45, 0.68);
     pb.lineTo(x, ySplit);
@@ -250,12 +290,12 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const mergeDist = pb.dist;
     junctions.push({ x, y: yMerge, triggerDist: mergeDist });
 
-    // Offset toward the content side; can dip under the translucent cards.
-    const off = (side === "L" ? 1 : -1) * between(14, Math.max(20, maxDepth * 0.45));
-    const bx = x + off;
+    const off = dir * between(24, Math.min(120, span * 0.2));
+    const bx = Math.min(rightX, Math.max(LEFT_X, x + off));
     const bb = createPathBuilder(x, ySplit);
     bb.lineTo(bx, ySplit);
     const compY = (ySplit + yMerge) / 2;
+    const type = nextBranch();
     bb.lineTo(bx, compY);
     const compLocalDist = bb.dist;
     bb.lineTo(bx, yMerge);
@@ -266,83 +306,89 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     components.push({
       x: bx,
       y: compY,
-      type: nextBranch(),
+      type,
       orientation: "v",
+      dir: 1,
       triggerDist: junctionDist + (compLocalDist / bb.dist) * fillWindow,
+      scale: 1.5,
     });
   };
 
-  // A rectangular detour off the spine, wandering under the content and back.
-  const emitDetour = (x: number, yEnd: number) => {
-    const room = yEnd - pb.y - 70;
-    if (room < 90) {
+  // A vertical leg at the current column, decorated with a possible parallel
+  // branch, an inline resistor/inductor, and small components.
+  const emitVerticalLeg = (yEnd: number) => {
+    const x = pb.x;
+    const legLength = yEnd - pb.y;
+    if (legLength <= 0) {
       return;
     }
-    const dir = side === "L" ? 1 : -1;
-    const depth = between(60, maxDepth);
-    const yA = pb.y + between(20, Math.max(24, room - 160));
-    const vLen = between(60, Math.min(160, yEnd - yA - 60));
-    const dx = x + depth * dir;
 
-    pb.lineTo(x, yA);
-    pb.lineTo(dx, yA);
-    vias.push({ x: dx, y: yA, triggerDist: pb.dist });
-    const compY = yA + vLen / 2;
-    pb.lineTo(dx, compY);
-    components.push({ x: dx, y: compY, type: nextSmall(), orientation: "v", triggerDist: pb.dist });
-    pb.lineTo(dx, yA + vLen);
-    vias.push({ x: dx, y: yA + vLen, triggerDist: pb.dist });
-    pb.lineTo(x, yA + vLen);
-  };
-
-  const emitSpineRun = (yEnd: number) => {
-    const runLength = yEnd - y;
-    if (runLength <= 0) {
-      return;
-    }
-    const x = spineX();
-    const hasBranch = allowBranches && runLength > 260 && branches.length < MAX_BRANCHES && rand() < 0.85;
-
-    if (hasBranch) {
-      emitSpineBranch(x, y, runLength);
+    if (allowBranches && legLength > 240 && branches.length < MAX_BRANCHES && rand() < 0.7) {
+      emitSpineBranch(x, pb.y, legLength, dirFor(x));
     }
 
-    // One inline component (resistor or inductor) on runs long enough,
-    // dropped at a random spot below whatever the branch consumed.
     const remaining = yEnd - pb.y;
-    if (remaining > 150) {
+    if (remaining > 150 && rand() < 0.65) {
       const inlineY = pb.y + remaining * between(0.1, 0.32);
       pb.lineTo(x, inlineY);
       if (rand() < 0.5) {
         verticalResistor(pb, x);
       } else {
-        // Inductor humps bow toward the page edge so they stay in the gutter.
-        verticalInductor(pb, x, side === "L" ? -14 : 14);
+        verticalInductor(pb, x, rand() < 0.5 ? -14 : 14);
       }
     }
 
-    // Random rectangular detour(s) under the content.
-    if (runLength > 250 && rand() < 0.8) {
-      emitDetour(x, yEnd);
-      if (runLength > 600 && rand() < 0.5) {
-        emitDetour(x, yEnd);
-      }
-    }
-
-    // Overlay components at random spacing on the rest of the run.
-    for (let oy = pb.y + between(80, 160); oy < yEnd - 60; oy += between(220, 380)) {
+    for (let oy = pb.y + between(70, 150); oy < yEnd - 50; oy += between(170, 320)) {
       pb.lineTo(x, oy);
-      components.push({ x, y: oy, type: nextSmall(), orientation: "v", triggerDist: pb.dist });
+      components.push({ x, y: oy, type: nextSmall(), orientation: "v", dir: 1, triggerDist: pb.dist, scale: 1.5 });
     }
 
     pb.lineTo(x, yEnd);
-    y = yEnd;
   };
 
-  // A rectangular parallel branch across a gap run, between xa and xb.
-  const emitCrossingBranch = (xa: number, xb: number, crossY: number) => {
-    const split = xa + (xb - xa) * between(0.28, 0.42);
-    const rejoin = xa + (xb - xa) * between(0.62, 0.8);
+  // A 90° horizontal jog to a new column, with via pads at the corners and
+  // sometimes a component mid-wire.
+  const emitHorizontalJog = (toX: number) => {
+    const x = pb.x;
+    const jy = pb.y;
+    if (Math.abs(toX - x) < 40) {
+      return;
+    }
+    const dir: 1 | -1 = toX > x ? 1 : -1;
+    vias.push({ x, y: jy, triggerDist: pb.dist });
+    // Occasional ground tap hanging off the corner via — grounds live on
+    // stubs, never in series with the wire.
+    if (rand() < 0.3) {
+      components.push({ x, y: jy + 21, type: "ground", orientation: "v", dir: 1, triggerDist: pb.dist, scale: 1.5 });
+    }
+    if (Math.abs(toX - x) > 200 && rand() < 0.7) {
+      const compX = x + (toX - x) * between(0.35, 0.65);
+      pb.lineTo(compX, jy);
+      components.push({ x: compX, y: jy, type: nextSmall(), orientation: "h", dir, triggerDist: pb.dist, scale: 1.5 });
+    }
+    pb.lineTo(toX, jy);
+    vias.push({ x: toX, y: jy, triggerDist: pb.dist });
+  };
+
+  // Serpentine wanderer: drop, jog to the other half, repeat — the route
+  // sweeps the entire page width instead of hugging the gutters.
+  const emitWander = (yEnd: number) => {
+    while (yEnd - pb.y > 280) {
+      const legEnd = Math.min(pb.y + between(170, 360), yEnd - 90);
+      emitVerticalLeg(legEnd);
+      emitHorizontalJog(pickColumn(pb.x));
+    }
+    emitVerticalLeg(yEnd);
+  };
+
+  // A rectangular parallel branch across a gap run. Splits ahead of the
+  // current cursor (never behind it — that would make the wire backtrack)
+  // and leaves the back half of the run free for the gap centerpiece.
+  const emitCrossingBranch = (xb: number, crossY: number) => {
+    const xa = pb.x;
+    const dir: 1 | -1 = xb > xa ? 1 : -1;
+    const split = xa + (xb - xa) * between(0.08, 0.2);
+    const rejoin = xa + (xb - xa) * between(0.42, 0.56);
     pb.lineTo(split, crossY);
     const junctionDist = pb.dist;
     junctions.push({ x: split, y: crossY, triggerDist: junctionDist });
@@ -353,6 +399,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const by = crossY + 16;
     const bb = createPathBuilder(split, crossY);
     bb.lineTo(split, by);
+    const type = nextBranch();
     const compX = (split + rejoin) / 2;
     bb.lineTo(compX, by);
     const compLocalDist = bb.dist;
@@ -364,9 +411,11 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     components.push({
       x: compX,
       y: by,
-      type: nextBranch(),
+      type,
       orientation: "h",
+      dir,
       triggerDist: junctionDist + (compLocalDist / bb.dist) * fillWindow,
+      scale: 1.5,
     });
   };
 
@@ -374,7 +423,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
 
   // The tallest gap with enough span hosts the bridge-rectifier centerpiece.
   let rectifierGapIndex = -1;
-  if (rightX - LEFT_X >= 300) {
+  if (span >= 420) {
     let best = 90;
     usableGaps.forEach((gap, index) => {
       const depth = gap.bottom - gap.top;
@@ -386,74 +435,139 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   }
 
   usableGaps.forEach((gap, gapIndex) => {
-    const crossY = gap.top + (gap.bottom - gap.top) * between(0.32, 0.55);
-    emitSpineRun(crossY - 20);
-
-    const x = spineX();
+    const gapDepth = gap.bottom - gap.top;
     const isLastGap = gapIndex === usableGaps.length - 1;
-    const crossesOver = gapIndex === 0 || rand() < 0.6;
-    const farX = side === "L" ? rightX : LEFT_X;
-    const dir = side === "L" ? 1 : -1;
+    const isRectifierGap = gapIndex === rectifierGapIndex;
+    // The rectifier crosses high in its gap so its ground shunts fit below.
+    const crossY = gap.top + gapDepth * (isRectifierGap ? between(0.24, 0.34) : between(0.32, 0.5));
 
-    // 90° entry from the spine into the gap.
-    pb.lineTo(x, crossY);
-    vias.push({ x, y: crossY, triggerDist: pb.dist });
-
-    const inboundX = x;
-    const outboundEnd = crossesOver ? farX : farX - 26 * dir;
-    const span = outboundEnd - inboundX;
-
-    // Inline component early in the run.
-    pb.lineTo(inboundX + span * between(0.08, 0.26), crossY);
-    if (rand() < 0.5) {
-      horizontalResistor(pb, crossY, dir);
+    if (isRectifierGap) {
+      // Guarantee a full-width left-to-right run for the rectifier: come in
+      // from the far left before crossing (AC enters its transformer side).
+      emitWander(crossY - between(60, 120));
+      emitHorizontalJog(between(LEFT_X, LEFT_X + span * 0.15));
+      pb.lineTo(pb.x, crossY);
     } else {
-      horizontalInductor(pb, crossY, dir);
+      emitWander(crossY);
     }
 
-    // Parallel branch across the middle of the run (needs gap depth for the
-    // 16px jog below the wire).
+    const dir = dirFor(pb.x);
+    const farX = dir > 0 ? rightX : LEFT_X;
+    const runSpan = () => Math.abs(farX - pb.x);
+    vias.push({ x: pb.x, y: crossY, triggerDist: pb.dist });
+
+    // Inline component early in the run.
+    if (runSpan() > 260) {
+      pb.lineTo(pb.x + (farX - pb.x) * between(0.06, 0.2), crossY);
+      if (rand() < 0.5) {
+        horizontalResistor(pb, crossY, dir);
+      } else {
+        horizontalInductor(pb, crossY, dir);
+      }
+    }
+
+    // Parallel branch across the front half of the remaining run (needs gap
+    // depth for the 16px jog below the wire).
     const branchFits =
-      allowBranches && branches.length < MAX_BRANCHES && gap.bottom - crossY >= 40 && gapIndex !== rectifierGapIndex;
+      allowBranches &&
+      branches.length < MAX_BRANCHES &&
+      gap.bottom - crossY >= 44 &&
+      !isRectifierGap &&
+      runSpan() > 340;
     if (branchFits) {
-      emitCrossingBranch(inboundX, outboundEnd, crossY);
+      emitCrossingBranch(farX, crossY);
     }
 
     // A large schematic centerpiece on the run: the bridge rectifier in the
-    // tallest gap, the usual cycle elsewhere.
-    if (gapIndex === rectifierGapIndex && Math.abs(span) >= 300) {
-      const largeX = inboundX + span * 0.5;
+    // tallest gap, the usual cycle elsewhere. The wire breaks across the
+    // symbol body so it doesn't draw straight through it.
+    let placedLarge = false;
+    if (isRectifierGap) {
+      // Scale is capped so the shunt legs stay inside the gap and the body
+      // (±78 × scale) fits the remaining run.
+      let rectScale = Math.min(2, Math.max(1.3, gapDepth / 70));
+      rectScale = Math.min(rectScale, (gap.bottom - 8 - crossY) / 31, (runSpan() - 80) / 156);
+      if (rectScale >= 1.15) {
+        const largeX = pb.x + (farX - pb.x) * 0.5;
+        pb.lineTo(largeX, crossY);
+        components.push({ x: largeX, y: crossY, type: "rectifier", orientation: "v", dir: 1, triggerDist: pb.dist, scale: rectScale });
+        placedLarge = true;
+      }
+    }
+    if (!placedLarge && runSpan() > 220) {
+      const largeX = pb.x + (farX - pb.x) * between(0.6, 0.82);
       pb.lineTo(largeX, crossY);
-      components.push({ x: largeX, y: crossY, type: "rectifier", orientation: "v", triggerDist: pb.dist });
-    } else {
-      const largeX = inboundX + span * 0.86;
-      pb.lineTo(largeX, crossY);
-      components.push({ x: largeX, y: crossY, type: nextLarge(), orientation: "h", triggerDist: pb.dist });
+      components.push({ x: largeX, y: crossY, type: nextLarge(), orientation: "h", dir, triggerDist: pb.dist, scale: 2 });
     }
 
     if (isLastGap) {
-      display = { x: rightX - 150, y: crossY + 22 };
+      display = { x: rightX - 240, y: crossY + 12 };
     }
 
-    if (crossesOver) {
-      // Continue through to the opposite gutter: 90° turn onto the far spine.
-      pb.lineTo(outboundEnd, crossY);
-      vias.push({ x: outboundEnd, y: crossY, triggerDist: pb.dist });
-      pb.lineTo(farX, crossY + 20);
-      side = side === "L" ? "R" : "L";
-      y = crossY + 20;
-    } else {
-      // Out-and-back excursion: jog down, return, 90° back onto the spine.
-      pb.lineTo(outboundEnd, crossY);
-      vias.push({ x: outboundEnd, y: crossY, triggerDist: pb.dist });
-      pb.lineTo(outboundEnd, crossY + 14);
-      pb.lineTo(x, crossY + 14);
-      vias.push({ x, y: crossY + 14, triggerDist: pb.dist });
-      y = crossY + 14;
-    }
+    // Finish the sweep and turn 90° down toward the next section.
+    pb.lineTo(farX, crossY);
+    vias.push({ x: farX, y: crossY, triggerDist: pb.dist });
+    pb.lineTo(farX, crossY + 18);
   });
 
-  emitSpineRun(height - 4);
+  emitWander(height - 4);
+
+  // Ambient dormant network: decorative Manhattan squiggles with pads that
+  // fill the rest of the page so the whole layout reads as a PCB. They avoid
+  // the schematic symbols and the readout so they don't muddle the circuit.
+  const obstacles: Array<{ x1: number; y1: number; x2: number; y2: number }> = components.map((c) => {
+    const hx = (BODY_HALF[c.type] + 14) * c.scale;
+    const hy = (c.type === "rectifier" ? 40 : BODY_HALF[c.type] + 14) * c.scale;
+    return { x1: c.x - hx, y1: c.y - hy, x2: c.x + hx, y2: c.y + hy };
+  });
+  if (display !== null) {
+    const d = display as { x: number; y: number };
+    obstacles.push({ x1: d.x - 12, y1: d.y - 12, x2: d.x + 130, y2: d.y + 55 });
+  }
+
+  const hitsObstacle = (x1: number, y1: number, x2: number, y2: number) => {
+    const lo = Math.min(x1, x2) - 6;
+    const hi = Math.max(x1, x2) + 6;
+    const top = Math.min(y1, y2) - 6;
+    const bot = Math.max(y1, y2) + 6;
+    return obstacles.some((o) => hi > o.x1 && lo < o.x2 && bot > o.y1 && top < o.y2);
+  };
+
+  const ambientPaths: string[] = [];
+  const ambientPads: Array<{ x: number; y: number }> = [];
+  const ambientCount = Math.min(10, Math.max(4, Math.round(height / 900)));
+  for (let i = 0; i < ambientCount; i += 1) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let ax = between(LEFT_X, rightX);
+      let ay = between(60, height - 140);
+      const points: Array<[number, number]> = [[ax, ay]];
+      let horizontal = rand() < 0.5;
+      const segments = 3 + Math.floor(rand() * 3);
+      let clear = true;
+      for (let s = 0; s < segments; s += 1) {
+        const len = between(60, 220) * (rand() < 0.5 ? -1 : 1);
+        const nx = horizontal ? Math.min(rightX, Math.max(LEFT_X, ax + len)) : ax;
+        const ny = horizontal ? ay : Math.min(height - 40, Math.max(30, ay + len));
+        if (hitsObstacle(ax, ay, nx, ny)) {
+          clear = false;
+          break;
+        }
+        ax = nx;
+        ay = ny;
+        points.push([ax, ay]);
+        horizontal = !horizontal;
+      }
+      if (!clear) {
+        continue;
+      }
+      ambientPads.push({ x: points[0][0], y: points[0][1] });
+      ambientPads.push({ x: ax, y: ay });
+      ambientPaths.push(
+        points.map(([px, py], index) => `${index === 0 ? "M" : "L"}${px.toFixed(1)} ${py.toFixed(1)}`).join(" "),
+      );
+      break;
+    }
+  }
 
   return {
     path: pb.d,
@@ -462,6 +576,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     vias,
     junctions,
     display,
+    ambientPaths,
+    ambientPads,
     width,
     height,
     totalLength: pb.dist,
@@ -558,6 +674,7 @@ function symbolFor(type: OverlayType): ReactNode {
     case "ground":
       return (
         <>
+          <line x1="0" y1="-14" x2="0" y2="2" stroke="currentColor" strokeWidth="1.5" />
           <line x1="-9" y1="2" x2="9" y2="2" stroke="currentColor" strokeWidth="2" />
           <line x1="-6" y1="6" x2="6" y2="6" stroke="currentColor" strokeWidth="2" />
           <line x1="-3" y1="10" x2="3" y2="10" stroke="currentColor" strokeWidth="2" />
@@ -599,6 +716,8 @@ function symbolFor(type: OverlayType): ReactNode {
       // smoothing cap and load resistor shunted to ground off the DC rail.
       return (
         <>
+          {/* AC input lead */}
+          <line x1="-78" y1="0" x2="-68" y2="0" stroke="currentColor" strokeWidth="1.5" />
           {/* Transformer */}
           <g transform="translate(-58 0)">
             <path d="M-5 -12 Q-12 -9 -5 -6 Q-12 -3 -5 0 Q-12 3 -5 6 Q-12 9 -5 12" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -658,16 +777,21 @@ function symbolFor(type: OverlayType): ReactNode {
 export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
   const [geometry, setGeometry] = useState<TraceGeometry | null>(null);
   const litPathRef = useRef<SVGPathElement | null>(null);
+  const litGlowRef = useRef<SVGPathElement | null>(null);
+  const flowPathRef = useRef<SVGPathElement | null>(null);
   const boltRef = useRef<SVGGElement | null>(null);
   const componentRefs = useRef<Array<SVGGElement | null>>([]);
   const viaRefs = useRef<Array<SVGCircleElement | null>>([]);
   const junctionRefs = useRef<Array<SVGCircleElement | null>>([]);
   const branchLitRefs = useRef<Array<SVGPathElement | null>>([]);
+  const branchGlowRefs = useRef<Array<SVGPathElement | null>>([]);
   const branchBoltRefs = useRef<Array<SVGCircleElement | null>>([]);
   const branchLengthsRef = useRef<number[]>([]);
   const segmentRefs = useRef<Array<SVGLineElement | null>>([]);
+  const prevLitRef = useRef<boolean[]>([]);
   const totalLengthRef = useRef(0);
   const rafRef = useRef<number | null>(null);
+  const lastMeasureRef = useRef<string>("");
   const reducedMotion = prefersReducedMotion();
 
   // Measure content + section gaps and (re)build the route.
@@ -693,9 +817,23 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
         });
       }
 
+      // Skip rebuilds when the layout hasn't actually changed: the
+      // ResizeObserver refires during load (fonts, lazy images), and each
+      // setGeometry tears down/rebuilds the animation effect, which both
+      // resets the scroll reveal and risks wedging the rAF loop.
+      const signature = `${Math.round(width)}x${Math.round(height)}:${gaps
+        .map((g) => `${Math.round(g.top)}-${Math.round(g.bottom)}`)
+        .join(",")}`;
+      if (signature === lastMeasureRef.current) {
+        return;
+      }
+      lastMeasureRef.current = signature;
+
       setGeometry(buildTrace(width, height, gaps));
     };
 
+    // Force a rebuild on mount and whenever the view (pageKey) changes.
+    lastMeasureRef.current = "";
     const raf = requestAnimationFrame(measure);
     const observer = new ResizeObserver(measure);
     observer.observe(container);
@@ -720,7 +858,29 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       return;
     }
 
-    const update = () => {
+    const targetDistance = () => {
+      const containerScrolls = container.scrollHeight > container.clientHeight + 4;
+      const scrollTop = containerScrolls ? container.scrollTop : window.scrollY;
+      const maxScroll = containerScrolls
+        ? container.scrollHeight - container.clientHeight
+        : document.documentElement.scrollHeight - window.innerHeight;
+      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
+      return progress * totalLengthRef.current;
+    };
+
+    // The loop eases the displayed distance toward the scroll target each
+    // frame (so dropped frames never read as stop-motion), keeps the flow
+    // dashes marching for a moment after settling, then goes fully idle.
+    let shown = 0;
+    let prevShown = -1;
+    let flowPhase = 0;
+    let lastNow = performance.now();
+    let settledAt = lastNow;
+    let prevPct = -1;
+    const prevVia: boolean[] = new Array(geometry.vias.length).fill(false);
+    const prevJunction: boolean[] = new Array(geometry.junctions.length).fill(false);
+
+    const update = (now: number) => {
       rafRef.current = null;
       const litPath = litPathRef.current;
       const bolt = boltRef.current;
@@ -728,82 +888,154 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
         return;
       }
 
-      const containerScrolls = container.scrollHeight > container.clientHeight + 4;
-      const scrollTop = containerScrolls ? container.scrollTop : window.scrollY;
-      const maxScroll = containerScrolls
-        ? container.scrollHeight - container.clientHeight
-        : document.documentElement.scrollHeight - window.innerHeight;
-      const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
-
+      const dt = Math.min(64, now - lastNow);
+      lastNow = now;
       const realLength = totalLengthRef.current;
-      const distance = progress * realLength;
-      litPath.style.strokeDashoffset = `${realLength - distance}`;
+      const target = targetDistance();
+      shown += (target - shown) * Math.min(1, dt * 0.012);
+      if (Math.abs(target - shown) < 0.5) {
+        shown = target;
+      }
 
-      const point = litPath.getPointAtLength(distance);
-      bolt.setAttribute("transform", `translate(${point.x} ${point.y})`);
-
-      // Analytic distance for triggers (branch fills, component lighting).
-      const trigDist = progress * geometry.totalLength;
-
-      for (let i = 0; i < geometry.branches.length; i += 1) {
-        const branch = geometry.branches[i];
-        const lit = branchLitRefs.current[i];
-        const miniBolt = branchBoltRefs.current[i];
-        const branchLength = branchLengthsRef.current[i] ?? 0;
-        if (!lit || branchLength <= 0) {
-          continue;
+      if (shown !== prevShown) {
+        const offset = `${realLength - shown}`;
+        litPath.style.strokeDashoffset = offset;
+        const glow = litGlowRef.current;
+        if (glow) {
+          glow.style.strokeDashoffset = offset;
         }
-        const t = Math.min(1, Math.max(0, (trigDist - branch.junctionDist) / branch.fillWindow));
-        lit.style.strokeDashoffset = `${branchLength * (1 - t)}`;
-        if (miniBolt) {
-          if (t > 0 && t < 1) {
-            const p = lit.getPointAtLength(t * branchLength);
-            miniBolt.setAttribute("transform", `translate(${p.x} ${p.y})`);
-            miniBolt.style.opacity = "1";
-          } else {
-            miniBolt.style.opacity = "0";
+
+        const point = litPath.getPointAtLength(shown);
+        bolt.setAttribute("transform", `translate(${point.x} ${point.y})`);
+
+        // Analytic distance for triggers (branch fills, component lighting).
+        const trigDist = (shown / Math.max(1, realLength)) * geometry.totalLength;
+
+        for (let i = 0; i < geometry.branches.length; i += 1) {
+          const branch = geometry.branches[i];
+          const lit = branchLitRefs.current[i];
+          const branchGlow = branchGlowRefs.current[i];
+          const miniBolt = branchBoltRefs.current[i];
+          const branchLength = branchLengthsRef.current[i] ?? 0;
+          if (!lit || branchLength <= 0) {
+            continue;
           }
-        }
-      }
-
-      for (let i = 0; i < geometry.components.length; i += 1) {
-        const group = componentRefs.current[i];
-        if (group) {
-          const passed = geometry.components[i].triggerDist <= trigDist + 1;
-          group.style.color = passed ? "var(--primary)" : "var(--outline-strong)";
-          group.style.filter = passed ? "drop-shadow(0 0 5px var(--primary))" : "none";
-        }
-      }
-
-      for (let i = 0; i < geometry.vias.length; i += 1) {
-        const via = viaRefs.current[i];
-        if (via) {
-          via.style.fill = geometry.vias[i].triggerDist <= trigDist + 1 ? "var(--primary)" : "var(--surface-1)";
-        }
-      }
-
-      for (let i = 0; i < geometry.junctions.length; i += 1) {
-        const junction = junctionRefs.current[i];
-        if (junction) {
-          junction.style.fill =
-            geometry.junctions[i].triggerDist <= trigDist + 1 ? "var(--primary)" : "var(--outline-strong)";
-        }
-      }
-
-      // Seven-segment scroll percentage.
-      if (geometry.display) {
-        const chars = String(Math.round(progress * 100)).padStart(3, " ");
-        for (let digit = 0; digit < 3; digit += 1) {
-          const litSegments = DIGIT_SEGMENTS[chars[digit]] ?? [];
-          for (let seg = 0; seg < 7; seg += 1) {
-            const line = segmentRefs.current[digit * 7 + seg];
-            if (line) {
-              const lit = litSegments.includes(seg);
-              line.style.stroke = lit ? "var(--primary)" : "var(--outline-strong)";
-              line.style.opacity = lit ? "1" : "0.22";
+          const t = Math.min(1, Math.max(0, (trigDist - branch.junctionDist) / branch.fillWindow));
+          const branchOffset = `${branchLength * (1 - t)}`;
+          lit.style.strokeDashoffset = branchOffset;
+          if (branchGlow) {
+            branchGlow.style.strokeDashoffset = branchOffset;
+          }
+          if (miniBolt) {
+            if (t > 0 && t < 1) {
+              const p = lit.getPointAtLength(t * branchLength);
+              miniBolt.setAttribute("transform", `translate(${p.x} ${p.y})`);
+              miniBolt.style.opacity = "1";
+            } else {
+              miniBolt.style.opacity = "0";
             }
           }
         }
+
+        // Components, vias, and junctions only get style writes on the frame
+        // their lit state actually flips.
+        for (let i = 0; i < geometry.components.length; i += 1) {
+          const group = componentRefs.current[i];
+          if (!group) {
+            continue;
+          }
+          const passed = geometry.components[i].triggerDist <= trigDist + 1;
+          if (passed === prevLitRef.current[i]) {
+            continue;
+          }
+          prevLitRef.current[i] = passed;
+          group.style.color = passed ? "var(--primary)" : "var(--outline-strong)";
+          group.style.filter = passed ? "drop-shadow(0 0 7px var(--primary))" : "none";
+          if (passed) {
+            group.style.animation = "none";
+            void group.getBBox();
+            group.style.animation = "circuit-pop 0.5s ease";
+          } else {
+            group.style.animation = "none";
+          }
+        }
+
+        for (let i = 0; i < geometry.vias.length; i += 1) {
+          const via = viaRefs.current[i];
+          if (!via) {
+            continue;
+          }
+          const passed = geometry.vias[i].triggerDist <= trigDist + 1;
+          if (passed !== prevVia[i]) {
+            prevVia[i] = passed;
+            via.style.fill = passed ? "var(--primary)" : "var(--surface-1)";
+          }
+        }
+
+        for (let i = 0; i < geometry.junctions.length; i += 1) {
+          const junction = junctionRefs.current[i];
+          if (!junction) {
+            continue;
+          }
+          const passed = geometry.junctions[i].triggerDist <= trigDist + 1;
+          if (passed !== prevJunction[i]) {
+            prevJunction[i] = passed;
+            junction.style.fill = passed ? "var(--primary)" : "var(--outline-strong)";
+          }
+        }
+
+        // Seven-segment scroll percentage.
+        if (geometry.display) {
+          const pct = Math.round((shown / Math.max(1, realLength)) * 100);
+          if (pct !== prevPct) {
+            prevPct = pct;
+            const chars = String(pct).padStart(3, " ");
+            for (let digit = 0; digit < 3; digit += 1) {
+              const litSegments = DIGIT_SEGMENTS[chars[digit]] ?? [];
+              for (let seg = 0; seg < 7; seg += 1) {
+                const line = segmentRefs.current[digit * 7 + seg];
+                if (line) {
+                  const lit = litSegments.includes(seg);
+                  line.style.stroke = lit ? "var(--primary)" : "var(--outline-strong)";
+                  line.style.opacity = lit ? "1" : "0.22";
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Flow dashes: marching current confined to a trailing window behind
+      // the bolt, built as a bounded dash list — no mask, no filter.
+      const flow = flowPathRef.current;
+      if (flow) {
+        if (shown > 40) {
+          flowPhase = (flowPhase + dt * FLOW_SPEED) % FLOW_PERIOD;
+          const windowStart = Math.max(0, shown - FLOW_WINDOW);
+          const lead = Math.max(0, windowStart + flowPhase - FLOW_PERIOD);
+          const parts: string[] = [`0 ${lead.toFixed(1)}`];
+          for (let covered = lead; covered < shown; covered += FLOW_PERIOD) {
+            parts.push("6 14");
+          }
+          parts.push(`0 ${Math.ceil(realLength + 100)}`);
+          flow.style.strokeDasharray = parts.join(" ");
+        } else {
+          flow.style.strokeDasharray = `0 ${Math.ceil(realLength + 100)}`;
+        }
+      }
+
+      const moving = shown !== target || shown !== prevShown;
+      prevShown = shown;
+      if (moving) {
+        settledAt = now;
+        if (flow) {
+          flow.style.opacity = "1";
+        }
+        schedule();
+      } else if (now - settledAt < 1500) {
+        schedule();
+      } else if (flow) {
+        flow.style.opacity = "0";
       }
     };
 
@@ -819,7 +1051,16 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       totalLengthRef.current = length;
       litPath.style.strokeDasharray = `${length}`;
       litPath.style.strokeDashoffset = `${length}`;
+      const glow = litGlowRef.current;
+      if (glow) {
+        glow.style.strokeDasharray = `${length}`;
+        glow.style.strokeDashoffset = `${length}`;
+      }
     }
+    prevLitRef.current = new Array(geometry.components.length).fill(false);
+    // Snap to the current scroll position so rebuilds (resize, content
+    // changes) don't replay the reveal from the top.
+    shown = targetDistance();
 
     branchLengthsRef.current = geometry.branches.map((_, i) => {
       const lit = branchLitRefs.current[i];
@@ -829,6 +1070,11 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       const length = lit.getTotalLength();
       lit.style.strokeDasharray = `${length}`;
       lit.style.strokeDashoffset = `${length}`;
+      const branchGlow = branchGlowRefs.current[i];
+      if (branchGlow) {
+        branchGlow.style.strokeDasharray = `${length}`;
+        branchGlow.style.strokeDashoffset = `${length}`;
+      }
       return length;
     });
 
@@ -843,6 +1089,10 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       window.removeEventListener("resize", schedule);
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
+        // Must clear the ref: schedule() only arms a frame when this is null,
+        // so leaving a stale id here permanently wedges the loop after a
+        // geometry rebuild interrupts a mid-flight frame.
+        rafRef.current = null;
       }
     };
   }, [geometry, reducedMotion, scrollRef]);
@@ -859,14 +1109,39 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       height={geometry.height}
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
     >
+      {/* Ambient dormant network: fills the board with extra copper */}
+      {geometry.ambientPaths.map((d, index) => (
+        <path
+          key={`ambient-${index}`}
+          d={d}
+          fill="none"
+          stroke="var(--outline-strong)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          opacity="0.22"
+        />
+      ))}
+      {geometry.ambientPads.map((pad, index) => (
+        <circle
+          key={`pad-${index}`}
+          cx={pad.x}
+          cy={pad.y}
+          r="3.5"
+          fill="none"
+          stroke="var(--outline-strong)"
+          strokeWidth="1.5"
+          opacity="0.26"
+        />
+      ))}
+
       {/* Dormant trace */}
       <path
         d={geometry.path}
         fill="none"
         stroke="var(--outline-strong)"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinejoin="round"
-        opacity="0.7"
+        opacity="0.6"
       />
 
       {/* Dormant branch traces */}
@@ -876,26 +1151,65 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           d={branch.path}
           fill="none"
           stroke="var(--outline-strong)"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinejoin="round"
-          opacity="0.7"
+          opacity="0.6"
         />
       ))}
 
       {!reducedMotion ? (
         <>
-          {/* Energized portion behind the bolt */}
+          {/* Energized portion behind the bolt: soft glow underlay + bright
+              core. Two plain strokes instead of an SVG filter so per-frame
+              dashoffset updates never trigger full-page filter repaints. */}
+          <path
+            ref={litGlowRef}
+            d={geometry.path}
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.16"
+          />
           <path
             ref={litPathRef}
             d={geometry.path}
             fill="none"
             stroke="var(--primary)"
-            strokeWidth="2.5"
+            strokeWidth="3.5"
             strokeLinejoin="round"
-            style={{ filter: "drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 70%, transparent))" }}
           />
 
-          {/* Energized branch fills + mini-bolts */}
+          {/* Flowing current: marching dashes confined to a trailing window
+              behind the bolt (dasharray rebuilt per frame, no mask). */}
+          <path
+            ref={flowPathRef}
+            d={geometry.path}
+            fill="none"
+            stroke="color-mix(in srgb, var(--primary) 35%, white)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeDasharray="0 1000000"
+            style={{ opacity: 0, transition: "opacity 0.6s ease" }}
+          />
+
+          {/* Energized branch fills (glow underlay + core) + mini-bolts */}
+          {geometry.branches.map((branch, index) => (
+            <path
+              key={`branch-glow-${index}`}
+              ref={(el) => {
+                branchGlowRefs.current[index] = el;
+              }}
+              d={branch.path}
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.16"
+            />
+          ))}
           {geometry.branches.map((branch, index) => (
             <path
               key={`branch-lit-${index}`}
@@ -905,9 +1219,8 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
               d={branch.path}
               fill="none"
               stroke="var(--primary)"
-              strokeWidth="2.5"
+              strokeWidth="3"
               strokeLinejoin="round"
-              style={{ filter: "drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 70%, transparent))" }}
             />
           ))}
           {geometry.branches.map((_, index) => (
@@ -916,32 +1229,62 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
               ref={(el) => {
                 branchBoltRefs.current[index] = el;
               }}
-              r="3"
+              r="4"
               fill="var(--primary)"
-              style={{ opacity: 0, filter: "drop-shadow(0 0 6px var(--primary))" }}
+              style={{ opacity: 0, filter: "drop-shadow(0 0 7px var(--primary))" }}
             />
           ))}
 
-          {/* Traveling bolt: glow halo + bright core */}
+          {/* Traveling bolt: glow halo + bright core + radiating pulse ring */}
           <g ref={boltRef}>
-            <circle r="11" fill="var(--primary)" opacity="0.18" />
-            <circle r="6" fill="var(--primary)" opacity="0.45" />
-            <circle r="3" fill="var(--primary)" style={{ filter: "drop-shadow(0 0 8px var(--primary))" }} />
+            <circle r="16" fill="var(--primary)" opacity="0.14" />
+            <circle r="9" fill="var(--primary)" opacity="0.4" />
+            <circle r="4.5" fill="var(--primary)" style={{ filter: "drop-shadow(0 0 10px var(--primary))" }} />
+            <circle
+              r="8"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="2"
+              style={{
+                animation: "circuit-pulse 1.6s ease-out infinite",
+                transformBox: "fill-box",
+                transformOrigin: "center",
+              }}
+            />
           </g>
         </>
       ) : null}
 
-      {/* Schematic components: light up as the current passes */}
+      {/* Schematic components: light up and pop as the current passes */}
       {geometry.components.map((component, index) => (
         <g
           key={`${component.type}-${component.x.toFixed(0)}-${component.y.toFixed(0)}`}
-          ref={(el) => {
-            componentRefs.current[index] = el;
-          }}
-          transform={`translate(${component.x} ${component.y})${component.orientation === "h" ? " rotate(-90)" : ""}`}
-          style={{ color: "var(--outline-strong)", transition: "color 0.3s ease, filter 0.3s ease" }}
+          transform={`translate(${component.x} ${component.y})${
+            component.orientation === "h" ? ` rotate(${component.dir < 0 ? 90 : -90})` : ""
+          } scale(${component.scale})`}
         >
-          {symbolFor(component.type)}
+          {/* Occluder: hides the wire (and its glow/flow dashes) under the
+              symbol body so the trace reads as wired through the part. In
+              local coords the wire always runs along +y, except the
+              rectifier, which is drawn horizontally. */}
+          {component.type === "ground" ? null : component.type === "rectifier" ? (
+            <rect x={-BODY_HALF.rectifier} y={-8} width={BODY_HALF.rectifier * 2} height={16} fill="var(--background)" />
+          ) : (
+            <rect x={-8} y={-BODY_HALF[component.type]} width={16} height={BODY_HALF[component.type] * 2} fill="var(--background)" />
+          )}
+          <g
+            ref={(el) => {
+              componentRefs.current[index] = el;
+            }}
+            style={{
+              color: "var(--outline-strong)",
+              transition: "color 0.3s ease",
+              transformBox: "fill-box",
+              transformOrigin: "center",
+            }}
+          >
+            {symbolFor(component.type)}
+          </g>
         </g>
       ))}
 
@@ -954,7 +1297,7 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           }}
           cx={via.x}
           cy={via.y}
-          r="4"
+          r="5"
           fill="var(--surface-1)"
           stroke="var(--outline-strong)"
           strokeWidth="2"
@@ -971,7 +1314,7 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           }}
           cx={junction.x}
           cy={junction.y}
-          r="3"
+          r="4"
           fill="var(--outline-strong)"
           style={{ transition: "fill 0.3s ease" }}
         />
@@ -979,7 +1322,7 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
 
       {/* Seven-segment scroll readout */}
       {geometry.display ? (
-        <g transform={`translate(${geometry.display.x} ${geometry.display.y})`}>
+        <g transform={`translate(${geometry.display.x} ${geometry.display.y}) scale(1.6)`}>
           {[0, 1, 2].map((digit) =>
             SEGMENT_LINES.map(([x1, y1, x2, y2], seg) => (
               <line
