@@ -10,3 +10,7 @@ node-local
 !.env.example
 .claude/
 CLAUDE.md
+
+# generated artifacts
+graphify-out/
+output/
