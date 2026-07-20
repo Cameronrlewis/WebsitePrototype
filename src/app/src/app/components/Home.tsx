@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowRight,
@@ -17,7 +17,6 @@ import {
 import {
   featuredBoardProjects,
   getOrganizationById,
-  latestUpdate,
   organizationKindLabel,
   profile,
   socialLinks,
@@ -51,47 +50,10 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
   const emailLink = socialLinks.find((l) => l.label === "Email")!;
   const githubLink = socialLinks.find((l) => l.label === "GitHub")!;
   const linkedInLink = socialLinks.find((l) => l.label === "LinkedIn")!;
-  const [typedText, setTypedText] = useState("");
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [activeBoardIndex, setActiveBoardIndex] = useState(0);
 
-  const currentPhrase = useMemo(
-    () => profile.typedPhrases[phraseIndex % profile.typedPhrases.length],
-    [phraseIndex],
-  );
   const activeProject = featuredBoardProjects[activeBoardIndex] ?? featuredBoardProjects[0] ?? null;
   const featuredOrganization = activeProject ? getOrganizationById(activeProject.organizationId) : null;
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setTypedText(currentPhrase);
-      return;
-    }
-
-    const speed = isDeleting ? 36 : 58;
-    const timeout = window.setTimeout(() => {
-      if (!isDeleting && typedText.length < currentPhrase.length) {
-        setTypedText(currentPhrase.slice(0, typedText.length + 1));
-        return;
-      }
-
-      if (!isDeleting && typedText.length === currentPhrase.length) {
-        setIsDeleting(true);
-        return;
-      }
-
-      if (isDeleting && typedText.length > 0) {
-        setTypedText(currentPhrase.slice(0, typedText.length - 1));
-        return;
-      }
-
-      setIsDeleting(false);
-      setPhraseIndex((value) => value + 1);
-    }, typedText === currentPhrase && !isDeleting ? 1300 : speed);
-
-    return () => window.clearTimeout(timeout);
-  }, [currentPhrase, isDeleting, typedText]);
 
   const cycleFeaturedBoard = (direction: -1 | 1) => {
     if (featuredBoardProjects.length <= 1) {
@@ -113,27 +75,6 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
           <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3.1rem]">
             Hello, I&apos;m {profile.name}.
           </h1>
-          <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-            {typedText}
-            <span aria-hidden="true" className="ml-1 inline-block h-5 w-px animate-pulse bg-primary/60 align-[-2px]" />
-          </p>
-
-          {latestUpdate ? (
-            <button
-              type="button"
-              onClick={() => onNavigate("updates")}
-              className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-1.5 text-sm text-[var(--text-soft)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-strong)]"
-            >
-              <span className="relative flex size-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
-                <span className="relative inline-flex size-2 rounded-full bg-primary" />
-              </span>
-              <span className="truncate">
-                Now: {latestUpdate.title} · {latestUpdate.week ?? latestUpdate.period}
-              </span>
-              <ArrowRight className="size-3.5 shrink-0" />
-            </button>
-          ) : null}
         </div>
       </motion.section>
 
