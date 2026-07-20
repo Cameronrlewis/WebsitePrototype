@@ -1,14 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Deep blue-charcoal tile matching the site's dark surface -->
+  <defs>
+    <!-- Copper trace gradient: signal-orange core with a warm highlight -->
+    <linearGradient id="cu" x1="16" y1="12" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb27a" />
+      <stop offset="0.45" stop-color="#ff6b35" />
+      <stop offset="1" stop-color="#e04e1c" />
+    </linearGradient>
+    <radialGradient id="glow" cx="32" cy="32" r="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff6b35" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#ff6b35" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Board tile matching the site's dark surface -->
   <rect width="64" height="64" rx="14" fill="#10141c" />
-  <!-- Faint copper glow behind the bolt -->
-  <circle cx="33" cy="32" r="22" fill="#ff6b35" opacity="0.14" />
-  <!-- Signal-orange lightning bolt -->
+  <!-- Soldermask glow behind the trace -->
+  <circle cx="32" cy="32" r="26" fill="url(#glow)" />
+
+  <!-- "C" routed as a PCB copper trace: 45-degree mitred corners like real routing -->
   <path
-    d="M37 4 L12 38 L27.5 38 L25 60 L52 25 L34.5 25 Z"
-    fill="#ff6b35"
-    stroke="#ff8a5c"
-    stroke-width="1.5"
+    d="M46 17 L27 17 L17 27 L17 37 L27 47 L46 47"
+    fill="none"
+    stroke="url(#cu)"
+    stroke-width="7.5"
+    stroke-linecap="round"
     stroke-linejoin="round"
   />
+
+  <!-- Through-hole vias terminating each trace end (copper annular ring + drilled hole) -->
+  <g>
+    <circle cx="46" cy="17" r="6.5" fill="url(#cu)" />
+    <circle cx="46" cy="17" r="2.6" fill="#10141c" />
+    <circle cx="46" cy="47" r="6.5" fill="url(#cu)" />
+    <circle cx="46" cy="47" r="2.6" fill="#10141c" />
+  </g>
 </svg>
