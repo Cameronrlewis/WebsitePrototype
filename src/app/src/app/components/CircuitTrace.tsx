@@ -375,23 +375,32 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const emitShuntStub = (x: number, y: number, capType: OverlayType | null) => {
     const tapDist = pb.dist;
     junctions.push({ x, y, triggerDist: tapDist });
+    // Jog to the side first so the cap+ground read as a parallel shunt off the
+    // bus, not a part sitting in series on the descending trunk.
+    const off = x - 30 >= LEFT_X + 4 ? -30 : 30;
+    const sx = x + off;
     const endY = y + (capType ? 32 : 22);
     const bb = createPathBuilder(x, y);
-    bb.lineTo(x, endY);
+    bb.lineTo(sx, y);
+    bb.lineTo(sx, endY);
     branches.push({ path: bb.d, junctionDist: tapDist, length: bb.dist, fillWindow: Math.max(1, bb.dist) });
     if (capType) {
-      components.push({ x, y: y + 13, type: capType, orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + 5, scale: 1.4 });
-      texts.push({ x: x + 13, y: y + 17, text: refdes("C"), size: 9 });
+      components.push({ x: sx, y: y + 13, type: capType, orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + Math.abs(off) + 5, scale: 1.4 });
+      texts.push({ x: sx + 13, y: y + 17, text: refdes("C"), size: 9 });
     }
-    components.push({ x, y: endY, type: "gndvia", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + (capType ? 11 : 6), scale: 1.4 });
-    texts.push({ x: x + 9, y: endY + 4, text: "GND", size: 8 });
+    components.push({ x: sx, y: endY, type: "gndvia", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + Math.abs(off) + (capType ? 11 : 6), scale: 1.4 });
+    texts.push({ x: sx + 9, y: endY + 4, text: "GND", size: 8 });
   };
 
   // Load-stage indicator leg: R→LED→GND stub tapped off the bus.
   const emitIndicatorStub = (x: number, y: number, dir: number) => {
     const tapDist = pb.dist;
     junctions.push({ x, y, triggerDist: tapDist });
-    const bx = dir === 0 ? x : Math.min(rightX, Math.max(LEFT_X, x + dir * between(40, 90)));
+    const bx = dir === 0 ? x : Math.min(rightX, Math.max(LEFT_X, x + dir * between(60, 110)));
+    // Reserve the branch column so no descending bus/rail runs over its parts.
+    if (bx !== x) {
+      railColumns.push(bx);
+    }
     const bb = createPathBuilder(x, y);
     if (bx !== x) {
       bb.lineTo(bx, y);
@@ -407,8 +416,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const fillWindow = 140;
     components.push({ x: bx, y: ledY, type: "led", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + (ledLocal / bb.dist) * fillWindow, scale: 1.4 });
     texts.push({ x: bx + 15, y: ledY + 4, text: refdes("D"), size: 9 });
-    components.push({ x: bx, y: ledY + 17, type: "gndvia", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + fillWindow, scale: 1.4 });
-    texts.push({ x: bx + 9, y: ledY + 21, text: "GND", size: 8 });
+    components.push({ x: bx, y: ledY + 17, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + fillWindow, scale: 1.4 });
     branches.push({ path: bb.d, junctionDist: tapDist, length: bb.dist, fillWindow });
   };
 
@@ -572,8 +580,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         }
         // Each rail returns to ground on its own via (after its series
         // loads) — no shared collector shorting the live rails together.
-        components.push({ x: homeX, y: groundY, type: "gndvia", orientation: "v", dir: 1, role: "shunt", triggerDist: jd + fillWindow, scale: 1.6 });
-        texts.push({ x: homeX + 10, y: groundY + 4, text: "GND", size: 8 });
+        components.push({ x: homeX, y: groundY, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: jd + fillWindow, scale: 1.6 });
       }
     }
   };
@@ -583,10 +590,27 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const emitRectifierBlock = (y: number, s: number) => {
     const jd = pb.dist;
     junctions.push({ x: pb.x, y, triggerDist: jd });
-    const bc = createPathBuilder(pb.x, y);
     const cxc = pb.x + 100 * s;
+    // A transformer is a magnetic break, so the lit chain covers the DC side
+    // only (secondary/bridge → +12V); the primary is fed by two leads that tap
+    // the main bus (below), never a single wire piercing the transformer.
+    const bc = createPathBuilder(cxc + 14 * s, y);
     bc.lineTo(cxc + 100 * s, y);
-    const bi = pushNet(bc, jd, 1100, []);
+    const bi = pushNet(bc, jd, 800, []);
+    // Transformer primary: two horizontal leads whose vertical runs ride the
+    // main bus and whose horizontals stem into the primary terminals.
+    junctions.push({ x: pb.x, y: y - 14 * s, triggerDist: jd });
+    junctions.push({ x: pb.x, y: y + 14 * s, triggerDist: jd });
+    {
+      const pTop = createPathBuilder(pb.x, y);
+      pTop.lineTo(pb.x, y - 14 * s);
+      pTop.lineTo(cxc - 68 * s, y - 14 * s);
+      pushNet(pTop, jd, 380, [], 0);
+      const pBot = createPathBuilder(pb.x, y);
+      pBot.lineTo(pb.x, y + 14 * s);
+      pBot.lineTo(cxc - 68 * s, y + 14 * s);
+      pushNet(pBot, jd, 380, [], 40);
+    }
     components.push({
       x: cxc,
       y,
@@ -645,8 +669,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     // EN strap tied to VIN.
     {
       const bb = createPathBuilder(X(-64), y);
-      bb.lineTo(X(-64), Y(16));
-      bb.lineTo(X(-30), Y(16));
+      bb.lineTo(X(-64), Y(14));
+      bb.lineTo(X(-38), Y(14));
       pushNet(bb, jd, 420, [], (enAt / bc.dist) * 1300);
     }
     // Input cap → GND via.
@@ -666,8 +690,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     }
     // Bottom pins: SS soft-start, GND stitch, COMP RC — spread wide.
     {
-      const bb = createPathBuilder(X(-24), Y(22));
-      bb.lineTo(X(-24), Y(52));
+      const bb = createPathBuilder(X(-14), Y(28));
+      bb.lineTo(X(-14), Y(52));
       bb.lineTo(X(-44), Y(52));
       bb.lineTo(X(-44), Y(88));
       pushNet(
@@ -675,8 +699,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         jd,
         1150,
         [
-          { x: X(-44), y: Y(68), type: "capacitor", at: (30 + 20 + 16) * s, scale: ps, ref: refdes("C"), refDx: -28 },
-          { x: X(-44), y: Y(88), type: "gndvia", at: (30 + 20 + 36) * s, scale: ps },
+          { x: X(-44), y: Y(68), type: "capacitor", at: (24 + 30 + 16) * s, scale: ps, ref: refdes("C"), refDx: -28 },
+          { x: X(-44), y: Y(88), type: "gndvia", at: (24 + 30 + 36) * s, scale: ps },
         ],
         500,
       );
@@ -687,16 +711,16 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       pushNet(bb, jd, 460, [{ x: X(0), y: Y(48), type: "gndvia", at: 26 * s, scale: ps }], 450);
     }
     {
-      const bb = createPathBuilder(X(24), Y(22));
-      bb.lineTo(X(24), Y(96));
+      const bb = createPathBuilder(X(14), Y(28));
+      bb.lineTo(X(14), Y(96));
       pushNet(
         bb,
         jd,
         1350,
         [
-          { x: X(24), y: Y(40), type: "res", at: 18 * s, scale: ps, ref: refdes("R") },
-          { x: X(24), y: Y(68), type: "capacitor", at: 46 * s, scale: ps, ref: refdes("C") },
-          { x: X(24), y: Y(96), type: "gndvia", at: 74 * s, scale: ps },
+          { x: X(14), y: Y(44), type: "res", at: 16 * s, scale: ps, ref: refdes("R") },
+          { x: X(14), y: Y(68), type: "capacitor", at: 40 * s, scale: ps, ref: refdes("C") },
+          { x: X(14), y: Y(96), type: "gndvia", at: 68 * s, scale: ps },
         ],
         600,
       );
@@ -866,8 +890,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     // +1V8 output test point (gives the rail a real terminal, not a
     // floating label).
     components.push({ x: X(92), y, type: "testpoint", orientation: "v", dir: 1, triggerDist: jd, scale: ps, branchIndex: chain, branchFrac: coutAt / bc.dist });
-    texts.push({ x: X(92) + 9, y: y - 18, text: refdes("TP"), size: 9 });
-    netFlags.push({ x: X(92) + 34, y: y - 14, text: "+1V8", triggerDist: jd });
+    netFlags.push({ x: X(92), y: y - 30, text: "+1V8", triggerDist: jd });
     for (const lx of [-36, 0, 64]) {
       railColumns.push(X(lx));
     }
@@ -891,7 +914,6 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     bc.lineTo(X(43), y);
     bc.lineTo(X(66), y);
     const ledAt = bc.dist;
-    bc.lineTo(X(86), y);
     const chain = pushNet(bc, jd, 1000, []);
     components.push({ x: X(0), y, type: "mcu", orientation: "v", dir: 1, triggerDist: jd, scale: s, branchIndex: chain, branchFrac: decAt / bc.dist });
     junctions.push({ x: X(-66), y, triggerDist: jd });
@@ -912,47 +934,47 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     }
     {
       const bb = createPathBuilder(X(-66), y);
-      bb.lineTo(X(-66), Y(-20));
-      bb.lineTo(X(-35), Y(-20));
+      bb.lineTo(X(-66), Y(-16));
+      bb.lineTo(X(-43), Y(-16));
       pushNet(
         bb,
         jd,
         850,
-        [{ x: X(-50), y: Y(-20), type: "res", orientation: "h", at: (20 + 16) * s, scale: ps, ref: refdes("R"), refDy: -10 }],
+        [{ x: X(-54), y: Y(-16), type: "res", orientation: "h", at: (16 + 12) * s, scale: ps, ref: refdes("R"), refDy: -10 }],
         (decAt / bc.dist) * 1000 + 150,
       );
     }
     // Crystal cluster, spread deeper.
     {
       const cyRow = Y(58);
-      const left = createPathBuilder(X(-14), Y(28));
-      left.lineTo(X(-14), cyRow);
-      left.lineTo(X(-14), cyRow + 20 * s);
+      const left = createPathBuilder(X(-12), Y(34));
+      left.lineTo(X(-12), cyRow);
+      left.lineTo(X(-12), cyRow + 20 * s);
       pushNet(
         left,
         jd,
         900,
         [
-          { x: X(-14), y: cyRow + 10 * s, type: "capacitor", at: 40 * s, scale: ps, ref: refdes("C"), refDx: -28 },
-          { x: X(-14), y: cyRow + 20 * s, type: "gndvia", at: 999, scale: ps },
+          { x: X(-12), y: cyRow + 10 * s, type: "capacitor", at: 40 * s, scale: ps, ref: refdes("C"), refDx: -28 },
+          { x: X(-12), y: cyRow + 20 * s, type: "gndvia", at: 999, scale: ps },
         ],
         600,
       );
-      const right = createPathBuilder(X(14), Y(28));
-      right.lineTo(X(14), cyRow);
-      right.lineTo(X(14), cyRow + 20 * s);
+      const right = createPathBuilder(X(12), Y(34));
+      right.lineTo(X(12), cyRow);
+      right.lineTo(X(12), cyRow + 20 * s);
       pushNet(
         right,
         jd,
         1050,
         [
-          { x: X(14), y: cyRow + 10 * s, type: "capacitor", at: 40 * s, scale: ps, ref: refdes("C") },
-          { x: X(14), y: cyRow + 20 * s, type: "gndvia", at: 999, scale: ps },
+          { x: X(12), y: cyRow + 10 * s, type: "capacitor", at: 40 * s, scale: ps, ref: refdes("C") },
+          { x: X(12), y: cyRow + 20 * s, type: "gndvia", at: 999, scale: ps },
         ],
         650,
       );
-      const cross = createPathBuilder(X(-14), cyRow);
-      cross.lineTo(X(14), cyRow);
+      const cross = createPathBuilder(X(-12), cyRow);
+      cross.lineTo(X(12), cyRow);
       pushNet(
         cross,
         jd,
@@ -963,9 +985,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     }
     // GND stitch.
     {
-      const bb = createPathBuilder(X(32), Y(28));
-      bb.lineTo(X(32), Y(46));
-      pushNet(bb, jd, 420, [{ x: X(32), y: Y(46), type: "gndvia", at: 18 * s, scale: ps }], 500);
+      const bb = createPathBuilder(X(24), Y(34));
+      bb.lineTo(X(24), Y(52));
+      pushNet(bb, jd, 420, [{ x: X(24), y: Y(52), type: "gndvia", at: 18 * s, scale: ps }], 500);
     }
     // Status LED leg off IO2.
     {
@@ -1040,26 +1062,32 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         420 + i * 160,
       );
     }
-    // Oscillator into CLK (top-left pin).
+    // Oscillator into CLK: out the pin then up so the can + wire are exposed
+    // and light on reveal, instead of a hidden hop behind another net.
     {
-      const bb = createPathBuilder(X(-92), Y(-30));
-      bb.lineTo(X(-55), Y(-30));
+      const bb = createPathBuilder(X(-63), Y(-30));
+      bb.lineTo(X(-92), Y(-30));
+      bb.lineTo(X(-92), Y(-64));
       pushNet(
         bb,
         jd,
         520,
-        [{ x: X(-104), y: Y(-30), type: "oscbox", at: 2, scale: ps, ref: refdes("X"), refDy: -18 }],
+        [{ x: X(-92), y: Y(-64), type: "oscbox", at: (29 + 34) * s, scale: ps, ref: refdes("X"), refDy: -14 }],
         700,
       );
     }
     // SPI config flash: 4-wire harness down to the flash package.
     {
       const flashY = Y(78);
+      // Flash top-pin columns (symbol pins at -13.5,-4.5,4.5,13.5 * ps around X(21)).
+      const flashPinX = (i: number) => X(21) + (-13.5 + i * 9) * ps;
       let firstHarness = -1;
       for (let i = 0; i < 4; i += 1) {
         const lx = 8 + i * 9;
-        const bb = createPathBuilder(X(lx), Y(44));
-        bb.lineTo(X(lx), flashY - 12 * ps);
+        const bb = createPathBuilder(X(lx), Y(50));
+        bb.lineTo(X(lx), flashY - 28 * ps);
+        bb.lineTo(flashPinX(i), flashY - 28 * ps);
+        bb.lineTo(flashPinX(i), flashY - 18 * ps);
         const hi = pushNet(bb, jd, 320, [], 360 + i * 60);
         if (i === 0) {
           firstHarness = hi;
@@ -1104,7 +1132,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     for (const lx of [-75, -30, -8, 8, 17, 26, 35, 84]) {
       railColumns.push(X(lx));
     }
-    addBox(X(-104), Y(-58), X(84), Y(80));
+    addBox(X(-104), Y(-72), X(84), Y(80));
   };
 
   // ——— 555 astable block: NE555 with the classic R→R→C timing ladder and
@@ -1277,7 +1305,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const usableGaps = gaps.filter((gap) => gap.bottom - gap.top >= 70);
 
   // The chain starts at the mains.
-  netFlags.push({ x: pb.x, y: 8, text: "AC IN", triggerDist: 0 });
+  netFlags.push({ x: pb.x + 34, y: 8, text: "AC IN", triggerDist: 0 });
 
   usableGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
@@ -1335,7 +1363,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   emitWander(groundY);
 
   // Ground return: the bus visibly ends at a ground via.
-  components.push({ x: pb.x, y: groundY + 18, type: "gndvia", orientation: "v", dir: 1, role: "shunt", triggerDist: pb.dist, scale: 1.7 });
+  components.push({ x: pb.x, y: groundY + 18, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: pb.dist, scale: 1.7 });
   netFlags.push({ x: pb.x + 30, y: groundY - 4, text: "GND", triggerDist: pb.dist });
 
   // Now that every IC keep-out box exists, route the pass-through rails so
@@ -1511,8 +1539,8 @@ function symbolFor(type: OverlayType, sub: string[] = []): ReactNode {
       return (
         <>
           <circle cx="0" cy="-8" r="2" fill="currentColor" />
-          <circle cx="0" cy="8" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="0" y1="-8" x2="9" y2="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="0" y1="-8" x2="2" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="0" cy="8" r="2" fill="currentColor" />
         </>
       );
     case "battery":
@@ -1594,26 +1622,29 @@ function symbolFor(type: OverlayType, sub: string[] = []): ReactNode {
       // smoothing cap and load resistor shunted to ground off the DC rail.
       return (
         <>
-          {/* AC input lead */}
-          <line x1="-78" y1="0" x2="-68" y2="0" stroke="currentColor" strokeWidth="1.5" />
-          {/* Transformer */}
-          <g transform="translate(-58 0)">
-            <path d="M-5 -12 Q-12 -9 -5 -6 Q-12 -3 -5 0 Q-12 3 -5 6 Q-12 9 -5 12" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M5 -12 Q12 -9 5 -6 Q12 -3 5 0 Q12 3 5 6 Q12 9 5 12" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <line x1="-1.5" y1="-12" x2="-1.5" y2="12" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="1.5" y1="-12" x2="1.5" y2="12" stroke="currentColor" strokeWidth="1.2" />
-          </g>
-          <line x1="-46" y1="0" x2="-34" y2="0" stroke="currentColor" strokeWidth="1.5" />
+          {/* Primary terminals (-68,±14) are fed by two bus leads drawn in emit */}
+          {/* Transformer: primary (left) + secondary (right) windings, core between */}
+          <path d="M-68 -14 Q-61 -10 -68 -6 Q-61 -2 -68 2 Q-61 6 -68 10 Q-61 14 -68 14" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M-48 -14 Q-55 -10 -48 -6 Q-55 -2 -48 2 Q-55 6 -48 10 Q-55 14 -48 14" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <line x1="-59" y1="-14" x2="-59" y2="14" stroke="currentColor" strokeWidth="1.1" />
+          <line x1="-57" y1="-14" x2="-57" y2="14" stroke="currentColor" strokeWidth="1.1" />
+          {/* Secondary: two leads routed up/down to the bridge top/bottom nodes,
+              clear of the diodes */}
+          <line x1="-48" y1="-14" x2="-48" y2="-20" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="-48" y1="-20" x2="-10" y2="-20" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="-48" y1="14" x2="-48" y2="20" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="-48" y1="20" x2="-10" y2="20" stroke="currentColor" strokeWidth="1.5" />
           {/* Diode bridge diamond */}
           <line x1="-34" y1="0" x2="-10" y2="-20" stroke="currentColor" strokeWidth="1.5" />
           <line x1="-10" y1="-20" x2="14" y2="0" stroke="currentColor" strokeWidth="1.5" />
           <line x1="-34" y1="0" x2="-10" y2="20" stroke="currentColor" strokeWidth="1.5" />
           <line x1="-10" y1="20" x2="14" y2="0" stroke="currentColor" strokeWidth="1.5" />
           {[
-            { x: -22, y: -10, angle: -40 },
+            // T→R and B→R point into DC+ (right); L→T and L→B point out of DC- (left)
             { x: 2, y: -10, angle: 40 },
-            { x: -22, y: 10, angle: 40 },
             { x: 2, y: 10, angle: -40 },
+            { x: -22, y: -10, angle: -40 },
+            { x: -22, y: 10, angle: 40 },
           ].map(({ x, y, angle }) => (
             <g key={`${x}-${y}`} transform={`translate(${x} ${y}) rotate(${angle})`}>
               <path d="M-4 -4 L-4 4 L4 0 Z" fill="currentColor" />
@@ -1628,7 +1659,12 @@ function symbolFor(type: OverlayType, sub: string[] = []): ReactNode {
           ].map(([cx, cy]) => (
             <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2" fill="currentColor" />
           ))}
-          {/* DC rail */}
+          {/* DC- return from the left node down to ground */}
+          <line x1="-34" y1="0" x2="-34" y2="10" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="-40" y1="10" x2="-28" y2="10" stroke="currentColor" strokeWidth="1.8" />
+          <line x1="-37" y1="13" x2="-31" y2="13" stroke="currentColor" strokeWidth="1.8" />
+          <line x1="-35" y1="16" x2="-33" y2="16" stroke="currentColor" strokeWidth="1.8" />
+          {/* DC+ rail */}
           <line x1="14" y1="0" x2="78" y2="0" stroke="currentColor" strokeWidth="1.5" />
           {/* Smoothing capacitor to ground */}
           <line x1="34" y1="0" x2="34" y2="8" stroke="currentColor" strokeWidth="1.5" />
@@ -2501,7 +2537,11 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           fontSize={t.size}
           fontFamily="monospace"
           fill="var(--text-muted)"
-          opacity="0.55"
+          opacity="0.9"
+          paintOrder="stroke"
+          stroke="var(--background)"
+          strokeWidth={3}
+          strokeLinejoin="round"
         >
           {t.text}
         </text>
