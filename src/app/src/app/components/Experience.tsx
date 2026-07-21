@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 
 import { experience } from "../data/portfolio";
+import { SectionHeader } from "./SectionHeader";
 
 const CARD_PADDING = 24;
 const MARKER_SHELL_SIZE = 40;
@@ -14,16 +15,12 @@ interface ExperienceProps {
 export function Experience({ onOpenOrganization }: ExperienceProps) {
   return (
     <div className="space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-      >
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Work Experience</h1>
-        <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-          Internships, team projects, and hands-on hardware work across PCB design, documentation, and embedded systems.
-        </p>
-      </motion.section>
+      <SectionHeader
+        index="02"
+        kicker="Experience"
+        title="Work Experience"
+        intro="Internships, team projects, and hands-on hardware work across PCB design, documentation, and embedded systems."
+      />
 
       <div className="relative space-y-0">
         <div className="absolute left-[20px] top-0 hidden h-full w-px bg-[var(--text-strong)] lg:block" />
@@ -56,7 +53,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                 />
               </div>
 
-              <div className="rounded-[18px] border-2 border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]">
+              <div className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
                   <div className="flex min-w-0 flex-1 items-start gap-[14px]">
                     <img
@@ -72,7 +69,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                     />
 
                     <div className="min-w-0 flex-1">
-                      <h2 className="text-[1.65rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{entry.role}</h2>
+                      <h2 className="font-display text-[1.25rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{entry.role}</h2>
                       <p className="mt-1 text-lg text-[var(--text-body)] lg:whitespace-nowrap">{entry.company}</p>
                     </div>
                   </div>
@@ -109,7 +106,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                     <button
                       type="button"
                       onClick={() => onOpenOrganization("paradigm-engineering")}
-                      className="inline-flex shrink-0 items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-1)]"
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-1)]"
                     >
                       Team Context
                       <ArrowRight className="size-4" />

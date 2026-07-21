@@ -2,16 +2,12 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowRight,
-  Briefcase,
   ChevronLeft,
   ChevronRight,
   Download,
-  FolderKanban,
-  GraduationCap,
   Mail,
   MapPin,
   Orbit,
-  Sparkles,
 } from "lucide-react";
 
 import {
@@ -36,14 +32,9 @@ interface HomeProps {
   onOpen3D: (project: ProjectRecord) => void;
 }
 
-const statIcons = {
-  GPA: GraduationCap,
-  Projects: FolderKanban,
-  Experience: Briefcase,
-  "Grad Date": Sparkles,
-} as const;
-
 const HEADSHOT = "/portfolio/assets/headshot.jpg";
+
+const FOCUS_AREAS = "PCB Design · Embedded Systems · Hardware";
 
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
@@ -69,12 +60,54 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+        className="pt-8 lg:pt-12"
       >
-        <div>
-          <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3.1rem]">
-            Hello, I&apos;m {profile.name}.
-          </h1>
+        <div className="flex items-center gap-4">
+          <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-[0.28em] text-primary">
+            {FOCUS_AREAS}
+          </span>
+          <span className="h-px flex-1 bg-[var(--outline-soft)]" aria-hidden="true" />
+        </div>
+
+        <h1 className="mt-5 font-display text-[2.6rem] font-bold leading-[1.03] tracking-[-0.03em] text-[var(--text-strong)] sm:text-[3.6rem]">
+          {profile.name}
+        </h1>
+
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[var(--text-body)]">
+          {profile.summary}
+        </p>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onNavigate("projects")}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-button)] transition-transform hover:-translate-y-0.5"
+          >
+            View Projects
+            <ArrowRight className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenResume}
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-5 py-2.5 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+          >
+            <Download className="size-4" />
+            Resume
+          </button>
+        </div>
+
+        <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-[color:var(--outline-soft)] pt-6 sm:grid-cols-4">
+          {stats.map((stat) => (
+            <div key={stat.label}>
+              <div className="font-display text-[1.7rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
+                {stat.value}
+              </div>
+              <div className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-primary">
+                {stat.label}
+              </div>
+              <div className="mt-0.5 text-xs text-[var(--text-muted)]">{stat.detail}</div>
+            </div>
+          ))}
         </div>
       </motion.section>
 
@@ -82,7 +115,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.04 }}
-        className="overflow-hidden rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-card)]"
+        className="overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-card)]"
       >
         <div className="flex flex-col lg:flex-row lg:items-stretch">
           <div className="flex flex-1 flex-col gap-5 p-6 lg:flex-row lg:items-start">
@@ -91,8 +124,9 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
             </div>
 
             <div className="min-w-0 flex-1">
-              <h2 className="text-[1.9rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">About Me</h2>
-              <p className="mt-3 max-w-4xl text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.05rem]">
+              <span className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">About</span>
+              <h2 className="mt-2 font-display text-[1.6rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">Who I am</h2>
+              <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--text-soft)]">
                 {profile.about[0]}
               </p>
 
@@ -112,7 +146,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   href={githubLink.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
                 >
                   <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
@@ -123,7 +157,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   href={linkedInLink.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
                 >
                   <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
@@ -133,7 +167,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 <button
                   type="button"
                   onClick={onOpenResume}
-                  className="inline-flex items-center gap-2 rounded-[0.85rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
                 >
                   <Download className="size-4 shrink-0" />
                   My Resume
@@ -163,58 +197,21 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         </div>
       </motion.section>
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-6">
-        {stats.map((stat, index) => {
-          const Icon = statIcons[stat.label as keyof typeof statIcons] ?? Sparkles;
-          const inverted = index === stats.length - 1;
-          const wide = index === 0 || inverted;
-
-          return (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, delay: 0.08 + index * 0.05 }}
-              className={`${wide ? "xl:col-span-2" : "xl:col-span-1"} ${
-                inverted
-                  ? "rounded-[1rem] bg-primary p-5 text-primary-foreground shadow-[var(--shadow-button)]"
-                  : "rounded-[1.6rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-5 shadow-[var(--shadow-soft)]"
-              }`}
-            >
-              <div className="flex h-full items-start justify-between gap-4">
-                <div>
-                  <p className={`text-sm ${inverted ? "text-primary-foreground/75" : "text-[var(--text-muted)]"}`}>{stat.label}</p>
-                  <div className={`mt-1 text-[2.05rem] font-semibold tracking-[-0.04em] ${inverted ? "text-primary-foreground" : "text-[var(--text-strong)]"}`}>{stat.value}</div>
-                  <p className={`mt-1 text-sm ${inverted ? "text-primary-foreground/75" : "text-[var(--text-muted)]"}`}>{stat.detail}</p>
-                </div>
-                <div
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
-                    inverted ? "bg-primary-foreground/15 text-primary-foreground" : "bg-[var(--surface-4)] text-[var(--text-strong)]"
-                  }`}
-                >
-                  <Icon className="size-5" />
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </section>
-
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.12 }}
-        className="rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+        className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
       >
         {activeProject ? (
           <>
             <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 font-medium text-primary-foreground shadow-[var(--shadow-button)]">
-                  <Sparkles className="size-3.5" />
+                <span className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">
                   Featured Board
                 </span>
-                <span className="text-[var(--text-muted)]">{activeProject.category}</span>
+                <span className="size-1 rounded-full bg-[var(--text-muted)]" aria-hidden="true" />
+                <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">{activeProject.category}</span>
               </div>
 
               {featuredBoardProjects.length > 1 ? (
@@ -243,7 +240,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
               <button
                 type="button"
                 onClick={() => onOpen3D(activeProject)}
-                className="group block w-full overflow-hidden rounded-[1.75rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] text-left shadow-[var(--shadow-strong)]"
+                className="group block w-full overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] text-left shadow-[var(--shadow-strong)]"
               >
                 <div className="relative min-h-[18rem] overflow-hidden lg:min-h-[22rem]">
                   {(activeProject.cardImg ?? activeProject.bannerImg) ? (
@@ -271,7 +268,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 px-6 py-5 text-white">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-white/60">Interactive Preview</p>
+                      <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/60">Interactive Preview</p>
                       <p className="mt-1 text-lg font-semibold">Click to view 3D model</p>
                       <p className="mt-2 text-sm text-white/78">Open the board viewer directly from the home page.</p>
                     </div>
@@ -284,7 +281,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
               </button>
 
               <div className="max-w-xl">
-                <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.05em] text-[var(--text-strong)] sm:text-[2.35rem]">
+                <h2 className="font-display text-[1.7rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2rem]">
                   {activeProject.title}
                 </h2>
 
@@ -293,7 +290,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                     <button
                       type="button"
                       onClick={() => onOpenOrganization(activeProject)}
-                      className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-3 py-2 text-left transition-colors hover:bg-[var(--surface-1)]"
+                      className="flex items-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-3 py-2 text-left transition-colors hover:bg-[var(--surface-1)]"
                     >
                       <OrganizationAvatar organization={featuredOrganization} size="sm" tone={theme === "dark" ? "dark" : "light"} />
                       <div>
@@ -337,7 +334,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
 
                 <div className="mt-7 flex flex-wrap gap-3">
                   <Button
-                    className="rounded-[1rem] px-5 shadow-[var(--shadow-button)]"
+                    className="rounded-xl px-5 shadow-[var(--shadow-button)]"
                     onClick={() => onOpenProject(activeProject)}
                   >
                     View Full Project
@@ -345,7 +342,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   </Button>
                   <Button
                     variant="outline"
-                    className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-5 text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
+                    className="rounded-xl border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-5 text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
                     onClick={onOpenResume}
                   >
                     <Download className="size-4" />
@@ -353,7 +350,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                   </Button>
                   <Button
                     variant="outline"
-                    className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-5 text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
+                    className="rounded-xl border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-5 text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
                     onClick={() => onNavigate("projects")}
                   >
                     All Projects

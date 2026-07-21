@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Cpu, Lightbulb, Waves, Wrench } from "lucide-react";
 
 import { skillSets, softSkills } from "../data/portfolio";
+import { SectionHeader } from "./SectionHeader";
 import { Button } from "./ui/button";
 
 const emphasisCards = [
@@ -28,16 +29,12 @@ export function Skills() {
 
   return (
     <div className="space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-      >
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Skills</h1>
-        <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-          Electrical and software tools, plus the working habits that show up consistently across projects.
-        </p>
-      </motion.section>
+      <SectionHeader
+        index="04"
+        kicker="Skills"
+        title="Skills"
+        intro="Electrical and software tools, plus the working habits that show up consistently across projects."
+      />
 
       <div className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1 shadow-[var(--shadow-soft)]">
         <Button
@@ -68,7 +65,7 @@ export function Skills() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.04 }}
-        className="rounded-[1.9rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+        className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
       >
         <div className="flex flex-wrap gap-3">
           {skillSets[currentTrack].map((skill) => (
@@ -91,14 +88,14 @@ export function Skills() {
               transition={{ duration: 0.28, delay: index * 0.06 }}
               className={
                 index === 0
-                  ? "rounded-[2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-7 shadow-[var(--shadow-card)]"
-                  : "rounded-[1.2rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
+                  ? "rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-7 shadow-[var(--shadow-card)]"
+                  : "rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
               }
             >
-              <div className="flex size-12 items-center justify-center rounded-[1rem] bg-[var(--toggle-active-bg)] text-[var(--toggle-active-text)] shadow-[var(--shadow-button)]">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-[var(--toggle-active-bg)] text-[var(--toggle-active-text)] shadow-[var(--shadow-button)]">
                 <Icon className="size-5" />
               </div>
-              <h2 className="mt-5 text-[1.55rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{item.title}</h2>
+              <h2 className="mt-5 font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{item.title}</h2>
               <p className="mt-3 text-[0.98rem] leading-8 text-[var(--text-body)]">{item.detail}</p>
             </motion.article>
           );
@@ -109,14 +106,14 @@ export function Skills() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.12 }}
-        className="rounded-[1.9rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+        className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
       >
         <div className="flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-full bg-[var(--toggle-active-bg)] text-[var(--toggle-active-text)] shadow-[var(--shadow-button)]">
             <Lightbulb className="size-5" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">Soft Skills</h3>
+            <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-[var(--text-strong)]">Soft Skills</h3>
             <p className="text-sm text-[var(--text-soft)]">The habits that keep technical work moving well inside a team.</p>
           </div>
         </div>

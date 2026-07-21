@@ -1324,16 +1324,23 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       emitRectifierBlock(crossY, s);
       centerpieceQueue.shift();
       stage = "rail12";
+      // The trunk below the rectifier is now the +12V DC bus — the main line
+      // that carries power down into the downstream ICs (not the AC input).
+      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+12V", triggerDist: pb.dist });
     } else if (pending === "buck" && avail >= 340) {
       const s = Math.min(3.2, Math.max(1.5, avail / 300));
       emitBuckBlock(crossY, s);
       centerpieceQueue.shift();
       stage = "rail33";
+      // Trunk stepped down to the +3V3 logic rail feeding the MCU/FPGA.
+      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+3V3", triggerDist: pb.dist });
     } else if (pending === "ldo" && avail >= 240) {
       const s = Math.min(2.4, Math.max(1.3, avail / 200));
       emitLdoBlock(crossY, s);
       centerpieceQueue.shift();
       stage = "rail18";
+      // Trunk stepped down to the +1V8 core rail.
+      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+1V8", triggerDist: pb.dist });
     } else if (pending === "mcu" && avail >= 300) {
       const s = Math.min(2.4, Math.max(1.3, avail / 220));
       emitMcuBlock(crossY, s);

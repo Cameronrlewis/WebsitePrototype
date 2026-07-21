@@ -8,6 +8,7 @@ import {
 } from "../data/portfolio";
 import type { ProjectRecord } from "../data/portfolio";
 import { OrganizationAvatar } from "./OrganizationAvatar";
+import { SectionHeader } from "./SectionHeader";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "./ui/button";
 
@@ -29,44 +30,38 @@ export function Projects({
 
   return (
     <div className="space-y-7">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
-      >
-        <div>
-          <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Projects</h1>
-          <p className="mt-2 max-w-4xl text-base text-[var(--text-soft)] sm:text-lg">
-            Hardware, firmware, and simulation projects built during coursework, design team work, and independent development.
-          </p>
-        </div>
-
-        <div className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1">
-          <Button
-            size="sm"
-            onClick={() => onViewModeChange("all")}
-            className={
-              viewMode === "all"
-                ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:brightness-95"
-                : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
-            }
-          >
-            All Projects
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => onViewModeChange("featured")}
-            className={
-              viewMode === "featured"
-                ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:brightness-95"
-                : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
-            }
-          >
-            Featured
-          </Button>
-        </div>
-      </motion.section>
+      <SectionHeader
+        index="03"
+        kicker="Projects"
+        title="Projects"
+        intro="Hardware, firmware, and simulation projects built during coursework, design team work, and independent development."
+        action={
+          <div className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1">
+            <Button
+              size="sm"
+              onClick={() => onViewModeChange("all")}
+              className={
+                viewMode === "all"
+                  ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:brightness-95"
+                  : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
+              }
+            >
+              All Projects
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onViewModeChange("featured")}
+              className={
+                viewMode === "featured"
+                  ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:brightness-95"
+                  : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
+              }
+            >
+              Featured
+            </Button>
+          </div>
+        }
+      />
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {visibleProjects.map((project, index) => {
@@ -92,7 +87,7 @@ export function Projects({
                 }}
                 onMouseMove={project.viewer3d ? tiltCard : undefined}
                 onMouseLeave={project.viewer3d ? resetTilt : undefined}
-                className="group relative flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none transition-transform duration-200 ease-out will-change-transform focus-visible:ring-2 focus-visible:ring-ring/25"
+                className="group relative flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none transition-transform duration-200 ease-out will-change-transform focus-visible:ring-2 focus-visible:ring-ring/25"
               >
                 {project.viewer3d ? (
                   <div
@@ -123,7 +118,7 @@ export function Projects({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent_60%)]">
-                      <div className="flex size-20 items-center justify-center rounded-[1.4rem] bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
+                      <div className="flex size-20 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
                         <span className="text-3xl">{fallbackProjectGlyph(project)}</span>
                       </div>
                     </div>
@@ -158,7 +153,7 @@ export function Projects({
 
                 <div className="flex flex-1 flex-col p-5">
                   {organization ? (
-                    <div className="mb-4 flex items-start justify-between gap-3 rounded-[1rem] border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-3">
+                    <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-3">
                       <button
                         type="button"
                         onClick={(event) => {
@@ -183,11 +178,11 @@ export function Projects({
                   ) : null}
 
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[0.73rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">
+                    <div className="flex flex-wrap items-center gap-2 font-mono text-[0.73rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]">
                       <span>{project.category}</span>
                       {project.status ? <span className="text-[var(--text-muted)]">{project.status === "in-progress" ? "In Progress" : "Completed"}</span> : null}
                     </div>
-                    <h2 className="text-[1.38rem] font-semibold leading-tight tracking-[-0.04em] text-[var(--text-strong)]">{project.title}</h2>
+                    <h2 className="font-display text-[1.2rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">{project.title}</h2>
                     <p className="text-[0.98rem] leading-7 text-[var(--text-soft)]">{truncateCopy(project.description, 170)}</p>
                   </div>
 

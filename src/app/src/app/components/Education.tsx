@@ -2,20 +2,17 @@ import { motion } from "motion/react";
 import { GraduationCap, Trophy } from "lucide-react";
 
 import { coursework, education, graduation } from "../data/portfolio";
+import { SectionHeader } from "./SectionHeader";
 
 export function Education() {
   return (
     <div className="space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-      >
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Education</h1>
-        <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-          Degree progress, academic highlights, and coursework supporting the hardware and systems work in the portfolio.
-        </p>
-      </motion.section>
+      <SectionHeader
+        index="01"
+        kicker="Education"
+        title="Education"
+        intro="Degree progress, academic highlights, and coursework supporting the hardware and systems work in the portfolio."
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         <div className="space-y-5">
@@ -25,19 +22,19 @@ export function Education() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.06 }}
-              className={`rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)] ${
+              className={`rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)] ${
                 entry.credential === "High School Diploma" ? "min-h-[19.4rem]" : ""
               }`}
             >
               <div className="flex items-start gap-4">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-[1rem] bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
                   <GraduationCap className="size-5" />
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                      <h2 className="text-[1.55rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">{entry.credential}</h2>
+                      <h2 className="font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{entry.credential}</h2>
                       <p className="mt-1 text-[var(--text-body)]">{entry.institution}</p>
                     </div>
 
@@ -77,27 +74,27 @@ export function Education() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.06 }}
-            className="rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
+            className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-3)] p-6 shadow-[var(--shadow-soft)]"
           >
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Trophy className="size-5" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{graduation.label}</h3>
+                <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{graduation.label}</h3>
                 <p className="text-sm text-[var(--text-muted)]">{graduation.detail}</p>
               </div>
             </div>
-            <p className="mt-5 text-[2.4rem] font-semibold tracking-[-0.05em] text-[var(--text-strong)]">{graduation.date}</p>
+            <p className="mt-5 font-display text-[2rem] font-semibold tracking-[-0.03em] text-[var(--text-strong)]">{graduation.date}</p>
           </motion.section>
 
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.12 }}
-            className="rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
+            className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
           >
-            <h3 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text-strong)]">Key Coursework</h3>
+            <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-[var(--text-strong)]">Key Coursework</h3>
             <div className="mt-5 space-y-3">
               {coursework.map((course) => (
                 <div key={course} className="flex items-start gap-3 border-b border-[color:var(--outline-soft)] pb-3 text-[0.98rem] text-[var(--text-body)] last:border-b-0 last:pb-0">

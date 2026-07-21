@@ -226,6 +226,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -247,7 +250,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Manrope", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
+    font-family: "Inter", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
     background-image:
       radial-gradient(circle at top left, var(--page-blob-1), transparent 28rem),
       radial-gradient(circle at bottom left, var(--page-blob-2), transparent 22rem),

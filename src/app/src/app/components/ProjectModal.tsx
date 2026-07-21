@@ -101,7 +101,7 @@ export function ProjectModal({
                       <Sparkles className="size-3.5" />
                       Project Deep Dive
                     </div>
-                    <DialogTitle className="text-4xl leading-tight tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">
+                    <DialogTitle className="font-display text-[1.9rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--text-strong)] sm:text-[2.3rem]">
                       {project.title}
                     </DialogTitle>
                     <DialogDescription className="max-w-4xl text-[1.02rem] leading-8 text-[var(--text-soft)] sm:text-[1.08rem]">

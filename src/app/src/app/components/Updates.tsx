@@ -1,22 +1,18 @@
 import { motion } from "motion/react";
 
 import { updateFeed } from "../data/portfolio";
+import { SectionHeader } from "./SectionHeader";
 
 export function Updates() {
   const feed = updateFeed;
 
   return (
     <div className="space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-      >
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-[3rem]">Updates</h1>
-        <p className="mt-2 text-base text-[var(--text-soft)] sm:text-lg">
-          A combined log of all project and team context updates — newest first.
-        </p>
-      </motion.section>
+      <SectionHeader
+        kicker="Log"
+        title="Updates"
+        intro="A combined log of all project and team context updates — newest first."
+      />
 
       <div className="space-y-6">
         {feed.map((entry, index) => (
@@ -25,7 +21,7 @@ export function Updates() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.04 }}
-            className="overflow-hidden rounded-[1.8rem] border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)]"
+            className="overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] shadow-[var(--shadow-soft)]"
           >
             <div className={entry.media ? (index % 2 === 1 ? "grid xl:grid-cols-[0.9fr_1.1fr]" : "grid xl:grid-cols-[1.1fr_0.9fr]") : ""}>
               <div className="space-y-5 p-6 sm:p-8">
@@ -46,7 +42,7 @@ export function Updates() {
                   )}
                 </div>
 
-                <h2 className="text-[1.7rem] font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                <h2 className="font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
                   {entry.title}
                 </h2>
 
