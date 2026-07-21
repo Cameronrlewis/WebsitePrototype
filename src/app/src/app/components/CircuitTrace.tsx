@@ -625,7 +625,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     });
     netFlags.push({ x: cxc + 100 * s + 34, y: y - 14, text: "+12V", triggerDist: jd });
     addBox(pb.x, y - 44 * s, cxc + 100 * s, y + 44 * s);
-    requestRails(cxc + 100 * s, y, 1);
+    // No pass-through rail here: the +12V DC output is not shunted down the right
+    // gutter. Instead the caller threads the main spine out of this node so the
+    // descending bus below the rectifier IS the +12V line into the downstream ICs.
   };
 
   // ——— Buck converter block: the hero. TPS54331-style stage hanging off
@@ -1321,12 +1323,23 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const avail = blockMaxX - pb.x - 40;
     if (pending === "rectifier" && avail >= 300) {
       const s = Math.min(2, Math.max(1.3, avail / 260));
+      // AC arrives here (pb at the transformer-primary node) and is converted.
+      const busX = pb.x; // left-band column the DC bus resumes in
+      const dcPlusX = pb.x + 200 * s; // rectifier +12V output node (= cxc + 100*s)
+      const dcBusY = crossY + 52 * s; // below the block body + its ground shunts
       emitRectifierBlock(crossY, s);
       centerpieceQueue.shift();
       stage = "rail12";
-      // The trunk below the rectifier is now the +12V DC bus — the main line
-      // that carries power down into the downstream ICs (not the AC input).
-      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+12V", triggerDist: pb.dist });
+      // Thread the continuous spine THROUGH the rectifier: the horizontal run at
+      // crossY is hidden under the block's background occluder, so the wire reads
+      // as AC-in on the left and +12V-out on the right. The DC output then sweeps
+      // back to the bus column and becomes the main line down into the ICs — no
+      // AC wire bypasses the rectifier, and the +12V no longer dangles off-page.
+      pb.lineTo(dcPlusX, crossY); // through the converter → emerge as +12V (right)
+      pb.lineTo(dcPlusX, dcBusY); // drop clear of the block on the right
+      pb.lineTo(busX, dcBusY); // +12V bus returns to the left band, now the spine
+      // The trunk below the rectifier is the +12V DC bus feeding the downstream ICs.
+      netFlags.push({ x: busX + 22, y: dcBusY + 8, text: "+12V", triggerDist: pb.dist });
     } else if (pending === "buck" && avail >= 340) {
       const s = Math.min(3.2, Math.max(1.5, avail / 300));
       emitBuckBlock(crossY, s);
@@ -1363,8 +1376,10 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       display = { x: rightX - 240, y: crossY + 12 };
     }
 
-    // The bus simply keeps descending — no cross-page sweep.
-    pb.lineTo(pb.x, Math.min(crossY + 24, gap.bottom));
+    // The bus simply keeps descending — no cross-page sweep. Clamp to pb.y so the
+    // rectifier case (whose +12V return already dropped the spine below crossY)
+    // never draws a backwards, upward segment.
+    pb.lineTo(pb.x, Math.max(pb.y, Math.min(crossY + 24, gap.bottom)));
   });
 
   emitWander(groundY);
