@@ -9,6 +9,7 @@ type OverlayType =
   | "led"
   | "capacitor"
   | "diode"
+  | "zener"
   | "mosfet"
   | "crystal"
   | "switch"
@@ -114,6 +115,7 @@ const BODY_HALF: Record<OverlayType, number> = {
   led: 9,
   capacitor: 6,
   diode: 9,
+  zener: 9,
   fuse: 10,
   mosfet: 9,
   polcap: 8,
@@ -675,21 +677,6 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       bb.lineTo(X(-38), Y(14));
       pushNet(bb, jd, 420, [], (enAt / bc.dist) * 1300);
     }
-    // Input cap → GND via.
-    {
-      const bb = createPathBuilder(X(-40), y);
-      bb.lineTo(X(-40), Y(72));
-      pushNet(
-        bb,
-        jd,
-        700,
-        [
-          { x: X(-40), y: Y(38), type: "capacitor", at: 38 * s, scale: ps, ref: refdes("C") },
-          { x: X(-40), y: Y(72), type: "gndvia", at: 72 * s, scale: ps },
-        ],
-        (cinAt / bc.dist) * 1300,
-      );
-    }
     // Bottom pins: SS soft-start, GND stitch, COMP RC — spread wide.
     {
       const bb = createPathBuilder(X(-14), Y(28));
@@ -753,19 +740,22 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         (phAt / bc.dist) * 1300,
       );
     }
-    // Catch diode: anode at ground, cathode at the PH node. Freewheel
-    // current rises from ground up into PH, so the net is built (and
-    // animated) bottom-up and the diode arrow points up.
+    // Zener clamp: anode at ground, cathode at the PH node. In breakdown the
+    // clamp legitimately conducts into the cathode. The net is authored FROM
+    // the PH tap OUTWARD to the via — the reveal always draws start→end, so
+    // this keeps current visibly flowing PH → zener → via and the via (now
+    // at the path's far end) only lights once the fill actually reaches it,
+    // instead of appearing to source current back up toward the diode.
     {
-      const bb = createPathBuilder(X(44), Y(64));
-      bb.lineTo(X(44), y);
+      const bb = createPathBuilder(X(44), y);
+      bb.lineTo(X(44), Y(64));
       pushNet(
         bb,
         jd,
         720,
         [
-          { x: X(44), y: Y(64), type: "gndvia", at: 0, scale: ps },
-          { x: X(44), y: Y(32), type: "diode", dir: -1, at: 32 * s, scale: ps, ref: refdes("D") },
+          { x: X(44), y: Y(32), type: "zener", dir: -1, at: 32 * s, scale: ps, ref: refdes("D") },
+          { x: X(44), y: Y(64), type: "gndvia", at: 64 * s, scale: ps },
         ],
         (phAt / bc.dist) * 1300,
       );
@@ -822,6 +812,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       }
       tap.lineTo(X(64), Y(54));
       tap.lineTo(X(64), Y(14));
+      tap.lineTo(X(48), Y(14));
+      tap.quadTo(X(44), Y(14) - 8, X(40), Y(14)); // hop over the zener/via leg — not connected
       tap.lineTo(X(38), Y(14));
       pushNet(tap, jd, 1800, [], 1500);
     }
@@ -1346,7 +1338,6 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       centerpieceQueue.shift();
       stage = "rail33";
       // Trunk stepped down to the +3V3 logic rail feeding the MCU/FPGA.
-      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+3V3", triggerDist: pb.dist });
     } else if (pending === "ldo" && avail >= 240) {
       const s = Math.min(2.4, Math.max(1.3, avail / 200));
       emitLdoBlock(crossY, s);
@@ -1521,6 +1512,15 @@ function symbolFor(type: OverlayType, sub: string[] = []): ReactNode {
         <>
           <path d="M-8 -8 L8 -8 L0 6 Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" />
           <line x1="-8" y1="8" x2="8" y2="8" stroke="currentColor" strokeWidth="2" />
+        </>
+      );
+    case "zener":
+      return (
+        <>
+          <path d="M-8 -8 L8 -8 L0 6 Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="-8" y1="8" x2="8" y2="8" stroke="currentColor" strokeWidth="2" />
+          <line x1="-8" y1="8" x2="-11" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="8" y1="8" x2="11" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </>
       );
     case "led":
