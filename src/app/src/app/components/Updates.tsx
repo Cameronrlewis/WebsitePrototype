@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 
 import { updateFeed } from "../data/portfolio";
 import { SectionHeader } from "./SectionHeader";
+import { SkeletonImage } from "./Skeletons";
 
 export function Updates() {
   const feed = updateFeed;
@@ -79,10 +80,11 @@ export function Updates() {
                   style={{ background: entry.mediaBackground ?? "#0b1018" }}
                 >
                   <div className="h-full min-h-[18rem] p-4 sm:p-5">
-                    <img
+                    <SkeletonImage
                       src={entry.media}
                       alt={entry.title}
                       loading="lazy"
+                      wellClassName="overflow-hidden rounded-[1.25rem]"
                       className="h-full w-full rounded-[1.25rem]"
                       style={{
                         objectFit: entry.mediaContain ? "contain" : "cover",

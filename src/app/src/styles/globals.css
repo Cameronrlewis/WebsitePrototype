@@ -461,3 +461,93 @@ html.theme-powering main article:nth-of-type(n + 5) {
     opacity: 0;
   }
 }
+
+/* Skeleton loaders - "board bring-up" placeholders.
+   A skeleton reads as bare substrate waiting to be populated, and the sweep is
+   a signal travelling down a trace rather than an opacity blink. Every skeleton
+   is sized to its final content so nothing shifts when the real thing lands. */
+@keyframes skeleton-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes skeleton-pad {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Paint properties only. This rule is UNLAYERED, so it outranks every Tailwind
+   utility (they live in `@layer utilities`) — anything set here silently wins
+   over a class on the element. `border-radius` and `position` both belong to
+   the call sites for that reason: a skeleton positions itself with `relative`
+   or `absolute` like any other element, and the `::after` sweep relies on that
+   class being honoured. Do not reintroduce layout properties here. */
+.skeleton {
+  overflow: hidden;
+  isolation: isolate;
+  background: color-mix(in srgb, var(--text-soft) 13%, var(--surface-3));
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 28%,
+    color-mix(in srgb, var(--primary) 13%, transparent) 47%,
+    color-mix(in srgb, var(--primary) 24%, transparent) 52%,
+    transparent 72%
+  );
+  animation: skeleton-sweep 1.7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+/* Dark substrate variant for the 3D viewer, matched to the renderer clear
+   colour (#0c0c14) so the handoff to the live canvas is invisible. */
+.skeleton-board {
+  background-color: #0c0c14;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--primary) 16%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 16%, transparent) 1px, transparent 1px);
+  background-size:
+    46px 46px,
+    46px 46px;
+}
+
+.skeleton-board::after {
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--primary) 10%, transparent) 48%,
+    color-mix(in srgb, var(--primary) 18%, transparent) 52%,
+    transparent 70%
+  );
+  animation-duration: 2.4s;
+}
+
+/* Copper pad / via decorations. Staggered so they read as a scan, not a blink. */
+.skeleton-pad {
+  animation: skeleton-pad 1.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    transform: none;
+    opacity: 0.55;
+  }
+
+  .skeleton-pad {
+    animation: none;
+    opacity: 0.45;
+  }
+}

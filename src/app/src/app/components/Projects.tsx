@@ -9,6 +9,7 @@ import {
 import type { ProjectRecord } from "../data/portfolio";
 import { OrganizationAvatar } from "./OrganizationAvatar";
 import { SectionHeader } from "./SectionHeader";
+import { FORCE_CARD_SKELETONS, ProjectCardSkeleton, SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "./ui/button";
 
@@ -64,7 +65,15 @@ export function Projects({
       />
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {visibleProjects.map((project, index) => {
+        {/* ?skeleton=cards only - swaps the real cards for their placeholders. */}
+        {FORCE_CARD_SKELETONS
+          ? visibleProjects.map((project, index) => (
+              <div key={project.id} className={index === 0 ? "md:col-span-2" : ""}>
+                <ProjectCardSkeleton tall={index === 0} />
+              </div>
+            ))
+          : null}
+        {FORCE_CARD_SKELETONS ? null : visibleProjects.map((project, index) => {
           const organization = getOrganizationById(project.organizationId);
 
           return (
@@ -104,7 +113,7 @@ export function Projects({
                   style={{ background: project.cardBackground ?? "var(--surface-3)" }}
                 >
                   {project.cardImg || project.bannerImg ? (
-                    <img
+                    <SkeletonImage
                       src={project.cardImg ?? project.bannerImg}
                       alt={project.title}
                       loading="lazy"

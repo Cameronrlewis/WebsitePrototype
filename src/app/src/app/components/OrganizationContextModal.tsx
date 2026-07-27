@@ -7,6 +7,7 @@ import {
   type ProjectRecord,
 } from "../data/portfolio";
 import { OrganizationAvatar } from "./OrganizationAvatar";
+import { SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
@@ -152,10 +153,11 @@ export function OrganizationContextModal({
                               }}
                             >
                               <div className="h-full min-h-[18rem] p-4 sm:p-5">
-                                <img
+                                <SkeletonImage
                                   src={build.media}
                                   alt={build.title}
                                   loading="lazy"
+                                  wellClassName="overflow-hidden rounded-[1.25rem]"
                                   className="h-full w-full rounded-[1.25rem]"
                                   style={{
                                     objectFit: build.mediaContain ? "contain" : "cover",

@@ -19,6 +19,7 @@ import { ProjectModal } from "./ProjectModal";
 import { Projects } from "./Projects";
 import { ReportViewer } from "./ReportViewer";
 import { Sidebar } from "./Sidebar";
+import { FORCE_SKELETONS, ResumeViewerSkeleton, SkeletonPreviewBadge } from "./Skeletons";
 import { Skills } from "./Skills";
 import { Updates } from "./Updates";
 
@@ -329,10 +330,16 @@ export function Layout() {
       />
 
       {resumeOpen ? (
-        <Suspense fallback={null}>
-          <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
-        </Suspense>
+        FORCE_SKELETONS ? (
+          <ResumeViewerSkeleton onDismiss={() => setResumeOpen(false)} />
+        ) : (
+          <Suspense fallback={<ResumeViewerSkeleton />}>
+            <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
+          </Suspense>
+        )
       ) : null}
+
+      <SkeletonPreviewBadge />
 
       <ReportViewer
         project={reportProject}

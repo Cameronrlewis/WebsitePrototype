@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:geometry": "node --max-old-space-size=6144 tools/build-board-geometry-bin.mjs",
     "dev": "vite",
     "postinstall": "node tools/patch-rollup-native.mjs",
     "preview": "vite preview"

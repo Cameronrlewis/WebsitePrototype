@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { ProjectRecord } from "../data/portfolio";
 import { loadInteractiveBom } from "../lib/board-assets";
+import { FORCE_SKELETONS, InteractiveBomSkeleton } from "./Skeletons";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 
 interface InteractiveBomViewerProps {
@@ -61,11 +62,16 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
           <div className="border-b border-[color:var(--outline-soft)] px-6 py-4">
             <DialogTitle className="text-xl text-[var(--text-strong)]">{project.title} - Interactive BOM</DialogTitle>
           </div>
-          <div className="min-h-0 flex-1 bg-white">
-            {iframeUrl ? (
+          <div className="min-h-0 flex-1">
+            {iframeUrl && !FORCE_SKELETONS ? (
               <iframe title={`${project.title} interactive BOM`} src={iframeUrl} className="block h-full w-full bg-white" />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-soft)]">Loading interactive BOM...</div>
+              <>
+                <InteractiveBomSkeleton />
+                <span className="sr-only" role="status">
+                  Loading interactive BOM
+                </span>
+              </>
             )}
           </div>
         </div>

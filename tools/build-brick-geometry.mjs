@@ -6,10 +6,16 @@ import { VRMLLoader } from "three/examples/jsm/loaders/VRMLLoader.js";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
-const viewerDir = path.join(rootDir, "public/portfolio/assets/viewers/brick-buck");
+// VRML sources for the brick board. Build inputs, not deployed assets - they
+// sit alongside board-model-data.js outside public/. The Inline references
+// inside the .wrl files are relative, so this tree must move as a unit.
+const viewerDir = path.join(rootDir, "assets-src/board-geometry/brick-buck");
 const sourceWrlPath = path.join(viewerDir, "brick-buck-board.wrl");
 const flattenedWrlPath = path.join(viewerDir, "brick-buck-board-flattened.wrl");
-const bundlePath = path.join(rootDir, "public/portfolio/assets/scripts/viewer/board-model-data.js");
+// Source of truth for all three boards. It lives outside public/ because it is
+// a build input, not a deployed asset - the viewer loads the per-board binaries
+// produced by tools/build-board-geometry-bin.mjs.
+const bundlePath = path.join(rootDir, "assets-src/board-geometry/board-model-data.js");
 
 const headerPattern = /^\uFEFF?#VRML[^\n]*\n?/;
 const defPattern = /\bDEF\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
@@ -220,3 +226,4 @@ const payload = await buildBrickGeometryPayload();
 await updateBundleFile(payload);
 
 console.log(`Brick Buck geometry bundle written to ${bundlePath}`);
+console.log("Run `pnpm build:geometry` to regenerate the per-board binaries the viewer loads.");

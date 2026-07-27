@@ -1,7 +1,8 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Layers3, RotateCcw, ScanEye } from "lucide-react";
 
 import type { ProjectRecord } from "../data/portfolio";
+import { BoardViewerSkeleton, FORCE_SKELETONS } from "./Skeletons";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 
@@ -14,6 +15,7 @@ interface BoardViewerProps {
 
 export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [sceneReady, setSceneReady] = useState(false);
 
   const viewerSrc = useMemo(() => {
     if (!project?.viewer3d) {
@@ -31,6 +33,33 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
     return url.toString();
   }, [project]);
 
+  // The shell posts `viewer-ready` once the first frame is rendered, so the
+  // skeleton stays up through the geometry fetch rather than clearing on the
+  // iframe's own load event and leaving an empty black panel.
+  useEffect(() => {
+    setSceneReady(false);
+
+    if (!open || !viewerSrc) {
+      return;
+    }
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) {
+        return;
+      }
+
+      const type = (event.data as { type?: unknown } | null)?.type;
+      if (type === "viewer-ready" || type === "viewer-error") {
+        setSceneReady(true);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+    };
+  }, [open, viewerSrc]);
+
   const sendViewerCommand = (command: "reset" | "top" | "wireframe") => {
     iframeRef.current?.contentWindow?.postMessage({ type: command }, window.location.origin);
   };
@@ -38,6 +67,8 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
   if (!project?.viewer3d || !viewerSrc) {
     return null;
   }
+
+  const showBoard = sceneReady && !FORCE_SKELETONS;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,13 +114,14 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 bg-[#0c0c14]">
+          <div className="relative min-h-0 flex-1 bg-[#0c0c14]">
             <iframe
               ref={iframeRef}
               title={`${project.title} 3D board viewer`}
               src={viewerSrc}
-              className="block h-full w-full border-0 bg-[#0c0c14]"
+              className={`block h-full w-full border-0 bg-[#0c0c14] transition-opacity duration-500 ${showBoard ? "opacity-100" : "opacity-0"}`}
             />
+            {showBoard ? null : <BoardViewerSkeleton />}
           </div>
         </div>
       </DialogContent>

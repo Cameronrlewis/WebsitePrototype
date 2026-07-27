@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 
 import type { ProjectRecord } from "../data/portfolio";
+import { SkeletonImage } from "./Skeletons";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 interface ReportViewerProps {
@@ -33,12 +34,17 @@ export function ReportViewer({ project, open, onOpenChange }: ReportViewerProps)
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--surface-4)]">
             <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+              {/* Each page reserves a letter-ratio well so the scroll column
+                  does not jump as pages decode. */}
               {project.reportPages.map((page, index) => (
-                <img
+                <SkeletonImage
                   key={page}
                   src={page}
                   alt={`${project.title} report page ${index + 1}`}
-                  className="w-full rounded-[1rem] border border-[color:var(--outline-soft)] bg-white shadow-[var(--shadow-strong)]"
+                  loading="lazy"
+                  wellClassName="h-auto w-full overflow-hidden rounded-[1rem] border border-[color:var(--outline-soft)] bg-white shadow-[var(--shadow-strong)]"
+                  pendingWellClassName="aspect-[1/1.294]"
+                  className="h-auto w-full"
                 />
               ))}
             </div>

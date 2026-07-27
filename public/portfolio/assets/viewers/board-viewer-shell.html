@@ -113,9 +113,11 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chevrotain@10.4.1/lib/chevrotain.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/VRMLLoader.js"></script>
-    <script src="/portfolio/assets/scripts/viewer/board-model-data.js"></script>
+    <!--
+      chevrotain + VRMLLoader are only needed for mode=wrl, and the geometry
+      bundle is now fetched per board rather than loaded as a blocking script.
+      Both are pulled in on demand below.
+    -->
     <script>
       (function () {
         const params = new URLSearchParams(window.location.search);
@@ -296,23 +298,112 @@
           });
         }
 
-        function createBundleGroup() {
-          const geometrySource = asset === "control" ? PCB_GEO_CTRL : asset === "brick" ? PCB_GEO_BRICK : PCB_GEO;
-          if (!geometrySource || !geometrySource.meshes || !geometrySource.meshes.length) {
+        // Loads a script tag on demand and resolves once it has executed. Used
+        // only for the WRL path, which no current board uses.
+        function loadScript(src) {
+          return new Promise(function (resolve, reject) {
+            const el = document.createElement("script");
+            el.src = src;
+            el.onload = resolve;
+            el.onerror = function () {
+              reject(new Error("Failed to load " + src));
+            };
+            document.head.appendChild(el);
+          });
+        }
+
+        /**
+         * Fetches one board's quantized binary payload. See
+         * tools/build-board-geometry-bin.mjs for the format.
+         *
+         * The payload is gzip-compressed on disk so the transfer stays small
+         * regardless of what the host negotiates. Whether it arrives still
+         * compressed depends on the server: one that recognises the file as
+         * gzip sets Content-Encoding and the browser inflates it before fetch
+         * resolves, while one that treats it as opaque bytes hands it over
+         * untouched. Sniff the gzip magic instead of assuming either - piping
+         * already-inflated bytes through DecompressionStream throws
+         * "Failed to decode data".
+         */
+        async function fetchBoardGeometry(assetName) {
+          const url = "/portfolio/assets/viewers/geometry/" + assetName + ".pcbgeo";
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error("Board geometry failed to load (" + response.status + ").");
+          }
+
+          const raw = new Uint8Array(await response.arrayBuffer());
+          let buffer;
+
+          if (raw.length > 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
+            if (typeof DecompressionStream !== "function") {
+              throw new Error("This browser cannot decompress the board geometry.");
+            }
+
+            const stream = new Response(raw).body.pipeThrough(new DecompressionStream("gzip"));
+            buffer = await new Response(stream).arrayBuffer();
+          } else {
+            // Already inflated in transit - use the bytes as they arrived.
+            buffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+          }
+
+          const view = new DataView(buffer);
+
+          if (String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3)) !== "PCBG") {
+            throw new Error("Board geometry payload is corrupt.");
+          }
+
+          const version = view.getUint32(4, true);
+          if (version !== 1) {
+            throw new Error("Unsupported board geometry version " + version + ".");
+          }
+
+          const headerLength = view.getUint32(8, true);
+          const headerText = new TextDecoder().decode(new Uint8Array(buffer, 12, headerLength));
+          const header = JSON.parse(headerText.replace(/\0+$/, ""));
+
+          return { header: header, payload: buffer, payloadStart: 12 + headerLength };
+        }
+
+        /** Expands one mesh's Uint16 positions back to millimetre floats. */
+        function decodePositions(bundle, entry) {
+          const count = entry.vertexCount;
+          const quantized = new Uint16Array(bundle.payload, bundle.payloadStart + entry.positionOffset, count * 3);
+          const positions = new Float32Array(count * 3);
+
+          for (let axis = 0; axis < 3; axis += 1) {
+            const base = axis * count;
+            const min = entry.min[axis];
+            const scale = entry.scale[axis];
+            for (let v = 0; v < count; v += 1) {
+              positions[v * 3 + axis] = min + (quantized[base + v] / 65535) * scale;
+            }
+          }
+
+          return positions;
+        }
+
+        function createBundleGroup(bundle) {
+          const meshes = bundle.header.meshes;
+          if (!meshes || !meshes.length) {
             throw new Error("Board geometry is missing.");
           }
 
           const group = new THREE.Group();
 
-          for (const meshData of geometrySource.meshes) {
+          for (const meshData of meshes) {
             const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute("position", new THREE.Float32BufferAttribute(meshData.v, 3));
-            geometry.setIndex(meshData.i);
-            if (meshData.n && meshData.n.length === meshData.v.length) {
-              geometry.setAttribute("normal", new THREE.Float32BufferAttribute(meshData.n, 3));
-            } else {
-              geometry.computeVertexNormals();
-            }
+            geometry.setAttribute("position", new THREE.BufferAttribute(decodePositions(bundle, meshData), 3));
+            const IndexArray = meshData.indexType === "u32" ? Uint32Array : Uint16Array;
+            geometry.setIndex(
+              new THREE.BufferAttribute(
+                new IndexArray(bundle.payload, bundle.payloadStart + meshData.indexOffset, meshData.indexCount),
+                1,
+              ),
+            );
+            // Normals are never stored - recomputing matches what the power and
+            // control boards have always done.
+            geometry.computeVertexNormals();
 
             const r = meshData.color[0];
             const g = meshData.color[1];
@@ -335,8 +426,17 @@
           return group;
         }
 
-        function createWrlGroup() {
-          if (!window.THREE || !THREE.VRMLLoader) {
+        async function createWrlGroup() {
+          if (!window.THREE) {
+            throw new Error("Three.js failed to load.");
+          }
+
+          if (!THREE.VRMLLoader) {
+            await loadScript("https://cdn.jsdelivr.net/npm/chevrotain@10.4.1/lib/chevrotain.min.js");
+            await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/VRMLLoader.js");
+          }
+
+          if (!THREE.VRMLLoader) {
             throw new Error("VRML loader failed to load.");
           }
 
@@ -392,7 +492,7 @@
 
           scene = new THREE.Scene();
           camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
-          boardGroup = mode === "wrl" ? await createWrlGroup() : createBundleGroup();
+          boardGroup = mode === "wrl" ? await createWrlGroup() : createBundleGroup(await fetchBoardGeometry(asset));
 
           const box = new THREE.Box3().setFromObject(boardGroup);
           const center = new THREE.Vector3();
@@ -444,6 +544,18 @@
           }
 
           animate();
+
+          notifyHost("viewer-ready");
+        }
+
+        // Lets the embedding page swap its loading skeleton for the live canvas
+        // only once geometry is actually on screen.
+        function notifyHost(type) {
+          if (window.parent === window) {
+            return;
+          }
+
+          window.parent.postMessage({ type: type }, window.location.origin);
         }
 
         window.addEventListener("message", function (event) {
@@ -468,6 +580,7 @@
 
         Promise.resolve(buildScene()).catch(function (error) {
           showError(error instanceof Error ? error.message : "Unknown viewer error.");
+          notifyHost("viewer-error");
         });
       })();
     </script>

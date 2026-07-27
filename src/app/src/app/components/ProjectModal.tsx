@@ -6,6 +6,7 @@ import {
   type ProjectRecord,
 } from "../data/portfolio";
 import { OrganizationAvatar } from "./OrganizationAvatar";
+import { SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -216,7 +217,7 @@ export function ProjectModal({
                             className="h-full w-full"
                             style={{ background: project.cardBackground ?? "#0c0c14" }}
                           >
-                            <img
+                            <SkeletonImage
                               src={project.cardImg ?? project.bannerImg}
                               alt={`${project.title} 3D preview`}
                               loading="lazy"

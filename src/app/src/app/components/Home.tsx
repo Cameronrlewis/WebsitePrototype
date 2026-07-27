@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowRight,
   ChevronLeft,
@@ -21,6 +21,7 @@ import {
 import type { PageId, ProjectRecord } from "../data/portfolio";
 import { MonogramText } from "./MonogramText";
 import { OrganizationAvatar } from "./OrganizationAvatar";
+import { SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
 import { Button } from "./ui/button";
 
@@ -36,22 +37,39 @@ const HEADSHOT = "/portfolio/assets/headshot.jpg";
 
 const FOCUS_AREAS = "PCB Design · Embedded Systems · Hardware";
 
+/** Outgoing and incoming boards travel the same way, so they read as one move. */
+const boardPanelVariants = {
+  enter: (direction: -1 | 1) => ({ x: `${direction * 12}%`, opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (direction: -1 | 1) => ({ x: `${direction * -12}%`, opacity: 0 }),
+};
+
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
   const emailLink = socialLinks.find((l) => l.label === "Email")!;
   const githubLink = socialLinks.find((l) => l.label === "GitHub")!;
   const linkedInLink = socialLinks.find((l) => l.label === "LinkedIn")!;
   const [activeBoardIndex, setActiveBoardIndex] = useState(0);
+  // Which way the next board travels. Arrows set it from their step; the dot
+  // indicators derive it from the index delta so jumping still animates the
+  // way the eye expects.
+  const [direction, setDirection] = useState<-1 | 1>(1);
 
   const activeProject = featuredBoardProjects[activeBoardIndex] ?? featuredBoardProjects[0] ?? null;
   const featuredOrganization = activeProject ? getOrganizationById(activeProject.organizationId) : null;
 
-  const cycleFeaturedBoard = (direction: -1 | 1) => {
+  const cycleFeaturedBoard = (step: -1 | 1) => {
     if (featuredBoardProjects.length <= 1) {
       return;
     }
 
-    setActiveBoardIndex((value) => (value + direction + featuredBoardProjects.length) % featuredBoardProjects.length);
+    setDirection(step);
+    setActiveBoardIndex((value) => (value + step + featuredBoardProjects.length) % featuredBoardProjects.length);
+  };
+
+  const showFeaturedBoard = (index: number) => {
+    setDirection(index >= activeBoardIndex ? 1 : -1);
+    setActiveBoardIndex(index);
   };
 
   return (
@@ -243,29 +261,53 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 className="group block w-full overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] text-left shadow-[var(--shadow-strong)]"
               >
                 <div className="relative min-h-[18rem] overflow-hidden lg:min-h-[22rem]">
-                  {(activeProject.cardImg ?? activeProject.bannerImg) ? (
-                    <div
-                      className="h-full w-full"
-                      style={{ background: activeProject.cardBackground ?? "#0c0c14" }}
+                  {/* Boards cross-slide: the container has a fixed minimum
+                      height and clips overflow, so both panels can be stacked
+                      absolutely and move at the same time without shifting
+                      layout. The scrim and caption below are static and stay
+                      outside this subtree, so they hold still while the board
+                      travels beneath them. */}
+                  <AnimatePresence initial={false} custom={direction}>
+                    <motion.div
+                      key={activeProject.slug}
+                      className="absolute inset-0"
+                      custom={direction}
+                      variants={boardPanelVariants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <img
-                        src={activeProject.cardImg ?? activeProject.bannerImg}
-                        alt={`${activeProject.title} preview`}
-                        className="h-full w-full transition-transform duration-500 group-hover:scale-[1.02]"
-                        style={{
-                          objectFit: activeProject.cardContain ? "contain" : "cover",
-                          objectPosition: activeProject.cardImgPosition ?? "center",
-                          transform: activeProject.cardScale ? `scale(${activeProject.cardScale})` : undefined,
-                          transformOrigin: "center",
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_58%)]">
-                      <Orbit className="size-20 text-white/80" />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-transparent" />
+                      {(activeProject.cardImg ?? activeProject.bannerImg) ? (
+                        <div
+                          className="h-full w-full"
+                          style={{ background: activeProject.cardBackground ?? "#0c0c14" }}
+                        >
+                          {/* SkeletonImage resets on src change, so a board that
+                              is not cached yet shows its placeholder inside the
+                              incoming panel. */}
+                          <SkeletonImage
+                            src={activeProject.cardImg ?? activeProject.bannerImg}
+                            alt={`${activeProject.title} preview`}
+                            wellClassName="h-full w-full"
+                            pendingWellClassName="min-h-[18rem] lg:min-h-[22rem]"
+                            className="h-full w-full transition-transform duration-500 group-hover:scale-[1.02]"
+                            style={{
+                              objectFit: activeProject.cardContain ? "contain" : "cover",
+                              objectPosition: activeProject.cardImgPosition ?? "center",
+                              transform: activeProject.cardScale ? `scale(${activeProject.cardScale})` : undefined,
+                              transformOrigin: "center",
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_58%)]">
+                          <Orbit className="size-20 text-white/80" />
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 px-6 py-5 text-white">
                     <div>
                       <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/60">Interactive Preview</p>
@@ -281,9 +323,23 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
               </button>
 
               <div className="max-w-xl">
-                <h2 className="font-display text-[1.7rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2rem]">
-                  {activeProject.title}
-                </h2>
+                {/* Only the per-project copy is keyed, so it re-mounts and
+                    replays its entrance as the board slides. The dots and the
+                    action buttons below stay OUTSIDE this subtree on purpose:
+                    remounting them would destroy the very button a keyboard
+                    user just activated and drop focus to <body>. No
+                    AnimatePresence either - this block's height varies per
+                    project, and overlapping an exiting copy would fight the
+                    grid. */}
+                <motion.div
+                  key={activeProject.slug}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.34, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <h2 className="font-display text-[1.7rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2rem]">
+                    {activeProject.title}
+                  </h2>
 
                 {featuredOrganization ? (
                   <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -308,13 +364,14 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
 
                 <p className="mt-4 text-base leading-8 text-[var(--text-soft)]">{activeProject.description}</p>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {activeProject.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {activeProject.tags.map((tag) => (
+                      <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </motion.div>
 
                 {featuredBoardProjects.length > 1 ? (
                   <div className="mt-5 flex items-center gap-2">
@@ -322,7 +379,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                       <button
                         key={project.slug}
                         type="button"
-                        onClick={() => setActiveBoardIndex(index)}
+                        onClick={() => showFeaturedBoard(index)}
                         className={`h-2.5 rounded-full transition-all ${
                           index === activeBoardIndex ? "w-7 bg-primary" : "w-2.5 bg-[var(--outline-soft)] hover:bg-[var(--text-muted)]"
                         }`}
