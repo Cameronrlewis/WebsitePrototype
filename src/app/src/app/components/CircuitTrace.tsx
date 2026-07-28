@@ -96,7 +96,9 @@ interface TraceGeometry {
   // Silkscreen layer: reference designators (static, muted) and net-name
   // flags (AC IN, +12V, +3V3, GND) that light as the current passes.
   texts: Array<{ x: number; y: number; text: string; size: number }>;
-  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number }>;
+  // `markerDx` offsets only the chevron (plus a short leader line) from the
+  // label, for flags whose text has to sit clear of the wire it points at.
+  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number; markerDx?: number }>;
 }
 
 const LEFT_X = 22;
@@ -1299,7 +1301,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const usableGaps = gaps.filter((gap) => gap.bottom - gap.top >= 70);
 
   // The chain starts at the mains.
-  netFlags.push({ x: pb.x + 34, y: 8, text: "AC IN", triggerDist: 0 });
+  // Label sits to the right of the trunk so it doesn't lie across the wire;
+  // markerDx pulls the chevron back onto the trunk column (tip at x = pb.x).
+  netFlags.push({ x: pb.x + 34, y: 14, text: "AC IN", triggerDist: 0, markerDx: -34 });
 
   usableGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
@@ -2579,7 +2583,25 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           transform={`translate(${flag.x} ${flag.y})`}
           style={{ color: "var(--outline-strong)", transition: "color 0.3s ease" }}
         >
-          <path d="M0 12 L-5 4 L5 4 Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          {flag.markerDx !== undefined && (
+            <path
+              d={`M${flag.markerDx} 4 H${flag.markerDx - Math.sign(flag.markerDx) * 20}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+          )}
+          <path
+            d={
+              flag.markerDx === undefined
+                ? "M0 12 L-5 4 L5 4 Z"
+                : `M${flag.markerDx} 12 L${flag.markerDx - 5} 4 L${flag.markerDx + 5} 4 Z`
+            }
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
           <text x="0" y="0" textAnchor="middle" fontSize="11" fontFamily="monospace" fill="currentColor">
             {flag.text}
           </text>
