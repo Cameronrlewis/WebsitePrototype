@@ -23,6 +23,8 @@ export function OrganizationAvatar({
 }: OrganizationAvatarProps) {
   const isDark = tone === "dark";
 
+  const useLightAsset = isDark && Boolean(organization.logoLight);
+
   if (organization.logo) {
     return (
       <span
@@ -36,11 +38,11 @@ export function OrganizationAvatar({
         )}
       >
         <img
-          src={organization.logo}
+          src={useLightAsset ? organization.logoLight : organization.logo}
           alt=""
           className={cn(
             "size-[72%] object-contain",
-            isDark && "brightness-0 invert",
+            isDark && !useLightAsset && "brightness-0 invert",
           )}
         />
       </span>

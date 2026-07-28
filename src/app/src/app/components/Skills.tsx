@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Cpu, Lightbulb, Waves, Wrench } from "lucide-react";
 
 import { skillSets, softSkills } from "../data/portfolio";
@@ -24,8 +24,18 @@ const emphasisCards = [
   },
 ];
 
+const skillTracks: { id: keyof typeof skillSets; label: string }[] = [
+  { id: "electrical", label: "Electrical" },
+  { id: "software", label: "Software" },
+];
+
+const chipClassName =
+  "rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-4 py-2 text-sm text-[var(--chip-text)]";
+
 export function Skills() {
   const [currentTrack, setCurrentTrack] = useState<keyof typeof skillSets>("electrical");
+  const prefersReducedMotion = useReducedMotion();
+  const chipStagger = prefersReducedMotion ? 0 : 0.045;
 
   return (
     <div className="space-y-6">
@@ -36,29 +46,41 @@ export function Skills() {
         intro="Electrical and software tools, plus the working habits that show up consistently across projects."
       />
 
-      <div className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1 shadow-[var(--shadow-soft)]">
-        <Button
-          size="sm"
-          onClick={() => setCurrentTrack("electrical")}
-          className={
-            currentTrack === "electrical"
-              ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:opacity-95"
-              : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
-          }
-        >
-          Electrical
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => setCurrentTrack("software")}
-          className={
-            currentTrack === "software"
-              ? "rounded-full bg-[var(--toggle-active-bg)] px-5 text-[var(--toggle-active-text)] hover:opacity-95"
-              : "rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none hover:bg-[var(--toggle-hover-bg)]"
-          }
-        >
-          Software
-        </Button>
+      <div
+        role="tablist"
+        aria-label="Skill tracks"
+        className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1 shadow-[var(--shadow-soft)]"
+      >
+        {skillTracks.map((track) => {
+          const isActive = currentTrack === track.id;
+
+          return (
+            <div key={track.id} className="relative">
+              {isActive ? (
+                <motion.div
+                  layoutId="skills-track-pill"
+                  transition={{ type: "spring", stiffness: 260, damping: 24 }}
+                  className="absolute inset-0 rounded-full bg-[var(--toggle-active-bg)]"
+                />
+              ) : null}
+              <Button
+                size="sm"
+                role="tab"
+                id={`skills-tab-${track.id}`}
+                aria-selected={isActive}
+                aria-controls="skills-panel"
+                onClick={() => setCurrentTrack(track.id)}
+                className={
+                  isActive
+                    ? "relative z-10 rounded-full bg-transparent px-5 text-[var(--toggle-active-text)] shadow-none transition-colors hover:bg-transparent"
+                    : "relative z-10 rounded-full bg-transparent px-5 text-[var(--toggle-shell-text)] shadow-none transition-colors hover:bg-[var(--toggle-hover-bg)]"
+                }
+              >
+                {track.label}
+              </Button>
+            </div>
+          );
+        })}
       </div>
 
       <motion.section
@@ -67,12 +89,50 @@ export function Skills() {
         transition={{ duration: 0.3, delay: 0.04 }}
         className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
       >
-        <div className="flex flex-wrap gap-3">
-          {skillSets[currentTrack].map((skill) => (
-            <span key={skill} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-4 py-2 text-sm text-[var(--chip-text)]">
-              {skill}
-            </span>
-          ))}
+        {/* items-start: without it the grid row is pinned to max(electrical, software) and the
+            shorter track is stretched, which then inflates its chips. */}
+        <div className="grid items-start">
+          {/* One invisible copy of the inactive track: stacked with the live row it pins the grid
+              row to max(electrical, software) so the panel height is identical on switch. */}
+          {skillTracks
+            .filter((track) => track.id !== currentTrack)
+            .map((track) => (
+              <div
+                key={track.id}
+                aria-hidden
+                className="col-start-1 row-start-1 invisible flex select-none flex-wrap content-start items-start gap-3 pointer-events-none"
+              >
+                {skillSets[track.id].map((skill) => (
+                  <span key={skill} className={chipClassName}>
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            ))}
+
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentTrack}
+              role="tabpanel"
+              id="skills-panel"
+              aria-labelledby={`skills-tab-${currentTrack}`}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16 }}
+              className="col-start-1 row-start-1 flex flex-wrap content-start items-start gap-3"
+            >
+              {skillSets[currentTrack].map((skill, index) => (
+                <motion.span
+                  key={skill}
+                  initial={{ opacity: 0, y: 8, x: -6 }}
+                  animate={{ opacity: 1, y: 0, x: 0 }}
+                  transition={{ duration: 0.28, delay: index * chipStagger, ease: [0.22, 1, 0.36, 1] }}
+                  className={chipClassName}
+                >
+                  {skill}
+                </motion.span>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </motion.section>
 

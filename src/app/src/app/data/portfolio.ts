@@ -44,6 +44,8 @@ export interface ExperienceRecord {
   period: string;
   logo: string;
   marker: string;
+  logoLight?: string;
+  markerLight?: string;
   bullets: string[];
   tags: string[];
 }
@@ -124,6 +126,7 @@ export interface OrganizationRecord {
   overview: string[];
   tags: string[];
   logo?: string;
+  logoLight?: string;
   monogram?: string;
   showInUpdates?: boolean;
   builds: OrganizationBuildRecord[];
@@ -199,6 +202,8 @@ export const experience: ExperienceRecord[] = [
     period: "January 2026 — April 2026",
     logo: `${assetBase}/media/experience/kraken-logo.png`,
     marker: `${assetBase}/media/experience/kraken-marker.png`,
+    logoLight: `${assetBase}/media/experience/kraken-logo-light.png`,
+    markerLight: `${assetBase}/media/experience/kraken-marker-light.png`,
     bullets: [
       "Assisted in the design and development of PCBs for subsea robotics systems including Synthetic Aperture Sonar and Katfish ROTV, ensuring functionality, reliability, and manufacturability.",
       "Contributed to the design of wiring harnesses and cable assemblies, considering signal integrity and incorporating feedback from engineers specializing in the respective subsystems.",
@@ -216,6 +221,8 @@ export const experience: ExperienceRecord[] = [
     period: "September 2025 — Present",
     logo: `${assetBase}/media/experience/paradigm-logo.png`,
     marker: `${assetBase}/media/experience/paradigm-marker.png`,
+    logoLight: `${assetBase}/media/experience/paradigm-logo-light.png`,
+    markerLight: `${assetBase}/media/experience/paradigm-marker-light.png`,
     bullets: [
       "Active member of the electrical sub-team designing and developing systems for an autonomous kart competing in the Autonomous Kart Series (AKS).",
       "Contributing to PCB design, power distribution, and embedded systems integration for the vehicle's autonomous control architecture.",
@@ -467,6 +474,7 @@ export const organizations: OrganizationRecord[] = [
     ],
     tags: ["STM32", "KiCad", "Embedded C", "PCB Design", "FDCAN", "Power Electronics"],
     logo: `${assetBase}/media/experience/paradigm-logo.png`,
+    logoLight: `${assetBase}/media/experience/paradigm-logo-light.png`,
     builds: [
       {
         id: "paradigm-power-board",

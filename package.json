@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "build:geometry": "node --max-old-space-size=6144 tools/build-board-geometry-bin.mjs",
+    "build:logos": "python3 tools/build-logo-light-variants.py",
     "dev": "vite",
     "postinstall": "node tools/patch-rollup-native.mjs",
     "preview": "vite preview"
