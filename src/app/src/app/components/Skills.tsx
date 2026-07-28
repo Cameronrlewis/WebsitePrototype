@@ -89,7 +89,9 @@ export function Skills() {
         transition={{ duration: 0.3, delay: 0.04 }}
         className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
       >
-        <div className="grid">
+        {/* items-start: without it the grid row is pinned to max(electrical, software) and the
+            shorter track is stretched, which then inflates its chips. */}
+        <div className="grid items-start">
           {/* One invisible copy of the inactive track: stacked with the live row it pins the grid
               row to max(electrical, software) so the panel height is identical on switch. */}
           {skillTracks
@@ -98,7 +100,7 @@ export function Skills() {
               <div
                 key={track.id}
                 aria-hidden
-                className="col-start-1 row-start-1 invisible flex select-none flex-wrap gap-3 pointer-events-none"
+                className="col-start-1 row-start-1 invisible flex select-none flex-wrap content-start items-start gap-3 pointer-events-none"
               >
                 {skillSets[track.id].map((skill) => (
                   <span key={skill} className={chipClassName}>
@@ -116,7 +118,7 @@ export function Skills() {
               aria-labelledby={`skills-tab-${currentTrack}`}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.16 }}
-              className="col-start-1 row-start-1 flex flex-wrap gap-3"
+              className="col-start-1 row-start-1 flex flex-wrap content-start items-start gap-3"
             >
               {skillSets[currentTrack].map((skill, index) => (
                 <motion.span
