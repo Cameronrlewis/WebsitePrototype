@@ -84,6 +84,7 @@ export function OrganizationContextModal({
                 </div>
               </div>
 
+              {organization.builds.length > 0 ? (
               <div className="space-y-5 pt-4">
                 <h3 className="text-[1.6rem] font-medium tracking-[-0.03em] text-[var(--org-text)]">What I Built</h3>
 
@@ -173,6 +174,7 @@ export function OrganizationContextModal({
                   })}
                 </div>
               </div>
+              ) : null}
             </section>
           </div>
         </div>

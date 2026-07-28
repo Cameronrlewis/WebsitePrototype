@@ -9,7 +9,6 @@ import {
   ScrollText,
   Sparkles,
   X,
-  Zap,
 } from "lucide-react";
 
 import { profile } from "../data/portfolio";
@@ -17,6 +16,7 @@ import type { PageId } from "../data/portfolio";
 import { MonogramText } from "./MonogramText";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "./ui/utils";
+import { Logo } from "./Logo";
 
 interface SidebarProps {
   activeItem: PageId;
@@ -229,7 +229,7 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
               layout
               className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-button)]"
             >
-              <Zap className="size-5" />
+              <Logo className="size-6" />
             </motion.div>
 
             <AnimatePresence initial={false}>

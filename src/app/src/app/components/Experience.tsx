@@ -109,10 +109,10 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                       </span>
                     ))}
                   </div>
-                  {entry.orgId === "paradigm-engineering" && onOpenOrganization ? (
+                  {entry.orgId && onOpenOrganization ? (
                     <button
                       type="button"
-                      onClick={() => onOpenOrganization("paradigm-engineering")}
+                      onClick={() => onOpenOrganization(entry.orgId as string)}
                       className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-1)]"
                     >
                       Team Context
