@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   ChevronLeft,
@@ -39,10 +39,44 @@ const FOCUS_AREAS = "PCB Design · Embedded Systems · Hardware";
 
 /** Outgoing and incoming boards travel the same way, so they read as one move. */
 const boardPanelVariants = {
-  enter: (direction: -1 | 1) => ({ x: `${direction * 12}%`, opacity: 0 }),
-  center: { x: "0%", opacity: 1 },
-  exit: (direction: -1 | 1) => ({ x: `${direction * -12}%`, opacity: 0 }),
+  enter: (direction: -1 | 1) => ({ x: `${direction * 28}%`, opacity: 0, scale: 1.04 }),
+  center: { x: "0%", opacity: 1, scale: 1 },
+  exit: (direction: -1 | 1) => ({ x: `${direction * -28}%`, opacity: 0, scale: 0.98 }),
 };
+
+/** Reduced motion: no travel, no scale - just a short crossfade. */
+const boardPanelVariantsReduced = {
+  enter: { x: "0%", opacity: 0, scale: 1 },
+  center: { x: "0%", opacity: 1, scale: 1 },
+  exit: { x: "0%", opacity: 0, scale: 1 },
+};
+
+const BOARD_PANEL_TRANSITION = { duration: 0.6, ease: [0.22, 1, 0.36, 1] } as const;
+const BOARD_PANEL_TRANSITION_REDUCED = { duration: 0.2, ease: "linear" } as const;
+
+/** Copy arrives title -> org -> description -> tags so the eye is led. */
+const copyBlockVariants = {
+  hidden: {},
+  show: { transition: { delayChildren: 0.12, staggerChildren: 0.05 } },
+};
+
+const copyItemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+};
+
+const copyBlockVariantsReduced = {
+  hidden: {},
+  show: {},
+};
+
+const copyItemVariantsReduced = {
+  hidden: { opacity: 0, y: 0 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "linear" } },
+};
+
+/** Shared-element fill that travels between rail segments. */
+const RAIL_SPRING = { type: "spring", stiffness: 260, damping: 24 } as const;
 
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
@@ -54,6 +88,11 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
   // indicators derive it from the index delta so jumping still animates the
   // way the eye expects.
   const [direction, setDirection] = useState<-1 | 1>(1);
+  // Bumped once per board change so the accent sweep fires exactly once. It
+  // starts at 0 and the sweep is not rendered until then, so the first paint
+  // stays quiet.
+  const [sweepId, setSweepId] = useState(0);
+  const prefersReducedMotion = useReducedMotion();
 
   const activeProject = featuredBoardProjects[activeBoardIndex] ?? featuredBoardProjects[0] ?? null;
   const featuredOrganization = activeProject ? getOrganizationById(activeProject.organizationId) : null;
@@ -64,11 +103,17 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
     }
 
     setDirection(step);
+    setSweepId((value) => value + 1);
     setActiveBoardIndex((value) => (value + step + featuredBoardProjects.length) % featuredBoardProjects.length);
   };
 
   const showFeaturedBoard = (index: number) => {
+    if (index === activeBoardIndex) {
+      return;
+    }
+
     setDirection(index >= activeBoardIndex ? 1 : -1);
+    setSweepId((value) => value + 1);
     setActiveBoardIndex(index);
   };
 
@@ -272,11 +317,11 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                       key={activeProject.slug}
                       className="absolute inset-0"
                       custom={direction}
-                      variants={boardPanelVariants}
+                      variants={prefersReducedMotion ? boardPanelVariantsReduced : boardPanelVariants}
                       initial="enter"
                       animate="center"
                       exit="exit"
-                      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                      transition={prefersReducedMotion ? BOARD_PANEL_TRANSITION_REDUCED : BOARD_PANEL_TRANSITION}
                     >
                       {(activeProject.cardImg ?? activeProject.bannerImg) ? (
                         <div
@@ -307,6 +352,36 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                       )}
                     </motion.div>
                   </AnimatePresence>
+                  {/* Scope-trace sweep: one thin accent line crosses the panel
+                      in the direction of travel, above the board and below the
+                      scrim. Keyed on sweepId so it re-mounts and replays once
+                      per change, and gated on sweepId > 0 so it never fires on
+                      first paint. Deliberately NOT wrapped in AnimatePresence:
+                      that subtree mounts on the first board change, and
+                      AnimatePresence suppresses the enter animation of the
+                      children it renders on its own first pass, which parked
+                      the very first sweep at its end keyframe. There is no exit
+                      to preserve here anyway - the sweep ends at opacity 0. */}
+                  {!prefersReducedMotion && sweepId > 0 ? (
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                      <motion.div
+                        key={sweepId}
+                        className="absolute inset-y-0 left-0 w-full"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, transparent 44%, color-mix(in srgb, var(--primary) 30%, transparent) 47.5%, var(--primary) 49.4%, #ffd7c4 50%, var(--primary) 50.6%, color-mix(in srgb, var(--primary) 30%, transparent) 52.5%, transparent 56%)",
+                          mixBlendMode: "screen",
+                        }}
+                        initial={{ x: `${direction * -110}%`, opacity: 0 }}
+                        animate={{ x: `${direction * 110}%`, opacity: [0, 1, 1, 0] }}
+                        transition={{
+                          duration: 0.5,
+                          x: { ease: "linear" },
+                          opacity: { ease: "linear", times: [0, 0.1, 0.75, 1] },
+                        }}
+                      />
+                    </div>
+                  ) : null}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 px-6 py-5 text-white">
                     <div>
@@ -333,16 +408,22 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                     grid. */}
                 <motion.div
                   key={activeProject.slug}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.34, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+                  variants={prefersReducedMotion ? copyBlockVariantsReduced : copyBlockVariants}
+                  initial="hidden"
+                  animate="show"
                 >
-                  <h2 className="font-display text-[1.7rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2rem]">
+                  <motion.h2
+                    variants={prefersReducedMotion ? copyItemVariantsReduced : copyItemVariants}
+                    className="font-display text-[1.7rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2rem]"
+                  >
                     {activeProject.title}
-                  </h2>
+                  </motion.h2>
 
                 {featuredOrganization ? (
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <motion.div
+                    variants={prefersReducedMotion ? copyItemVariantsReduced : copyItemVariants}
+                    className="mt-4 flex flex-wrap items-center gap-3"
+                  >
                     <button
                       type="button"
                       onClick={() => onOpenOrganization(activeProject)}
@@ -359,32 +440,49 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                     <span className="rounded-full border border-[color:var(--chip-border)] bg-[var(--surface-1)] px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
                       {organizationKindLabel[featuredOrganization.kind]}
                     </span>
-                  </div>
+                  </motion.div>
                 ) : null}
 
-                <p className="mt-4 text-base leading-8 text-[var(--text-soft)]">{activeProject.description}</p>
+                <motion.p
+                  variants={prefersReducedMotion ? copyItemVariantsReduced : copyItemVariants}
+                  className="mt-4 text-base leading-8 text-[var(--text-soft)]"
+                >
+                  {activeProject.description}
+                </motion.p>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <motion.div
+                    variants={prefersReducedMotion ? copyItemVariantsReduced : copyItemVariants}
+                    className="mt-5 flex flex-wrap gap-2"
+                  >
                     {activeProject.tags.map((tag) => (
                       <span key={tag} className="rounded-full border border-[color:var(--chip-border)] bg-[var(--chip-bg)] px-3 py-1 text-sm text-[var(--chip-text)]">
                         {tag}
                       </span>
                     ))}
-                  </div>
+                  </motion.div>
                 </motion.div>
 
+                {/* Segmented rail: the active fill is a shared element, so it
+                    physically travels along the bus between segments. */}
                 {featuredBoardProjects.length > 1 ? (
-                  <div className="mt-5 flex items-center gap-2">
+                  <div className="mt-5 flex items-center gap-1.5">
                     {featuredBoardProjects.map((project, index) => (
                       <button
                         key={project.slug}
                         type="button"
                         onClick={() => showFeaturedBoard(index)}
-                        className={`h-2.5 rounded-full transition-all ${
-                          index === activeBoardIndex ? "w-7 bg-primary" : "w-2.5 bg-[var(--outline-soft)] hover:bg-[var(--text-muted)]"
-                        }`}
+                        className="relative h-2.5 w-9 rounded-full bg-[var(--outline-soft)] transition-colors hover:bg-[var(--text-muted)]"
                         aria-label={`Show ${project.title}`}
-                      />
+                        aria-current={index === activeBoardIndex ? "true" : undefined}
+                      >
+                        {index === activeBoardIndex ? (
+                          <motion.span
+                            layoutId="featured-board-rail"
+                            className="absolute inset-0 rounded-full bg-primary"
+                            transition={prefersReducedMotion ? { duration: 0 } : RAIL_SPRING}
+                          />
+                        ) : null}
+                      </button>
                     ))}
                   </div>
                 ) : null}

@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 
 import { experience } from "../data/portfolio";
 import { SectionHeader } from "./SectionHeader";
+import { useTheme } from "./ThemeProvider";
 
 const CARD_PADDING = 24;
 const MARKER_SHELL_SIZE = 40;
@@ -13,6 +14,9 @@ interface ExperienceProps {
 }
 
 export function Experience({ onOpenOrganization }: ExperienceProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -27,6 +31,9 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
 
         {experience.map((entry, index) => {
           const { logoSize, markerImageSize, markerTop } = getExperienceSizing(entry.orgId);
+          const logoSrc = (isDark && entry.logoLight) || entry.logo;
+          const markerSrc =
+            (isDark && (entry.markerLight || entry.logoLight)) || entry.marker || entry.logo;
 
           return (
             <motion.article
@@ -46,7 +53,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                 }}
               >
                 <img
-                  src={entry.marker || entry.logo}
+                  src={markerSrc}
                   alt=""
                   className="object-contain"
                   style={{ width: `${markerImageSize}px`, height: `${markerImageSize}px` }}
@@ -57,7 +64,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
                   <div className="flex min-w-0 flex-1 items-start gap-[14px]">
                     <img
-                      src={entry.logo}
+                      src={logoSrc}
                       alt={entry.company}
                       className="shrink-0 object-contain"
                       style={{
