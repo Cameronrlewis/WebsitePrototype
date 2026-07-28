@@ -35,8 +35,6 @@ interface HomeProps {
 
 const HEADSHOT = "/portfolio/assets/headshot.jpg";
 
-const FOCUS_AREAS = "PCB Design · Embedded Systems · Hardware";
-
 /** Outgoing and incoming boards travel the same way, so they read as one move. */
 const boardPanelVariants = {
   enter: (direction: -1 | 1) => ({ x: `${direction * 28}%`, opacity: 0, scale: 1.04 }),
@@ -125,14 +123,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         transition={{ duration: 0.35 }}
         className="pt-8 lg:pt-12"
       >
-        <div className="flex items-center gap-4">
-          <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-[0.28em] text-primary">
-            {FOCUS_AREAS}
-          </span>
-          <span className="h-px flex-1 bg-[var(--outline-soft)]" aria-hidden="true" />
-        </div>
-
-        <h1 className="mt-5 font-display text-[2.6rem] font-bold leading-[1.03] tracking-[-0.03em] text-[var(--text-strong)] sm:text-[3.6rem]">
+        <h1 className="font-display text-[2.6rem] font-bold leading-[1.03] tracking-[-0.03em] text-[var(--text-strong)] sm:text-[3.6rem]">
           {profile.name}
         </h1>
 
@@ -273,8 +264,14 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 <span className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">
                   Featured Board
                 </span>
-                <span className="size-1 rounded-full bg-[var(--text-muted)]" aria-hidden="true" />
-                <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">{activeProject.category}</span>
+                {featuredOrganization ? (
+                  <>
+                    <span className="size-1 rounded-full bg-[var(--text-muted)]" aria-hidden="true" />
+                    <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      {featuredOrganization.name}
+                    </span>
+                  </>
+                ) : null}
               </div>
 
               {featuredBoardProjects.length > 1 ? (

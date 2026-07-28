@@ -1,24 +1,29 @@
-import { useState } from "react";
 import { motion } from "motion/react";
-import { Download, Github, Linkedin, Mail, MapPin, Send } from "lucide-react";
+import { Download, Github, Linkedin, Mail, MapPin } from "lucide-react";
 
 import { documents, profile, socialLinks } from "../data/portfolio";
 import { SectionHeader } from "./SectionHeader";
 import { MonogramText } from "./MonogramText";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
 
 interface ContactProps {
   onOpenResume: () => void;
 }
 
+const findLink = (label: string) => socialLinks.find((link) => link.label === label);
+
 export function Contact({ onOpenResume }: ContactProps) {
-  const [sent, setSent] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
+  const emailLink = findLink("Email");
+  const githubLink = findLink("GitHub");
+  const linkedinLink = findLink("LinkedIn");
+
+  const emailHref = emailLink?.href ?? `mailto:${profile.email}`;
+  const emailValue = emailLink?.value ?? profile.email;
+
+  const secondaryLinks = [
+    githubLink ? { ...githubLink, Icon: Github } : null,
+    linkedinLink ? { ...linkedinLink, Icon: Linkedin } : null,
+  ].filter((entry) => entry !== null);
 
   return (
     <div className="space-y-6">
@@ -29,153 +34,75 @@ export function Contact({ onOpenResume }: ContactProps) {
         intro="Open to internship and co-op conversations in electrical and hardware engineering."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.32, delay: 0.05 }}
-          className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-6 shadow-[var(--shadow-card)]"
-        >
-          <div className="flex flex-col items-center text-center">
-            <div className="flex size-24 items-center justify-center rounded-full bg-primary text-[2rem] font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
-              <MonogramText value={profile.initials} />
-            </div>
-            <h2 className="mt-5 font-display text-[1.5rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{profile.name}</h2>
-            <p className="mt-1 text-base text-[var(--text-muted)]">{profile.headline} - Class of 2029</p>
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+        className="rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)] sm:p-8"
+      >
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
+          <div className="flex size-20 items-center justify-center rounded-full bg-primary text-[1.6rem] font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
+            <MonogramText value={profile.initials} />
           </div>
 
-          <div className="mt-6 space-y-3">
-            <a href={socialLinks[0].href} className="flex items-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]">
-              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
-                <Mail className="size-4" />
-              </span>
-              <span>{socialLinks[0].value}</span>
-            </a>
+          <h2 className="mt-5 font-display text-[1.6rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
+            {profile.name}
+          </h2>
+          <p className="mt-1 text-base text-[var(--text-muted)]">{profile.headline}</p>
 
-            <div className="flex items-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)]">
-              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
-                <MapPin className="size-4" />
-              </span>
-              <span>{profile.location}</span>
-            </div>
+          <p className="mt-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.28em] text-[var(--text-soft)]">
+            <MapPin className="size-4" />
+            {profile.location}
+          </p>
 
-            <a
-              href={socialLinks[1].href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]"
-            >
-              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
-                <Github className="size-4" />
+          <a
+            href={emailHref}
+            className="group mt-7 flex w-full flex-col items-center gap-2 rounded-2xl border border-[color:var(--outline-strong)] bg-[var(--surface-3)] px-6 py-6 shadow-[var(--shadow-soft)] transition-colors hover:bg-[var(--surface-4)] sm:flex-row sm:justify-center sm:gap-4"
+          >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-button)]">
+              <Mail className="size-4" />
+            </span>
+            <span className="flex flex-col items-center sm:items-start">
+              <span className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Email me</span>
+              <span className="mt-1 font-display text-lg font-semibold tracking-[-0.01em] text-[var(--text-strong)] break-all">
+                {emailValue}
               </span>
-              <span>{socialLinks[1].value}</span>
-            </a>
+            </span>
+          </a>
 
-            <a
-              href={socialLinks[2].href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-3)]"
-            >
-              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--surface-4)]">
-                <Linkedin className="size-4" />
-              </span>
-              <span>{socialLinks[2].value}</span>
-            </a>
+          <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
+            {secondaryLinks.map(({ label, value, href, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-3)] px-4 py-3 text-[var(--text-body)] transition-colors hover:bg-[var(--surface-4)]"
+              >
+                <Icon className="size-4" />
+                <span className="truncate">{value}</span>
+              </a>
+            ))}
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mt-6 grid w-full gap-3 sm:grid-cols-2">
             <Button className="rounded-xl shadow-[var(--shadow-button)]" onClick={onOpenResume}>
               <Download className="size-4" />
               Open Resume
             </Button>
-            <Button asChild variant="outline" className="rounded-xl border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]">
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-xl border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
+            >
               <a href={documents.resume} download>
                 <Download className="size-4" />
                 Download
               </a>
             </Button>
           </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.32, delay: 0.1 }}
-          className="rounded-2xl border border-[color:var(--outline-strong)] bg-[var(--surface-1)] p-6 shadow-[var(--shadow-card)]"
-        >
-          <h2 className="font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">Send a message</h2>
-
-          <form
-            className="mt-6 space-y-5"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const body = `${message}\n\n— ${name} (${email})`;
-              window.location.href = `mailto:${profile.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-              setSent(true);
-            }}
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-[var(--text-body)]">Your name</span>
-                <Input
-                  required
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Jane Smith"
-                  className="h-11 rounded-xl border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-[var(--text-body)]">Email</span>
-                <Input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="name@example.com"
-                  className="h-11 rounded-xl border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
-                />
-              </label>
-            </div>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-[var(--text-body)]">Subject</span>
-              <Input
-                required
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                placeholder="Internship, project, or collaboration"
-                className="h-11 rounded-xl border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-[var(--text-body)]">Message</span>
-              <Textarea
-                required
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                rows={8}
-                placeholder="Briefly describe the role, team, timeline, or what you need help with."
-                className="min-h-[10.5rem] rounded-xl border-[color:var(--outline-soft)] bg-[var(--input-background)] px-4 py-3 text-[var(--text-strong)] placeholder:text-[var(--text-muted)]"
-              />
-            </label>
-
-            {sent ? (
-              <p className="pt-2 text-sm text-[var(--text-muted)]">Your email client should have opened with the message ready to send.</p>
-            ) : null}
-
-            <div className="flex justify-start pt-1 sm:justify-end">
-              <Button className="w-full rounded-xl px-5 shadow-[var(--shadow-button)] sm:w-auto sm:min-w-[17rem]" type="submit">
-                <Send className="size-4" />
-                Send Message
-              </Button>
-            </div>
-          </form>
-        </motion.section>
-      </div>
+        </div>
+      </motion.section>
     </div>
   );
 }

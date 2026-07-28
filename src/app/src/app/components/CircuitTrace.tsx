@@ -96,8 +96,19 @@ interface TraceGeometry {
   // Silkscreen layer: reference designators (static, muted) and net-name
   // flags (AC IN, +12V, +3V3, GND) that light as the current passes.
   texts: Array<{ x: number; y: number; text: string; size: number }>;
-  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number }>;
+  // `x`/`y` is the ANCHOR: the exact point on the wire/node being annotated.
+  // The tag body (a schematic net-label pentagon whose point sits on the
+  // anchor) extends away from it in the `side` direction.
+  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number; side: "left" | "right" }>;
 }
+
+// Net-label tag geometry, shared by the keep-out boxes and the renderer.
+const NET_TAG_HALF_H = 9;
+const NET_TAG_NOTCH = 7; // depth of the pointed nose, anchor → body edge
+const NET_TAG_PAD = 8; // horizontal padding either side of the text
+// Monospace advance is ~0.6em; text renders at fontSize 11.
+const netTagBodyWidth = (text: string) => text.length * 6.6 + NET_TAG_PAD * 2;
+const netTagSpan = (text: string) => NET_TAG_NOTCH + netTagBodyWidth(text);
 
 const LEFT_X = 22;
 const MAX_BRANCHES = 8;
@@ -330,8 +341,16 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const groundY = height - 40;
 
   // Columns claimed by descending rails and block sub-nets. Horizontal
-  // moves JUMP over these with the classic schematic crossover arc.
-  const railColumns: number[] = [];
+  // moves JUMP over these with the classic schematic crossover arc — but only
+  // where the claimed wire actually exists, hence the y-extent: a claim is a
+  // real vertical segment (x, y1 → y2), not an infinite column, so a run
+  // hundreds of px above or below it draws no phantom hop.
+  const railColumns: Array<{ x: number; y1: number; y2: number }> = [];
+  const claimColumn = (x: number, ya: number, yb: number) => {
+    railColumns.push({ x, y1: Math.min(ya, yb), y2: Math.max(ya, yb) });
+  };
+  // Tolerance for "the run is on this wire's span" (px).
+  const HOP_Y_TOL = 2;
 
   // Generously padded keep-out boxes around each IC's full fan-out, so a
   // dodging rail gives the IC's branch complexity a wide berth.
@@ -352,7 +371,14 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const hopTo = (toX: number, y: number) => {
     const dir = toX > pb.x ? 1 : -1;
     const cols = railColumns
-      .filter((c) => (c - pb.x) * dir > 14 && (toX - c) * dir > 14)
+      .filter(
+        (c) =>
+          (c.x - pb.x) * dir > 14 &&
+          (toX - c.x) * dir > 14 &&
+          y >= c.y1 - HOP_Y_TOL &&
+          y <= c.y2 + HOP_Y_TOL,
+      )
+      .map((c) => c.x)
       .sort((a, b) => (a - b) * dir);
     for (const c of cols) {
       pb.lineTo(c - 9 * dir, y);
@@ -365,7 +391,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const pickColumn = (cur: number): number => {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       const c = between(LEFT_X, busHi);
-      if (Math.abs(c - cur) >= 44 && railColumns.every((r) => Math.abs(r - c) > 30)) {
+      if (Math.abs(c - cur) >= 44 && railColumns.every((r) => Math.abs(r.x - c) > 30)) {
         return c;
       }
     }
@@ -399,10 +425,6 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const tapDist = pb.dist;
     junctions.push({ x, y, triggerDist: tapDist });
     const bx = dir === 0 ? x : Math.min(rightX, Math.max(LEFT_X, x + dir * between(60, 110)));
-    // Reserve the branch column so no descending bus/rail runs over its parts.
-    if (bx !== x) {
-      railColumns.push(bx);
-    }
     const bb = createPathBuilder(x, y);
     if (bx !== x) {
       bb.lineTo(bx, y);
@@ -420,6 +442,11 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     texts.push({ x: bx + 15, y: ledY + 4, text: refdes("D"), size: 9 });
     components.push({ x: bx, y: ledY + 17, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: tapDist + fillWindow, scale: 1.4 });
     branches.push({ path: bb.d, junctionDist: tapDist, length: bb.dist, fillWindow });
+    // Reserve the branch column so no descending bus/rail runs over its parts —
+    // only over the vertical leg that actually exists (y → the ground pad).
+    if (bx !== x) {
+      claimColumn(bx, y, ledY + 17);
+    }
   };
 
   // Registers a timed fan-out net and the parts sitting on it; each part's
@@ -479,7 +506,12 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const totalLen = pb.dist;
     const homeLo = busHi + 60;
     const homeHi = blockMaxX - 40;
-    const railXs: number[] = [];
+    // Home columns claimed by already-routed rails. Like `railColumns`, each
+    // lane records the y-intervals where it actually descends in that column
+    // (a rail only occupies its home column in the clear gaps between chips
+    // and on the final run to ground — everywhere else it rides the gutter),
+    // so a later rail only hops where a wire genuinely crosses.
+    const railLanes: Array<{ x: number; spans: Array<[number, number]> }> = [];
     let railK = 0;
 
     for (const req of railRequests) {
@@ -492,13 +524,14 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         let homeX = homeLo + (homeHi - homeLo) * (0.3 + 0.25 * (k % 3)) + between(-18, 18);
         homeX = Math.min(homeHi, Math.max(homeLo, homeX));
         let guard = 0;
-        while (railXs.some((r) => Math.abs(r - homeX) < 40) && guard++ < 12) {
+        while (railLanes.some((l) => Math.abs(l.x - homeX) < 40) && guard++ < 12) {
           homeX += 46;
           if (homeX > homeHi) {
             homeX = homeLo + (homeX - homeHi);
           }
         }
-        railXs.push(homeX);
+        const lane: { x: number; spans: Array<[number, number]> } = { x: homeX, spans: [] };
+        railLanes.push(lane);
         // Dodge lane in the reserved gutter, clear of every keep-out box.
         const dodgeX = Math.min(rightX - 14, rightX - 14 - (k % 3) * 20);
 
@@ -509,8 +542,15 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         // Horizontal run inward that hops other rails' home columns.
         const runTo = (toX: number, atY: number) => {
           const d = toX > bb.x ? 1 : -1;
-          for (const r of railXs
-            .filter((rr) => rr !== homeX && (rr - bb.x) * d > 14 && (toX - rr) * d > 14)
+          for (const r of railLanes
+            .filter(
+              (l) =>
+                l !== lane &&
+                (l.x - bb.x) * d > 14 &&
+                (toX - l.x) * d > 14 &&
+                l.spans.some(([a, b]) => atY >= a - HOP_Y_TOL && atY <= b + HOP_Y_TOL),
+            )
+            .map((l) => l.x)
             .sort((a, b) => (a - b) * d)) {
             bb.lineTo(r - 9 * d, atY);
             bb.quadTo(r, atY - 16, r + 9 * d, atY);
@@ -544,6 +584,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
             parts.push({ x: homeX, y: partY, type, at: bb.dist });
             const midY = backY + (nextTop - backY) * 0.62;
             bb.lineTo(homeX, midY);
+            // This is the only stretch of home column this rail occupies here.
+            lane.spans.push([backY, midY]);
             if (bi + 1 < boxes.length) {
               runTo(dodgeX, midY);
             }
@@ -554,6 +596,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         if (Math.abs(bb.x - homeX) > 2) {
           runTo(homeX, bb.y);
         }
+        const descentTop = bb.y;
         let yy = bb.y;
         while (yy < groundY - 200) {
           yy += between(210, 340);
@@ -565,6 +608,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
           parts.push({ x: homeX, y: yy, type, at: bb.dist });
         }
         bb.lineTo(homeX, groundY);
+        lane.spans.push([descentTop, groundY]);
 
         // Fill in lockstep with the descent: the rail's lit front tracks the
         // scroll (reaches the bottom exactly as the main bolt does), rather
@@ -625,7 +669,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       branchIndex: bi,
       branchFrac: 0.12,
     });
-    netFlags.push({ x: cxc + 100 * s + 34, y: y - 14, text: "+12V", triggerDist: jd });
+    // Anchored on the rectifier's +12V output node (the far end of `bc`).
+    netFlags.push({ x: cxc + 100 * s, y, text: "+12V", triggerDist: jd, side: "right" });
     addBox(pb.x, y - 44 * s, cxc + 100 * s, y + 44 * s);
     // No pass-through rail here: the +12V DC output is not shunted down the right
     // gutter. Instead the caller threads the main spine out of this node so the
@@ -818,9 +863,22 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       pushNet(tap, jd, 1800, [], 1500);
     }
 
-    netFlags.push({ x: X(176) + 40, y: y - 18, text: "+3V3", triggerDist: jd });
-    for (const lx of [-40, -24, 0, 24, 44, 122, 148, 176]) {
-      railColumns.push(X(lx));
+    // Anchored on the buck output node at X(176), y (the block's right edge).
+    netFlags.push({ x: X(176), y, text: "+3V3", triggerDist: jd, side: "right" });
+    // Claimed columns must coincide with a vertical net this block actually
+    // emitted, with that net's real y-span — otherwise later horizontal runs
+    // hop over nothing.
+    for (const [lx, ly1, ly2] of [
+      [-44, 52, 88], // SS soft-start cap leg
+      [-14, 28, 52], // SS pin drop
+      [0, 22, 48], // GND stitch
+      [14, 28, 96], // COMP RC ladder
+      [44, -64, 64], // PH node: bootstrap return + zener clamp
+      [122, 0, 72], // output ceramic
+      [148, 0, 72], // output bulk
+      [176, 0, 96], // FB divider
+    ] as const) {
+      claimColumn(X(lx), Y(ly1), Y(ly2));
     }
     addBox(X(-64), Y(-64), X(176), Y(96));
     requestRails(X(176), y, span >= 900 ? 2 : 1);
@@ -884,9 +942,15 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     // +1V8 output test point (gives the rail a real terminal, not a
     // floating label).
     components.push({ x: X(92), y, type: "testpoint", orientation: "v", dir: 1, triggerDist: jd, scale: ps, branchIndex: chain, branchFrac: coutAt / bc.dist });
-    netFlags.push({ x: X(92), y: y - 30, text: "+1V8", triggerDist: jd });
-    for (const lx of [-36, 0, 64]) {
-      railColumns.push(X(lx));
+    // Anchored on the free end of the test point's stub (drawn from y-14 to
+    // y-4 at scale `ps`), so the tag clears the test-point ring.
+    netFlags.push({ x: X(92), y: y - 14 * ps, text: "+1V8", triggerDist: jd, side: "right" });
+    for (const [lx, ly1, ly2] of [
+      [-36, 0, 52], // Cin leg
+      [0, 16, 40], // GND stitch
+      [64, 0, 52], // Cout leg
+    ] as const) {
+      claimColumn(X(lx), Y(ly1), Y(ly2));
     }
     addBox(X(-36), Y(-30), X(92), Y(52));
   };
@@ -896,7 +960,34 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   const emitMcuBlock = (y: number, s: number) => {
     const jd = pb.dist;
     junctions.push({ x: pb.x, y, triggerDist: jd });
-    const cx = pb.x + 82 * s;
+    // The bus above this block is already routed by the time we get here, and
+    // it wanders anywhere in the left band — its last jog corner (plus the via
+    // and glow that sit on it) can land right over where the package would go,
+    // so the trunk reads as running behind the chip's top-left. Measure the
+    // trunk we've already drawn and slide the package right until its body
+    // clears that column, bounded by the reserved rail gutter.
+    const PKG_CLEAR = 24;
+    let cx = pb.x + 82 * s;
+    {
+      const bandTop = y - 28 * s - PKG_CLEAR;
+      const bandBottom = y + 28 * s + PKG_CLEAR;
+      let trunkRight = -Infinity;
+      const trail = pb.samples;
+      for (let i = 1; i < trail.length; i += 1) {
+        const a = trail[i - 1];
+        const b = trail[i];
+        // Any already-drawn trunk segment that lives in the package's band.
+        if (Math.max(a.y, b.y) < bandTop || Math.min(a.y, b.y) > bandBottom) {
+          continue;
+        }
+        trunkRight = Math.max(trunkRight, a.x, b.x);
+      }
+      const need = trunkRight + PKG_CLEAR - (cx - 35 * s);
+      const room = blockMaxX - (cx + 86 * s);
+      if (need > 0 && room > 0) {
+        cx += Math.min(need, room);
+      }
+    }
     const X = (lx: number) => cx + lx * s;
     const Y = (ly: number) => y + ly * s;
     const ps = Math.max(1.25, s * 0.6);
@@ -905,6 +996,10 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     const bc = createPathBuilder(pb.x, y);
     bc.lineTo(X(-66), y);
     const decAt = bc.dist;
+    // Explicit vertices on the symbol's pin-stub ends (local ±43) so the spine
+    // visibly lands on the 3V3 pin on the left and leaves on IO2 on the right,
+    // instead of only being inferred from a single run straight under the body.
+    bc.lineTo(X(-43), y);
     bc.lineTo(X(43), y);
     bc.lineTo(X(66), y);
     const ledAt = bc.dist;
@@ -999,8 +1094,16 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         (ledAt / bc.dist) * 1000,
       );
     }
-    for (const lx of [-66, -14, 14, 32, 66]) {
-      railColumns.push(X(lx));
+    // Real vertical nets of this block only: the decoupling/EN column, the two
+    // crystal legs, the GND stitch and the status-LED leg.
+    for (const [lx, ly1, ly2] of [
+      [-66, -16, 56], // EN pull-up rise + decoupling drop
+      [-12, 34, 78], // XP crystal leg
+      [12, 34, 78], // XN crystal leg
+      [24, 34, 52], // GND stitch
+      [66, 0, 88], // status LED leg
+    ] as const) {
+      claimColumn(X(lx), Y(ly1), Y(ly2));
     }
     addBox(X(-66), Y(-38), X(86), Y(88));
   };
@@ -1123,8 +1226,17 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       );
       junctions.push({ x: X(70), y: Y(-58), triggerDist: jd + 40 });
     }
-    for (const lx of [-75, -30, -8, 8, 17, 26, 35, 84]) {
-      railColumns.push(X(lx));
+    for (const [lx, ly1, ly2] of [
+      [-75, 0, 58], // VCCINT decoupling
+      [-30, 44, 80], // decoupling bank cap 1
+      [-8, 44, 80], // decoupling bank cap 2
+      [84, -24, 30], // CDONE indicator leg
+    ] as const) {
+      claimColumn(X(lx), Y(ly1), Y(ly2));
+    }
+    // SPI harness drops: Y(50) down to the flash's top-pin row.
+    for (let i = 0; i < 4; i += 1) {
+      claimColumn(X(8 + i * 9), Y(50), Y(78) - 28 * ps);
     }
     addBox(X(-104), Y(-72), X(84), Y(80));
   };
@@ -1211,8 +1323,14 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
         (outAt / bc.dist) * 950,
       );
     }
-    for (const lx of [-52, -16, 0, 16, 52]) {
-      railColumns.push(X(lx));
+    for (const [lx, ly1, ly2] of [
+      [-52, 0, 92], // timing ladder
+      [-16, 30, 34], // DIS sense stub
+      [0, 30, 60], // THR sense stub
+      [16, 30, 64], // CV cap
+      [52, 0, 84], // OUT blinker leg
+    ] as const) {
+      claimColumn(X(lx), Y(ly1), Y(ly2));
     }
     addBox(X(-52), Y(-40), X(72), Y(92));
   };
@@ -1298,8 +1416,10 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
 
   const usableGaps = gaps.filter((gap) => gap.bottom - gap.top >= 70);
 
-  // The chain starts at the mains.
-  netFlags.push({ x: pb.x + 34, y: 8, text: "AC IN", triggerDist: 0 });
+  // The chain starts at the mains. Anchored on the trunk column itself (the
+  // bus descends from y = 0 at x = pb.x); the tag body extends right, clear
+  // of the wire.
+  netFlags.push({ x: pb.x, y: 14, text: "AC IN", triggerDist: 0, side: "right" });
 
   usableGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
@@ -1331,7 +1451,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       pb.lineTo(dcPlusX, dcBusY); // drop clear of the block on the right
       pb.lineTo(busX, dcBusY); // +12V bus returns to the left band, now the spine
       // The trunk below the rectifier is the +12V DC bus feeding the downstream ICs.
-      netFlags.push({ x: busX + 22, y: dcBusY + 8, text: "+12V", triggerDist: pb.dist });
+      // Anchored on the corner where the DC return lands back in the bus column.
+      netFlags.push({ x: busX, y: dcBusY, text: "+12V", triggerDist: pb.dist, side: "right" });
     } else if (pending === "buck" && avail >= 340) {
       const s = Math.min(3.2, Math.max(1.5, avail / 300));
       emitBuckBlock(crossY, s);
@@ -1344,7 +1465,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       centerpieceQueue.shift();
       stage = "rail18";
       // Trunk stepped down to the +1V8 core rail.
-      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+1V8", triggerDist: pb.dist });
+      // Anchored on the trunk just below the block (the bus always runs from
+      // crossY down to at least crossY + 24 in this column).
+      netFlags.push({ x: pb.x, y: crossY + 20, text: "+1V8", triggerDist: pb.dist, side: "right" });
     } else if (pending === "mcu" && avail >= 300) {
       const s = Math.min(2.4, Math.max(1.3, avail / 220));
       emitMcuBlock(crossY, s);
@@ -1377,7 +1500,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
 
   // Ground return: the bus visibly ends at a ground via.
   components.push({ x: pb.x, y: groundY + 18, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: pb.dist, scale: 1.7 });
-  netFlags.push({ x: pb.x + 30, y: groundY - 4, text: "GND", triggerDist: pb.dist });
+  // Anchored on the trunk just above the ground symbol's stem.
+  netFlags.push({ x: pb.x, y: groundY - 4, text: "GND", triggerDist: pb.dist, side: "right" });
 
   // Now that every IC keep-out box exists, route the pass-through rails so
   // each dodges clear of the ICs and they all converge into the ground bus.
@@ -1415,7 +1539,15 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     return { x1: c.x - hx, y1: c.y - hy, x2: c.x + hx, y2: c.y + hy };
   });
   for (const flag of netFlags) {
-    obstacles.push({ x1: flag.x - 34, y1: flag.y - 12, x2: flag.x + 34, y2: flag.y + 18 });
+    // Cover the rendered tag: the anchor point plus the body extending to
+    // whichever side it was placed on, with a small margin.
+    const span = netTagSpan(flag.text);
+    obstacles.push({
+      x1: flag.x - (flag.side === "left" ? span + 6 : 6),
+      y1: flag.y - NET_TAG_HALF_H - 6,
+      x2: flag.x + (flag.side === "right" ? span + 6 : 6),
+      y2: flag.y + NET_TAG_HALF_H + 6,
+    });
   }
   if (display !== null) {
     const d = display as { x: number; y: number };
@@ -2518,7 +2650,14 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
           component.type === "testpoint" ||
           component.type === "gndvia" ||
           component.type === "flash8" ||
-          component.type === "oscbox" ? null : component.type === "rectifier" ||
+          component.type === "oscbox" ? null : component.type === "mcu" ? (
+            // The ESP32 module is a single solid package, and its body fill
+            // (--surface-1) is only 82% opaque — a wire passing under the body
+            // outside the ±8 pin band would ghost through it instead of being
+            // hidden. Occlude the whole package footprint (matches the body
+            // rect below exactly: -35..35 × -28..28).
+            <rect x={-35} y={-28} width={70} height={56} rx={2} fill="var(--background)" />
+          ) : component.type === "rectifier" ||
             component.type === "buck" ||
             component.type === "mcu" ||
             component.type === "ldo" ||
@@ -2570,21 +2709,42 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       ))}
 
       {/* Net-name flags (AC IN, +12V, +3V3, GND): light as the current passes */}
-      {geometry.netFlags.map((flag, index) => (
-        <g
-          key={`net-${index}`}
-          ref={(el) => {
-            netFlagRefs.current[index] = el;
-          }}
-          transform={`translate(${flag.x} ${flag.y})`}
-          style={{ color: "var(--outline-strong)", transition: "color 0.3s ease" }}
-        >
-          <path d="M0 12 L-5 4 L5 4 Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <text x="0" y="0" textAnchor="middle" fontSize="11" fontFamily="monospace" fill="currentColor">
-            {flag.text}
-          </text>
-        </g>
-      ))}
+      {geometry.netFlags.map((flag, index) => {
+        // Schematic net-label tag: a pentagon whose point sits exactly on the
+        // anchor (flag.x, flag.y) and whose body extends to `flag.side`.
+        const dir = flag.side === "left" ? -1 : 1;
+        const nose = NET_TAG_NOTCH * dir;
+        const far = (NET_TAG_NOTCH + netTagBodyWidth(flag.text)) * dir;
+        const h = NET_TAG_HALF_H;
+        return (
+          <g
+            key={`net-${index}`}
+            ref={(el) => {
+              netFlagRefs.current[index] = el;
+            }}
+            transform={`translate(${flag.x} ${flag.y})`}
+            style={{ color: "var(--outline-strong)", transition: "color 0.3s ease" }}
+          >
+            <path
+              d={`M0 0 L${nose} ${-h} L${far} ${-h} L${far} ${h} L${nose} ${h} Z`}
+              fill="var(--surface-1)"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            <text
+              x={(nose + far) / 2}
+              y="3.8"
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="monospace"
+              fill="currentColor"
+            >
+              {flag.text}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Vias at crossing bends */}
       {geometry.vias.map((via, index) => (
