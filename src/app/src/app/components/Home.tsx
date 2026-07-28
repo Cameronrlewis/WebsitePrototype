@@ -264,6 +264,14 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 <span className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">
                   Featured Board
                 </span>
+                {featuredOrganization ? (
+                  <>
+                    <span className="size-1 rounded-full bg-[var(--text-muted)]" aria-hidden="true" />
+                    <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      {featuredOrganization.name}
+                    </span>
+                  </>
+                ) : null}
               </div>
 
               {featuredBoardProjects.length > 1 ? (

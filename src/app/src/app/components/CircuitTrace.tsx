@@ -96,10 +96,19 @@ interface TraceGeometry {
   // Silkscreen layer: reference designators (static, muted) and net-name
   // flags (AC IN, +12V, +3V3, GND) that light as the current passes.
   texts: Array<{ x: number; y: number; text: string; size: number }>;
-  // `markerDx` offsets only the chevron (plus a short leader line) from the
-  // label, for flags whose text has to sit clear of the wire it points at.
-  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number; markerDx?: number }>;
+  // `x`/`y` is the ANCHOR: the exact point on the wire/node being annotated.
+  // The tag body (a schematic net-label pentagon whose point sits on the
+  // anchor) extends away from it in the `side` direction.
+  netFlags: Array<{ x: number; y: number; text: string; triggerDist: number; side: "left" | "right" }>;
 }
+
+// Net-label tag geometry, shared by the keep-out boxes and the renderer.
+const NET_TAG_HALF_H = 9;
+const NET_TAG_NOTCH = 7; // depth of the pointed nose, anchor → body edge
+const NET_TAG_PAD = 8; // horizontal padding either side of the text
+// Monospace advance is ~0.6em; text renders at fontSize 11.
+const netTagBodyWidth = (text: string) => text.length * 6.6 + NET_TAG_PAD * 2;
+const netTagSpan = (text: string) => NET_TAG_NOTCH + netTagBodyWidth(text);
 
 const LEFT_X = 22;
 const MAX_BRANCHES = 8;
@@ -627,7 +636,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       branchIndex: bi,
       branchFrac: 0.12,
     });
-    netFlags.push({ x: cxc + 100 * s + 34, y: y - 14, text: "+12V", triggerDist: jd });
+    // Anchored on the rectifier's +12V output node (the far end of `bc`).
+    netFlags.push({ x: cxc + 100 * s, y, text: "+12V", triggerDist: jd, side: "right" });
     addBox(pb.x, y - 44 * s, cxc + 100 * s, y + 44 * s);
     // No pass-through rail here: the +12V DC output is not shunted down the right
     // gutter. Instead the caller threads the main spine out of this node so the
@@ -820,7 +830,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       pushNet(tap, jd, 1800, [], 1500);
     }
 
-    netFlags.push({ x: X(176) + 40, y: y - 18, text: "+3V3", triggerDist: jd });
+    // Anchored on the buck output node at X(176), y (the block's right edge).
+    netFlags.push({ x: X(176), y, text: "+3V3", triggerDist: jd, side: "right" });
     for (const lx of [-40, -24, 0, 24, 44, 122, 148, 176]) {
       railColumns.push(X(lx));
     }
@@ -886,7 +897,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     // +1V8 output test point (gives the rail a real terminal, not a
     // floating label).
     components.push({ x: X(92), y, type: "testpoint", orientation: "v", dir: 1, triggerDist: jd, scale: ps, branchIndex: chain, branchFrac: coutAt / bc.dist });
-    netFlags.push({ x: X(92), y: y - 30, text: "+1V8", triggerDist: jd });
+    // Anchored on the free end of the test point's stub (drawn from y-14 to
+    // y-4 at scale `ps`), so the tag clears the test-point ring.
+    netFlags.push({ x: X(92), y: y - 14 * ps, text: "+1V8", triggerDist: jd, side: "right" });
     for (const lx of [-36, 0, 64]) {
       railColumns.push(X(lx));
     }
@@ -1300,10 +1313,10 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
 
   const usableGaps = gaps.filter((gap) => gap.bottom - gap.top >= 70);
 
-  // The chain starts at the mains.
-  // Label sits to the right of the trunk so it doesn't lie across the wire;
-  // markerDx pulls the chevron back onto the trunk column (tip at x = pb.x).
-  netFlags.push({ x: pb.x + 34, y: 14, text: "AC IN", triggerDist: 0, markerDx: -34 });
+  // The chain starts at the mains. Anchored on the trunk column itself (the
+  // bus descends from y = 0 at x = pb.x); the tag body extends right, clear
+  // of the wire.
+  netFlags.push({ x: pb.x, y: 14, text: "AC IN", triggerDist: 0, side: "right" });
 
   usableGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
@@ -1335,7 +1348,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       pb.lineTo(dcPlusX, dcBusY); // drop clear of the block on the right
       pb.lineTo(busX, dcBusY); // +12V bus returns to the left band, now the spine
       // The trunk below the rectifier is the +12V DC bus feeding the downstream ICs.
-      netFlags.push({ x: busX + 22, y: dcBusY + 8, text: "+12V", triggerDist: pb.dist });
+      // Anchored on the corner where the DC return lands back in the bus column.
+      netFlags.push({ x: busX, y: dcBusY, text: "+12V", triggerDist: pb.dist, side: "right" });
     } else if (pending === "buck" && avail >= 340) {
       const s = Math.min(3.2, Math.max(1.5, avail / 300));
       emitBuckBlock(crossY, s);
@@ -1348,7 +1362,9 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       centerpieceQueue.shift();
       stage = "rail18";
       // Trunk stepped down to the +1V8 core rail.
-      netFlags.push({ x: pb.x + 22, y: crossY + 30, text: "+1V8", triggerDist: pb.dist });
+      // Anchored on the trunk just below the block (the bus always runs from
+      // crossY down to at least crossY + 24 in this column).
+      netFlags.push({ x: pb.x, y: crossY + 20, text: "+1V8", triggerDist: pb.dist, side: "right" });
     } else if (pending === "mcu" && avail >= 300) {
       const s = Math.min(2.4, Math.max(1.3, avail / 220));
       emitMcuBlock(crossY, s);
@@ -1381,7 +1397,8 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
 
   // Ground return: the bus visibly ends at a ground via.
   components.push({ x: pb.x, y: groundY + 18, type: "ground", orientation: "v", dir: 1, role: "shunt", triggerDist: pb.dist, scale: 1.7 });
-  netFlags.push({ x: pb.x + 30, y: groundY - 4, text: "GND", triggerDist: pb.dist });
+  // Anchored on the trunk just above the ground symbol's stem.
+  netFlags.push({ x: pb.x, y: groundY - 4, text: "GND", triggerDist: pb.dist, side: "right" });
 
   // Now that every IC keep-out box exists, route the pass-through rails so
   // each dodges clear of the ICs and they all converge into the ground bus.
@@ -1419,7 +1436,15 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     return { x1: c.x - hx, y1: c.y - hy, x2: c.x + hx, y2: c.y + hy };
   });
   for (const flag of netFlags) {
-    obstacles.push({ x1: flag.x - 34, y1: flag.y - 12, x2: flag.x + 34, y2: flag.y + 18 });
+    // Cover the rendered tag: the anchor point plus the body extending to
+    // whichever side it was placed on, with a small margin.
+    const span = netTagSpan(flag.text);
+    obstacles.push({
+      x1: flag.x - (flag.side === "left" ? span + 6 : 6),
+      y1: flag.y - NET_TAG_HALF_H - 6,
+      x2: flag.x + (flag.side === "right" ? span + 6 : 6),
+      y2: flag.y + NET_TAG_HALF_H + 6,
+    });
   }
   if (display !== null) {
     const d = display as { x: number; y: number };
@@ -2574,39 +2599,42 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       ))}
 
       {/* Net-name flags (AC IN, +12V, +3V3, GND): light as the current passes */}
-      {geometry.netFlags.map((flag, index) => (
-        <g
-          key={`net-${index}`}
-          ref={(el) => {
-            netFlagRefs.current[index] = el;
-          }}
-          transform={`translate(${flag.x} ${flag.y})`}
-          style={{ color: "var(--outline-strong)", transition: "color 0.3s ease" }}
-        >
-          {flag.markerDx !== undefined && (
+      {geometry.netFlags.map((flag, index) => {
+        // Schematic net-label tag: a pentagon whose point sits exactly on the
+        // anchor (flag.x, flag.y) and whose body extends to `flag.side`.
+        const dir = flag.side === "left" ? -1 : 1;
+        const nose = NET_TAG_NOTCH * dir;
+        const far = (NET_TAG_NOTCH + netTagBodyWidth(flag.text)) * dir;
+        const h = NET_TAG_HALF_H;
+        return (
+          <g
+            key={`net-${index}`}
+            ref={(el) => {
+              netFlagRefs.current[index] = el;
+            }}
+            transform={`translate(${flag.x} ${flag.y})`}
+            style={{ color: "var(--outline-strong)", transition: "color 0.3s ease" }}
+          >
             <path
-              d={`M${flag.markerDx} 4 H${flag.markerDx - Math.sign(flag.markerDx) * 20}`}
-              fill="none"
+              d={`M0 0 L${nose} ${-h} L${far} ${-h} L${far} ${h} L${nose} ${h} Z`}
+              fill="var(--surface-1)"
               stroke="currentColor"
               strokeWidth="1.5"
+              strokeLinejoin="round"
             />
-          )}
-          <path
-            d={
-              flag.markerDx === undefined
-                ? "M0 12 L-5 4 L5 4 Z"
-                : `M${flag.markerDx} 12 L${flag.markerDx - 5} 4 L${flag.markerDx + 5} 4 Z`
-            }
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-          <text x="0" y="0" textAnchor="middle" fontSize="11" fontFamily="monospace" fill="currentColor">
-            {flag.text}
-          </text>
-        </g>
-      ))}
+            <text
+              x={(nose + far) / 2}
+              y="3.8"
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="monospace"
+              fill="currentColor"
+            >
+              {flag.text}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Vias at crossing bends */}
       {geometry.vias.map((via, index) => (
