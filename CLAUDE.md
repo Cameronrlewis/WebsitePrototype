@@ -12,16 +12,7 @@ When you need to understand the codebase, docs, or any files in this project:
 
 ## Commands
 
-Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page.
-
-```bash
-pnpm install     # postinstall runs tools/patch-rollup-native.mjs (rollup native-binary workaround)
-pnpm dev         # Vite dev server, default http://localhost:5173
-pnpm build       # production build to dist/ (vite build only — no typecheck)
-pnpm preview     # serve the production build
-```
-
-If `pnpm` isn't installed, `npx pnpm@latest <cmd>` works. On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
+Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
 
 **Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
 
@@ -59,11 +50,7 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Assets & deploy.** Static project media (images, PDFs, board models, BOM files) is served from `public/portfolio/`. `public/CNAME` = `cameron-lewis.com` (a duplicate `CNAME` also sits at repo root) points the custom domain; `robots.txt` + `sitemap.xml` accompany it. Favicons are generated (`tools/build-favicon-ico.mjs` packs `icon-{16,32,48}.png` into `public/favicon.ico`); `tools/build_resume_improved.py` builds the résumé.
 
-**Project media.** Card/media images are downscaled to 2400 px on the long edge and re-encoded to WebP by `python3 tools/optimize-media.py` (`--check` for a dry run); originals live in `assets-src/media-originals/`. The tool applies **EXIF orientation** and converts **wide-gamut ICC to sRGB** — skipping either ships photos sideways or oversaturated, which is how `aux-power-hiccup-fix.jpg` (EXIF orientation 6, Display P3) first went out wrong. It refuses to overwrite an already-archived original, so re-running is safe; if it errors about a collision, reconcile the two files by hand rather than deleting either. Sources: 23 MB → 0.75 MB.
-
-**Board geometry — `assets-src/` holds build inputs; don't move them back into `public/`.** Two large trees live outside the deployed tree on purpose: `assets-src/board-geometry/board-model-data.js` (**51 MB**, the only source for the power and control boards) and `assets-src/board-geometry/brick-buck/` (**85 MB** of `.wrl`, the source `tools/build-brick-geometry.mjs` regenerates *brick* from). Neither is deleteable, and the `.wrl` tree must move as a unit — its `Inline` references to `shapes3D/` are relative. Unrelated despite the name: `public/portfolio/assets/bom/brick-buck/IBOM.html` is live via `project.bomUrl`.
-
-What ships is `public/portfolio/assets/viewers/geometry/{power,control,brick}.pcbgeo` — one quantized binary per board (1.6 / 0.9 / 3.9 MB), produced by `pnpm build:geometry` (`tools/build-board-geometry-bin.mjs`, which documents the format and gates on a round-trip accuracy check). Positions are Uint16-quantized per mesh/axis and normals are omitted — the shell calls `computeVertexNormals()`. `board-viewer-shell.html` fetches only the board it needs. **The `.pcbgeo` extension is load-bearing:** the payload is gzip, and a `.gz` name makes servers set `Content-Encoding`, so the browser pre-inflates and the viewer's own inflate step dies with "Failed to decode data". The shell sniffs the gzip magic number rather than trusting the transport — keep both halves of that. After editing geometry, rerun `pnpm build:geometry` or the viewer serves stale boards.
+**Project media** (image optimization pipeline) and **board geometry** (regenerating `.pcbgeo` viewer assets) each have a dedicated skill under `.claude/skills/` — see `optimize-media` and `rebuild-board-geometry` before touching `assets-src/media-originals/` or `assets-src/board-geometry/`.
 
 ## Gotchas
 
