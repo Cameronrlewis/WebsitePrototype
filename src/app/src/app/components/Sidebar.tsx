@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Briefcase,
@@ -55,11 +55,6 @@ const expandedWidth = 280;
 export function Sidebar({ activeItem, onSelect }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<PageId | null>(null);
-
-  const currentItem = useMemo(
-    () => allItems.find((item) => item.id === activeItem) ?? sectionItems[0],
-    [activeItem],
-  );
 
   const renderNavButton = (item: NavItem) => {
     const Icon = item.icon;
@@ -284,39 +279,6 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
             {renderNavButton(updatesItem)}
           </nav>
 
-          <motion.div
-            layout
-            className={cn("mt-auto", isOpen ? "pt-6 text-center" : "flex justify-center pt-6")}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {isOpen ? (
-                <motion.div
-                  key="sidebar-footer-open"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <div className="text-lg font-semibold text-[var(--text-strong)]">{profile.name}</div>
-                  <div className="text-sm text-[var(--text-muted)]">{currentItem.description}</div>
-                  <div className="mx-auto mt-4 flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-[var(--shadow-button)]">
-                    <MonogramText value={profile.initials} />
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="sidebar-footer-closed"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.16 }}
-                  className="flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-[var(--shadow-button)]"
-                >
-                  <MonogramText value={profile.initials} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
         </motion.div>
       </motion.aside>
     </>
