@@ -7,7 +7,7 @@ import { SectionHeader } from "./SectionHeader";
 const MARKER_SHELL_SIZE = 40;
 const MARKER_CENTER_X = 20;
 
-const EM_DASH = "—";
+const SEPARATOR = ":";
 
 interface ParsedCourse {
   /** Alpha prefix of the course code, e.g. "ECE". Empty when the string doesn't parse. */
@@ -21,18 +21,18 @@ interface ParsedCourse {
 }
 
 /**
- * Splits "ECE-3300 — Circuits & Electronics" into its code, title and department.
- * Anything that doesn't carry an em-dash is kept verbatim as the title so no
- * course is ever dropped or mangled.
+ * Splits "ECE-3300: Circuits & Electronics" into its code, title and department.
+ * Anything that doesn't carry a colon separator is kept verbatim as the title
+ * so no course is ever dropped or mangled.
  */
 function parseCourse(raw: string): ParsedCourse {
-  const separator = raw.indexOf(EM_DASH);
+  const separator = raw.indexOf(SEPARATOR);
   if (separator === -1) {
     return { department: "", code: "", title: raw.trim(), raw };
   }
 
   const code = raw.slice(0, separator).trim();
-  const title = raw.slice(separator + EM_DASH.length).trim();
+  const title = raw.slice(separator + SEPARATOR.length).trim();
   const prefix = /^[A-Za-z]+/.exec(code);
 
   if (!code || !title || !prefix) {
