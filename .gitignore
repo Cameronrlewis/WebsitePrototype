@@ -14,3 +14,9 @@ node-local
 graphify-out/
 output/
 *.tsbuildinfo
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
