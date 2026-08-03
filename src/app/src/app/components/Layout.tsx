@@ -38,7 +38,7 @@ function isSectionId(value: string): value is SectionId {
 
 // Parses "#/updates", "#/education", "#/projects/aux-power-board" so every
 // view, section, and project stays deep-linkable.
-function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
+export function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
   const segments = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   const [first, slug] = segments;
 
@@ -268,12 +268,16 @@ export function Layout() {
         <div className="absolute bottom-[-12rem] right-[-10rem] size-[26rem] rounded-full bg-[var(--page-blob-2)] blur-3xl" />
       </div>
 
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+
       <div className="relative mx-auto max-w-[1500px] px-4 py-4 lg:flex lg:gap-6 lg:px-5">
         <Sidebar
           activeItem={view === "updates" ? "updates" : activeSection}
           onSelect={handleNavigate}
         />
-        <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+        <main ref={mainRef} id="main-content" tabIndex={-1} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
           <div className="relative">
             <CircuitTrace scrollRef={mainRef} pageKey={view} />
             {/* lg:pl-12 / lg:pr-12 reserve gutter corridors for the circuit trace spine on both sides */}

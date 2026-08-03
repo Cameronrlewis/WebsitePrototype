@@ -10,8 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
-export type ThemeMode = "light" | "dark";
+import { THEME_STORAGE_KEY, resolveInitialTheme, type ThemeMode } from "../lib/theme-bootstrap";
 
 interface ThemeContextValue {
   theme: ThemeMode;
@@ -19,22 +18,7 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = "portfolio-theme";
-
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-function resolveInitialTheme(): ThemeMode {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-
-  const savedTheme = window.localStorage.getItem(STORAGE_KEY);
-  if (savedTheme === "light" || savedTheme === "dark") {
-    return savedTheme;
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(resolveInitialTheme);
@@ -58,7 +42,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }, 850);
 
     setThemeState(nextTheme);
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
   }, []);
 
   const toggleTheme = useCallback(() => {

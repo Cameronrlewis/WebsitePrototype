@@ -60,7 +60,10 @@ export function OrganizationAvatar({
         className,
       )}
     >
-      <MonogramText value={organization.monogram} className="tracking-[0.08em]" />
+      <MonogramText
+        value={organization.monogram ?? organization.name.slice(0, 2).toUpperCase()}
+        className="tracking-[0.08em]"
+      />
     </span>
   );
 }

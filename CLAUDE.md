@@ -12,9 +12,9 @@ When you need to understand the codebase, docs, or any files in this project:
 
 ## Commands
 
-Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
+Package manager is **pnpm** (Node 22.13+, required by the pinned `pnpm@11.18.0` `packageManager` version); the README drives everything through `npx pnpm@latest <cmd>`. There is no lint script, but `tsconfig.json` (plus `tsconfig.node.json` for `vite.config.ts`) does exist: `pnpm typecheck` runs `tsc --build --force` and is wired into CI (`.github/workflows/ci.yml`) as a hard gate. `pnpm build` still does **not** run `tsc` itself, so a local `vite build` alone won't catch type errors — run `pnpm typecheck` separately. `pnpm test` runs Vitest unit tests and `pnpm test:e2e` runs Playwright E2E tests (`pnpm exec playwright install chromium` first if not already installed); both are also part of the CI pipeline. Verify changes by running the dev server and loading the page, and by running `pnpm typecheck` / `pnpm test`. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
 
-**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
+**Rollup/Vite pinning.** `pnpm-workspace.yaml`'s `overrides` block pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround. (Migrated off `package.json`'s `pnpm.overrides` field in 2026-08 after modern pnpm stopped reading it.)
 
 ## Directory layout (important — it's nested and duplicated)
 
@@ -50,9 +50,9 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Assets & deploy.** Static project media (images, PDFs, board models, BOM files) is served from `public/portfolio/`. `public/CNAME` = `cameron-lewis.com` (a duplicate `CNAME` also sits at repo root) points the custom domain; `robots.txt` + `sitemap.xml` accompany it. Favicons are generated (`tools/build-favicon-ico.mjs` packs `icon-{16,32,48}.png` into `public/favicon.ico`); `tools/build_resume_improved.py` builds the résumé.
 
-**Project media** (image optimization pipeline) and **board geometry** (regenerating `.pcbgeo` viewer assets) each have a dedicated skill under `.claude/skills/` — see `optimize-media` and `rebuild-board-geometry` before touching `assets-src/media-originals/` or `assets-src/board-geometry/`.
+**Project media** (image optimization pipeline) has a dedicated skill under `.claude/skills/optimize-media` — see it before touching `assets-src/media-originals/`. **Board geometry** (regenerating `.pcbgeo` viewer assets) has no dedicated skill in this checkout — run `pnpm build:geometry` (wraps `tools/build-board-geometry-bin.mjs`) directly before touching `assets-src/board-geometry/`.
 
 ## Gotchas
 
 - **`node-local` is a ~230MB tracked file** (a bundled Node runtime, not a directory) in the repo, which makes `git status`/`add`/`commit` slow (multi-second index refresh). Expect git operations to lag; run them in the background if they exceed the tool timeout.
-- No type-checking or tests gate anything, so a change that compiles under esbuild can still be type-incorrect — read surrounding code carefully rather than relying on a checker.
+- `pnpm typecheck` (CI-gated) and `pnpm test` (Vitest) catch a lot, but coverage isn't exhaustive — a change that passes both can still have gaps, so read surrounding code carefully rather than relying solely on the checkers. `pnpm test:e2e` (Playwright) runs in CI with `continue-on-error: true`, so it doesn't block merges yet.

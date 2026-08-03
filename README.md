@@ -41,11 +41,17 @@ The development server will print a local URL, usually `http://localhost:5173`.
 npx pnpm@latest dev
 npx pnpm@latest build
 npx pnpm@latest preview
+npx pnpm@latest typecheck
+npx pnpm@latest test
+npx pnpm@latest test:e2e
 ```
 
 - `npx pnpm@latest dev` starts the local Vite development server.
 - `npx pnpm@latest build` creates a production build in `dist/`.
 - `npx pnpm@latest preview` serves the production build locally.
+- `npx pnpm@latest typecheck` runs `tsc --build --force` (no emit).
+- `npx pnpm@latest test` runs Vitest unit tests.
+- `npx pnpm@latest test:e2e` runs Playwright E2E tests. Run `npx pnpm@latest exec playwright install chromium` once first if it isn't installed yet.
 
 If `npx` reports an npm cache permissions error on macOS, run the same command with a temporary cache:
 
@@ -82,4 +88,4 @@ Most portfolio copy, links, project metadata, and asset paths live in `src/app/s
 
 ## Notes
 
-The contact form is local prototype behavior only. It does not submit to a backend service.
+The Contact section is a static "pinout diagram" of direct links — email (copy-to-clipboard + `mailto:`), LinkedIn, GitHub, and a resume download. There is no form and nothing submits to a backend.

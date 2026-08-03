@@ -3,3 +3,7 @@ packages:
 allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true
+
+overrides:
+  vite: "6.3.5"
+  rollup: "npm:@rollup/wasm-node@4.60.2"

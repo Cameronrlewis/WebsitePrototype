@@ -199,7 +199,7 @@ export const experience: ExperienceRecord[] = [
     company: "Kraken Robotics Systems Inc.",
     role: "Electrical Engineering Student",
     location: "Mount Pearl, NL",
-    period: "January 2026 — April 2026",
+    period: "January 2026–April 2026",
     logo: `${assetBase}/media/experience/kraken-logo.png`,
     marker: `${assetBase}/media/experience/kraken-marker.png`,
     logoLight: `${assetBase}/media/experience/kraken-logo-light.png`,
@@ -214,11 +214,11 @@ export const experience: ExperienceRecord[] = [
     tags: ["Altium", "PCB Design", "Wiring Harnesses", "Subsea Systems", "Technical Documentation"],
   },
   {
-    company: "Paradigm Engineering — MUN Student Design Team",
+    company: "Paradigm Engineering: MUN Student Design Team",
     orgId: "paradigm-engineering",
     role: "Electrical Team Member",
     location: "St. John's, NL",
-    period: "September 2025 — Present",
+    period: "September 2025–Present",
     logo: `${assetBase}/media/experience/paradigm-logo.png`,
     marker: `${assetBase}/media/experience/paradigm-marker.png`,
     logoLight: `${assetBase}/media/experience/paradigm-logo-light.png`,
@@ -231,11 +231,11 @@ export const experience: ExperienceRecord[] = [
     tags: ["PCB Design", "Autonomous Systems", "Embedded Systems", "KiCad", "Team Collaboration"],
   },
   {
-    company: "Horizon Aerospace — MUN Student Rocketry Team",
+    company: "Horizon Aerospace: MUN Student Rocketry Team",
     orgId: "horizon-aerospace",
-    role: "Avionics — Electrical",
+    role: "Avionics: Electrical",
     location: "St. John's, NL",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026–Present",
     logo: `${assetBase}/media/experience/horizon-logo.png`,
     marker: `${assetBase}/media/experience/horizon-logo.png`,
     logoLight: `${assetBase}/media/experience/horizon-logo-light.png`,
@@ -248,11 +248,11 @@ export const experience: ExperienceRecord[] = [
     tags: ["Avionics", "Power Electronics", "Buck Converters", "STM32G0", "PWM", "PCB Design"],
   },
   {
-    company: "Valiant Aerotech — MUN Student Design Team",
+    company: "Valiant Aerotech: MUN Student Design Team",
     orgId: "valiant-aerotech",
     role: "Electrical Team",
     location: "St. John's, NL",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026–Present",
     logo: `${assetBase}/media/experience/valiant-logo.png`,
     marker: `${assetBase}/media/experience/valiant-logo.png`,
     logoLight: `${assetBase}/media/experience/valiant-logo-light.png`,
@@ -289,16 +289,16 @@ export const education: EducationRecord[] = [
   {
     institution: "Memorial University of Newfoundland",
     credential: "B.Eng Electrical Engineering",
-    period: "2024 — Present",
+    period: "2024–Present",
     gpa: "GPA 3.8 / 4.0",
     description:
       "Concentrating in Circuits and Power Systems. Active electrical member of Paradigm Engineering.",
-    highlights: ["Dean's List — 2024-2025", "3rd Place Python Project Award in Verafin Hosted Competition", "Paradigm Electrical Member"],
+    highlights: ["Dean's List: 2024-2025", "3rd Place Python Project Award in Verafin Hosted Competition", "Paradigm Electrical Member"],
   },
   {
     institution: "Roncalli Central Highschool",
     credential: "High School Diploma",
-    period: "2018 — 2024",
+    period: "2018–2024",
     gpa: "GPA 4.0 / 4.0",
     description:
       "Graduated salutatorian with a focus on advanced mathematics and physics while training for provincial competition.",
@@ -307,14 +307,14 @@ export const education: EducationRecord[] = [
 ];
 
 export const coursework = [
-  "ECE-3300 — Circuits & Electronics",
-  "ECE-3400 — Foundations of Programming (C++)",
-  "ECE-3500 — Digital Logic",
-  "PHYS-3000 — Physics of Device Materials",
-  "ENGI-1020 — Introduction to Programming (Python)",
-  "ENGI-1030 — Graphics & 3D Design",
-  "ENGI-1050 — Circuits",
-  "MATH-2050 — Linear Algebra",
+  "ECE-3300: Circuits & Electronics",
+  "ECE-3400: Foundations of Programming (C++)",
+  "ECE-3500: Digital Logic",
+  "PHYS-3000: Physics of Device Materials",
+  "ENGI-1020: Introduction to Programming (Python)",
+  "ENGI-1030: Graphics & 3D Design",
+  "ENGI-1050: Circuits",
+  "MATH-2050: Linear Algebra",
 ];
 
 export const graduation = {
@@ -498,7 +498,7 @@ export const organizations: OrganizationRecord[] = [
     name: "Paradigm Engineering",
     kind: "team",
     role: "Electrical Team",
-    period: "Jan 2026 — Present",
+    period: "Jan 2026–Present",
     showInUpdates: true,
     cardSummary:
       "Autonomous kart design team work spanning power distribution, control hardware, board bring-up, and system integration.",
@@ -530,7 +530,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "paradigm-control-board",
         title: "Aux Control Board Revision",
-        period: "Feb 2026 — Mar 2026",
+        period: "Feb 2026–Mar 2026",
         week: "Feb 22nd - 28th, 2026",
         summary:
           "Built the second-revision control board around cleaner regulated rails, logic-level translation, and a tighter overall footprint for the kart's control hardware.",
@@ -565,7 +565,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "paradigm-validation",
         title: "Bring-Up & Integration Testing",
-        period: "Mar 2026 — Present",
+        period: "Mar 2026–Present",
         week: "Mar 29th - Apr 4th, 2026",
         summary:
           "Moved both board revisions into validation and team integration work, closing the loop between design decisions on paper and behavior on the bench.",
@@ -582,14 +582,14 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "paradigm-aux-hiccup-fix",
         title: "Aux Power Board Hiccup Mode Root Cause Found and Fixed",
-        period: "Apr — May 2026",
+        period: "Apr–May 2026",
         week: "Apr 29th - May 4th, 2026",
         summary:
           "Traced intermittent LED flashing on the aux power board to the buck regulator IC entering hiccup mode at startup. The FB voltage divider had a capacitor that prevented the FB pin from reaching its 0.6 V regulation threshold, causing the IC to repeatedly toggle on and off.",
         bullets: [
           "Identified hiccup mode as the failure mechanism by correlating the flash frequency with the IC's fault-restart timing rather than a firmware or load issue.",
           "Traced the root cause to a capacitor on the feedback divider that was holding the FB pin below threshold long enough for the IC to time out and restart on every startup attempt.",
-          "Desoldered the capacitor from both buck circuits on the board — powered it back on and both rails came up cleanly with no flashing.",
+          "Desoldered the capacitor from both buck circuits on the board. Powered it back on and both rails came up cleanly with no flashing.",
         ],
         tags: ["Buck Regulator", "Hiccup Mode", "Debug", "Bring-Up", "Aux Power Board"],
         media: `${assetBase}/media/projects/aux-power-hiccup-fix.webp`,
@@ -603,7 +603,7 @@ export const organizations: OrganizationRecord[] = [
         period: "May 2026",
         week: "May 10th - 16th, 2026",
         summary:
-          "Confirmed all voltage outputs on the bench, then connected the Brick Buck Board to both the 20 Ah and 50 Ah competition batteries — it worked perfectly on both. Later in the week the team moved into full autonomous kart testing with computer vision for track time, and the board passed with no issues throughout.",
+          "Confirmed all voltage outputs on the bench, then connected the Brick Buck Board to both the 20 Ah and 50 Ah competition batteries. It worked perfectly on both. Later in the week the team moved into full autonomous kart testing with computer vision for track time, and the board passed with no issues throughout.",
         bullets: [
           "Verified regulated output rails under real battery conditions across both pack sizes before signing off on the board for vehicle integration.",
           "Board held up through a full autonomous kart testing session, supplying power to the compute and sensing stack without any dropouts or thermal issues.",
@@ -620,8 +620,8 @@ export const organizations: OrganizationRecord[] = [
     id: "horizon-aerospace",
     name: "Horizon Aerospace",
     kind: "team",
-    role: "Avionics — Electrical",
-    period: "Jun 2026 — Present",
+    role: "Avionics: Electrical",
+    period: "Jun 2026–Present",
     showInUpdates: false,
     cardSummary:
       "Camera module power PCB for MUN's Class FAA2 rocket: three bucks, an LDO, and an STM32G0 sequencing the payload.",
@@ -636,7 +636,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "horizon-camera-module-power",
         title: "Camera Module Power PCB",
-        period: "Jun 2026 — Present",
+        period: "Jun 2026–Present",
         summary:
           "Designing the power board for the rocket's camera module, which records multiple angles through launch, descent, and recovery. A single 3S LiPo input feeds three buck converters and an LDO, with an STM32G0 sequencing what turns on and when.",
         bullets: [
@@ -654,7 +654,7 @@ export const organizations: OrganizationRecord[] = [
     name: "Valiant Aerotech",
     kind: "team",
     role: "Electrical Team",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026–Present",
     showInUpdates: false,
     cardSummary:
       "Electrical support for MUN's autonomous UAS team, with a power distribution board in early development.",
@@ -669,7 +669,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "valiant-power-distribution-board",
         title: "Power Distribution Board",
-        period: "Jun 2026 — Present",
+        period: "Jun 2026–Present",
         summary:
           "Early development on a power distribution board for the aircraft, alongside general electrical support for the team. Progress is currently paced by coursework, with simulation, development, and assembly queued up for when I can commit full bandwidth.",
         bullets: [
@@ -686,7 +686,7 @@ export const organizations: OrganizationRecord[] = [
     name: "Personal Lab",
     kind: "personal",
     role: "Independent Builds",
-    period: "2025 — Present",
+    period: "2025–Present",
     showInUpdates: true,
     cardSummary:
       "Self-directed embedded and instrumentation projects scoped, prototyped, debugged, and documented independently.",
@@ -715,7 +715,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "personal-thermal-camera",
         title: "Handheld Thermal Camera",
-        period: "2026 — Present",
+        period: "2026–Present",
         week: "Jan 11th - 17th, 2026",
         summary:
           "Designing a handheld thermal imager around an ESP32 and AMG8833 sensor array, with the current focus on completing layout and validating the embedded rendering pipeline.",
@@ -737,7 +737,7 @@ export const organizations: OrganizationRecord[] = [
     name: "Memorial University",
     kind: "coursework",
     role: "Coursework & Design Reporting",
-    period: "2024 — Present",
+    period: "2024–Present",
     cardSummary:
       "Course-driven engineering work focused on documented design process, integration constraints, and presentation-ready deliverables.",
     overview: [
@@ -752,10 +752,10 @@ export const organizations: OrganizationRecord[] = [
         title: "DJI M600 Sensor Mount",
         period: "2025",
         summary:
-          "Developed a custom payload mounting system for the DJI M600 that paired a mechanical mount with a purpose-built interface PCB for sensor integration.",
+          "Delivered a custom payload mounting system for the DJI M600 that paired a mechanical mount with a purpose-built interface PCB, integrating multiple survey sensors over CAN bus within the platform's payload weight budget.",
         bullets: [
-          "Balanced the payload budget against electrical and mechanical requirements so the assembly could survive vibration without blowing the weight target.",
-          "Planned CAN bus routing and connector behavior around signal integrity and the constant vibration environment of the airframe.",
+          "Held the mount and PCB within the M600's payload weight budget while routing CAN bus traces with termination and placement chosen to survive continuous vibration and stay clear of broadband EMI from the six brushless motors and their ESCs.",
+          "Confirmed the assembly through the vibration environment of extended flight operations, with reliable sensor data delivered across surveying missions.",
           "Delivered the design as a documented engineering report, packaging both the hardware decisions and the integration tradeoffs into a reviewable course deliverable.",
         ],
         tags: ["KiCad", "CAN Bus", "DJI M600", "Sensors"],
@@ -814,7 +814,7 @@ function parseWeekSortKey(week: string): number {
 }
 
 function parsePeriodStart(period: string): number {
-  const token = period.split("—")[0].trim();
+  const token = period.split("–")[0].trim();
   const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (monthMatch) {
     return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1]] ?? 1) * 100;
