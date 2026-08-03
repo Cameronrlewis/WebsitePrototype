@@ -38,7 +38,7 @@ function isSectionId(value: string): value is SectionId {
 
 // Parses "#/updates", "#/education", "#/projects/aux-power-board" so every
 // view, section, and project stays deep-linkable.
-function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
+export function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
   const segments = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   const [first, slug] = segments;
 
