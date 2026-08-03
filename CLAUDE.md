@@ -14,7 +14,7 @@ When you need to understand the codebase, docs, or any files in this project:
 
 Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
 
-**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
+**Rollup/Vite pinning.** `pnpm-workspace.yaml`'s `overrides` block pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround. (Migrated off `package.json`'s `pnpm.overrides` field in 2026-08 after modern pnpm stopped reading it.)
 
 ## Directory layout (important — it's nested and duplicated)
 
