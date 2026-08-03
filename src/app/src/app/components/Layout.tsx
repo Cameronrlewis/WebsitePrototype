@@ -277,7 +277,7 @@ export function Layout() {
           activeItem={view === "updates" ? "updates" : activeSection}
           onSelect={handleNavigate}
         />
-        <main ref={mainRef} id="main-content" className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+        <main ref={mainRef} id="main-content" tabIndex={-1} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
           <div className="relative">
             <CircuitTrace scrollRef={mainRef} pageKey={view} />
             {/* lg:pl-12 / lg:pr-12 reserve gutter corridors for the circuit trace spine on both sides */}
