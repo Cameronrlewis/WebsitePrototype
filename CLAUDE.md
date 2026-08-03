@@ -50,7 +50,7 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Assets & deploy.** Static project media (images, PDFs, board models, BOM files) is served from `public/portfolio/`. `public/CNAME` = `cameron-lewis.com` (a duplicate `CNAME` also sits at repo root) points the custom domain; `robots.txt` + `sitemap.xml` accompany it. Favicons are generated (`tools/build-favicon-ico.mjs` packs `icon-{16,32,48}.png` into `public/favicon.ico`); `tools/build_resume_improved.py` builds the résumé.
 
-**Project media** (image optimization pipeline) and **board geometry** (regenerating `.pcbgeo` viewer assets) each have a dedicated skill under `.claude/skills/` — see `optimize-media` and `rebuild-board-geometry` before touching `assets-src/media-originals/` or `assets-src/board-geometry/`.
+**Project media** (image optimization pipeline) has a dedicated skill under `.claude/skills/optimize-media` — see it before touching `assets-src/media-originals/`. **Board geometry** (regenerating `.pcbgeo` viewer assets) has no dedicated skill in this checkout — run `pnpm build:geometry` (wraps `tools/build-board-geometry-bin.mjs`) directly before touching `assets-src/board-geometry/`.
 
 ## Gotchas
 
