@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "build": "vite build",
     "build:geometry": "node --max-old-space-size=6144 tools/build-board-geometry-bin.mjs",
