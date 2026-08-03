@@ -13,3 +13,4 @@ node-local
 # generated artifacts
 graphify-out/
 output/
+*.tsbuildinfo
