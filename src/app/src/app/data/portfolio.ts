@@ -752,10 +752,10 @@ export const organizations: OrganizationRecord[] = [
         title: "DJI M600 Sensor Mount",
         period: "2025",
         summary:
-          "Developed a custom payload mounting system for the DJI M600 that paired a mechanical mount with a purpose-built interface PCB for sensor integration.",
+          "Delivered a custom payload mounting system for the DJI M600 that paired a mechanical mount with a purpose-built interface PCB, integrating multiple survey sensors over CAN bus within the platform's payload weight budget.",
         bullets: [
-          "Balanced the payload budget against electrical and mechanical requirements so the assembly could survive vibration without blowing the weight target.",
-          "Planned CAN bus routing and connector behavior around signal integrity and the constant vibration environment of the airframe.",
+          "Held the mount and PCB within the M600's payload weight budget while routing CAN bus traces with termination and placement chosen to survive continuous vibration and stay clear of broadband EMI from the six brushless motors and their ESCs.",
+          "Confirmed the assembly through the vibration environment of extended flight operations, with reliable sensor data delivered across surveying missions.",
           "Delivered the design as a documented engineering report, packaging both the hardware decisions and the integration tradeoffs into a reviewable course deliverable.",
         ],
         tags: ["KiCad", "CAN Bus", "DJI M600", "Sensors"],
