@@ -82,4 +82,4 @@ Most portfolio copy, links, project metadata, and asset paths live in `src/app/s
 
 ## Notes
 
-The contact form is local prototype behavior only. It does not submit to a backend service.
+The Contact section is a static "pinout diagram" of direct links — email (copy-to-clipboard + `mailto:`), LinkedIn, GitHub, and a resume download. There is no form and nothing submits to a backend.
