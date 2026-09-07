@@ -27,8 +27,12 @@ async function fetchText(url: string) {
   return response.text();
 }
 
+/** Decodes a base64 payload as UTF-8. `atob` yields one byte per char, so the
+ *  string has to go back through a byte array before TextDecoder can read it. */
 function decodeBase64Html(payload: string) {
-  return decodeURIComponent(escape(window.atob(payload)));
+  const binary = window.atob(payload);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes);
 }
 
 export async function loadInteractiveBom(project: ProjectRecord) {

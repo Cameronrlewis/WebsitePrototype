@@ -24,6 +24,9 @@ export function parseHash(hash: string): { view: ViewId; section: SectionId; pro
     if (project) {
       return { view: "portfolio", section: "projects", project };
     }
+    // A slug that no longer resolves is a dead link, not a request for the
+    // projects section - send it home rather than showing a bare grid.
+    return { view: "portfolio", section: "home", project: null };
   }
 
   if (first && isSectionId(first)) {

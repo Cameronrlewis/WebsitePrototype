@@ -24,15 +24,16 @@ describe("parseHash", () => {
     expect(result.project?.slug).toBe(slug);
   });
 
-  it("falls back to the projects section (with no project) for an unknown project slug", () => {
-    // "projects" is itself a valid section id, so when the slug doesn't
-    // resolve, parseHash's next check (isSectionId(first)) matches "projects"
-    // before falling all the way back to home.
+  it("sends an unresolvable project slug back to home", () => {
     expect(parseHash("#/projects/does-not-exist")).toEqual({
       view: "portfolio",
-      section: "projects",
+      section: "home",
       project: null,
     });
+  });
+
+  it("routes a bare #/projects (no slug) to the projects section", () => {
+    expect(parseHash("#/projects")).toEqual({ view: "portfolio", section: "projects", project: null });
   });
 
   it("falls back to home for an unknown section", () => {
