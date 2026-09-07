@@ -94,7 +94,7 @@ Most portfolio copy, links, project metadata, and asset paths live in `src/app/s
 
 The 3D board viewer fetches quantized binary geometry per board from
 `public/portfolio/assets/viewers/geometry/<asset>.pcbgeo`, inside the viewer iframe.
-Regenerate with `npx pnpm@latest build:geometry`. See the `rebuild-board-geometry` skill.
+Regenerate with `npx pnpm@latest build:geometry`.
 
 ## Notes
 
