@@ -62,6 +62,7 @@ Every finding this plan must close, with the task that closes it.
 | L8 | Low | Deprecated `escape()` in `board-assets.ts:31` | 14 |
 | L9 | Low | Confirm em-dash convention compliance in `portfolio.ts` | 15 |
 | L10 | Low | Hand-counted project stat will drift from `projects.length` | 1 |
+| L11 | Low | Orphaned `scripts/ui/pdf-viewer.js` loads a cdnjs PDF.js worker; nothing references it (found during Task 2 review) | 14 |
 | P21 | Content | Hero undersells; 3D viewer buried | 15 |
 | P22 | Content | Impact evidence thin relative to process detail | 20 |
 | P23 | Refactor | Extract `useHashRoute()` from `Layout.tsx` | 16 |
@@ -1965,13 +1966,14 @@ when it is gitignored."
 
 ---
 
-### Task 14: Modernize link rel attributes and text decoding
+### Task 14: Modernize link rel attributes and text decoding, delete orphaned prototype scripts
 
-Closes: **L7, L8**
+Closes: **L7, L8, L11**
 
 **Files:**
 - Modify: `src/app/src/app/components/Home.tsx` (2 sites), `Contact.tsx` (2 sites), `ProjectModal.tsx` (2 sites)
 - Modify: `src/app/src/app/lib/board-assets.ts:29-31`
+- Delete: `public/portfolio/assets/scripts/ui/pdf-viewer.js`, `public/portfolio/assets/scripts/ui/adaptive-cursor.js`
 
 **Interfaces:**
 - Consumes: nothing.
@@ -2015,7 +2017,33 @@ function decodeBase64Html(payload: string) {
 
 `escape()` is deprecated and its Latin-1 round-trip is an accident of history that happens to produce the right bytes. `TextDecoder` states the encoding.
 
-- [ ] **Step 3: Verify the BOM still decodes**
+- [ ] **Step 3: Delete the orphaned prototype scripts**
+
+`public/portfolio/assets/scripts/ui/` holds two files left over from a pre-React prototype. Confirm nothing loads them:
+
+```bash
+grep -rn "pdf-viewer.js\|adaptive-cursor.js\|scripts/ui" src public index.html --include='*.ts' --include='*.tsx' --include='*.html'
+```
+
+Expected: no output. Then:
+
+```bash
+git rm public/portfolio/assets/scripts/ui/pdf-viewer.js public/portfolio/assets/scripts/ui/adaptive-cursor.js
+```
+
+`pdf-viewer.js:54` sets `pdfjsLib.GlobalWorkerOptions.workerSrc` to a cdnjs URL — the last third-party CDN reference in the repository after Task 2. No page executes the file, so it is dead weight rather than an active vulnerability, but it ships to the deployed site and is directly reachable. The React app's own PDF viewing goes through `ResumeViewer.tsx` and the bundled `pdfjs-dist` worker, which is unaffected.
+
+**Do not delete `public/portfolio/assets/scripts/viewer/board-viewer.js`** — despite the similar path, that one is live: `src/app/src/app/lib/board-assets.ts:20` fetches it to extract the embedded interactive BOM payloads.
+
+Confirm afterwards that the repository is free of CDN references:
+
+```bash
+grep -rln "cdnjs\|jsdelivr\|unpkg\|cloudflare" public/ src/ index.html
+```
+
+Expected: no output.
+
+- [ ] **Step 4: Verify the BOM still decodes**
 
 The interactive BOM is exactly what this function decodes, so a wrong decode shows up as mojibake in the rendered BOM.
 
@@ -2028,11 +2056,11 @@ Open the Interactive BOM for a board that uses the embedded payload path (one wh
 
 Then click each external link (GitHub, LinkedIn, project demo/github) and confirm they still open in a new tab.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/src/app/components/ src/app/src/app/lib/board-assets.ts
-git commit -m "chore: add noopener to external links, replace deprecated escape()
+git add -A src/app/src/app/components/ src/app/src/app/lib/board-assets.ts public/portfolio/assets/scripts/ui
+git commit -m "chore: add noopener to external links, drop dead prototype scripts
 
 rel=noreferrer already implies noopener in current browsers, but stating both
 is the convention and guards against partial implementations. Also replaces
