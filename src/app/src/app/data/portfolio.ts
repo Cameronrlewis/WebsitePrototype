@@ -163,8 +163,8 @@ export const socialLinks: SocialLink[] = [
   },
   {
     label: "Live Site",
-    value: "cameronlewis.dev",
-    href: "https://cameronlewis.dev",
+    value: "cameron-lewis.com",
+    href: "https://cameron-lewis.com",
   },
 ];
 
@@ -177,7 +177,7 @@ export const profile: ProfileRecord = {
   availability: "On a co-op work term, Fall 2026",
   location: "St. John's, NL, Canada",
   email: "Cameronrl@mun.ca",
-  liveSite: "https://cameronlewis.dev",
+  liveSite: "https://cameron-lewis.com",
   summary:
     "Second-year electrical engineering student focused on PCB design, embedded systems, and hardware development.",
   about: [
@@ -186,13 +186,6 @@ export const profile: ProfileRecord = {
     "Outside the lab, I play competitive table tennis and have previously represented Team Newfoundland at the Atlantic Championships. I also contribute to Paradigm Engineering, MUN's student design team, where I work on electrical systems for our autonomous kart entry.",
   ],
 };
-
-export const stats: StatRecord[] = [
-  { label: "GPA", value: "3.8", detail: "out of 4.0" },
-  { label: "Projects", value: "6", detail: "documented builds" },
-  { label: "Experience", value: "2", detail: "engineering roles" },
-  { label: "Grad Date", value: "2029", detail: "expected B.Eng" },
-];
 
 export const experience: ExperienceRecord[] = [
   {
@@ -490,6 +483,13 @@ export const projects: ProjectRecord[] = [
     takeaways:
       "The finished system gave the M600 a clean, purpose-built sensor payload capability that slotted into the existing avionics stack without modification. It met the weight budget, survived the vibration environment of extended flight operations, and delivered reliable data across surveying missions, turning a general-purpose drone platform into a capable tool for environmental and remote sensing work.",
   },
+];
+
+export const stats: StatRecord[] = [
+  { label: "GPA", value: "3.8", detail: "out of 4.0" },
+  { label: "Projects", value: String(projects.length), detail: "documented builds" },
+  { label: "Experience", value: "2", detail: "engineering roles" },
+  { label: "Grad Date", value: "2029", detail: "expected B.Eng" },
 ];
 
 export const organizations: OrganizationRecord[] = [
