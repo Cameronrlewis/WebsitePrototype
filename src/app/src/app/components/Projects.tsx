@@ -85,18 +85,9 @@ export function Projects({
               className={index === 0 ? "md:col-span-2" : ""}
             >
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() => onOpenProject(project)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onOpenProject(project);
-                  }
-                }}
                 onMouseMove={project.viewer3d ? tiltCard : undefined}
                 onMouseLeave={project.viewer3d ? resetTilt : undefined}
-                className="group relative flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] outline-none transition-transform duration-200 ease-out will-change-transform focus-visible:ring-2 focus-visible:ring-ring/25"
+                className="group relative flex h-full min-h-[29rem] w-full flex-col overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-left shadow-[var(--shadow-card)] transition-transform duration-200 ease-out will-change-transform focus-within:ring-2 focus-within:ring-ring/25"
               >
                 {project.viewer3d ? (
                   <div
@@ -165,11 +156,8 @@ export function Projects({
                     <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] p-3">
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenOrganization(project);
-                        }}
-                        className="flex min-w-0 items-center gap-3 text-left"
+                        onClick={() => onOpenOrganization(project)}
+                        className="relative z-10 flex min-w-0 items-center gap-3 text-left"
                       >
                         <OrganizationAvatar organization={organization} size="sm" tone={theme === "dark" ? "dark" : "light"} />
                         <div className="min-w-0">
@@ -191,7 +179,15 @@ export function Projects({
                       <span>{project.category}</span>
                       {project.status ? <span className="text-[var(--text-muted)]">{project.status === "in-progress" ? "In Progress" : "Completed"}</span> : null}
                     </div>
-                    <h3 className="font-display text-[1.2rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">{project.title}</h3>
+                    <h3 className="font-display text-[1.2rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">
+                      <button
+                        type="button"
+                        onClick={() => onOpenProject(project)}
+                        className="text-left outline-none after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:underline focus-visible:decoration-2 focus-visible:underline-offset-4"
+                      >
+                        {project.title}
+                      </button>
+                    </h3>
                     <p className="text-[0.98rem] leading-7 text-[var(--text-soft)]">{truncateCopy(project.description, 170)}</p>
                   </div>
 
@@ -207,18 +203,15 @@ export function Projects({
                     {organization ? (
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenOrganization(project);
-                        }}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-soft)] transition-colors hover:text-[var(--text-strong)]"
+                        onClick={() => onOpenOrganization(project)}
+                        className="relative z-10 inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-soft)] transition-colors hover:text-[var(--text-strong)]"
                       >
                         <span>Open context</span>
                         <ArrowRight className="size-4" />
                       </button>
                     ) : <span />}
 
-                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-strong)]">
+                    <div aria-hidden="true" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-strong)]">
                       <span>Open project</span>
                       {project.viewer3d ? <Orbit className="size-4" /> : <ArrowRight className="size-4" />}
                     </div>
