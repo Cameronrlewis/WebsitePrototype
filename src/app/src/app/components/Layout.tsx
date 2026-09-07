@@ -263,6 +263,9 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-10rem] top-[-7rem] size-[28rem] rounded-full bg-[var(--page-blob-1)] blur-3xl" />
         <div className="absolute bottom-[-12rem] right-[-10rem] size-[26rem] rounded-full bg-[var(--page-blob-2)] blur-3xl" />
@@ -273,7 +276,12 @@ export function Layout() {
           activeItem={view === "updates" ? "updates" : activeSection}
           onSelect={handleNavigate}
         />
-        <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+        <main
+          ref={mainRef}
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2"
+        >
           <div className="relative">
             <CircuitTrace scrollRef={mainRef} pageKey={view} />
             {/* lg:pl-12 / lg:pr-12 reserve gutter corridors for the circuit trace spine on both sides */}

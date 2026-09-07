@@ -77,6 +77,7 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
             setIsOpen(true);
           }}
           aria-label={item.label}
+          aria-current={active ? "true" : undefined}
           className={cn(
             "relative isolate overflow-hidden transition-all duration-200",
             isOpen
@@ -180,7 +181,7 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          <nav aria-label="Sections" className="mt-4 flex gap-2 overflow-x-auto pb-1">
             {allItems.map((item) => {
               const Icon = item.icon;
               const active = item.id === activeItem;
@@ -189,6 +190,7 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
                 <button
                   key={item.id}
                   type="button"
+                  aria-current={active ? "true" : undefined}
                   onClick={() => onSelect(item.id)}
                   className={cn(
                     "inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all",
@@ -202,7 +204,7 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
                 </button>
               );
             })}
-          </div>
+          </nav>
         </div>
       </div>
 
@@ -266,7 +268,10 @@ export function Sidebar({ activeItem, onSelect }: SidebarProps) {
             <ThemeToggle variant={isOpen ? "segmented" : "compact"} className={isOpen ? "w-full justify-center" : ""} />
           </div>
 
-          <nav className={cn("relative", isOpen ? "mt-6 space-y-3" : "mt-6 flex flex-1 flex-col items-center gap-3")}>
+          <nav
+            aria-label="Sections"
+            className={cn("relative", isOpen ? "mt-6 space-y-3" : "mt-6 flex flex-1 flex-col items-center gap-3")}
+          >
             {sectionItems.map(renderNavButton)}
 
             <div

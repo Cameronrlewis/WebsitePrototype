@@ -560,3 +560,27 @@ html.theme-powering main article:nth-of-type(n + 5) {
     opacity: 0.45;
   }
 }
+
+/* Skip link: visually hidden until it receives keyboard focus, then it lands
+   as a real button in the top-left corner. WCAG 2.4.1 (Bypass Blocks). */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.75rem;
+  border: 1px solid var(--outline-strong);
+  background: var(--surface-1);
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  box-shadow: var(--shadow-card);
+}
