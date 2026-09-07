@@ -2659,7 +2659,6 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
             <rect x={-35} y={-28} width={70} height={56} rx={2} fill="var(--background)" />
           ) : component.type === "rectifier" ||
             component.type === "buck" ||
-            component.type === "mcu" ||
             component.type === "ldo" ||
             component.type === "fpga" ||
             component.type === "timer555" ? (

@@ -61,7 +61,7 @@ const copyBlockVariants = {
 const copyItemVariants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-};
+} as const;
 
 const copyBlockVariantsReduced = {
   hidden: {},
@@ -71,7 +71,7 @@ const copyBlockVariantsReduced = {
 const copyItemVariantsReduced = {
   hidden: { opacity: 0, y: 0 },
   show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "linear" } },
-};
+} as const;
 
 /** Shared-element fill that travels between rail segments. */
 const RAIL_SPRING = { type: "spring", stiffness: 260, damping: 24 } as const;
