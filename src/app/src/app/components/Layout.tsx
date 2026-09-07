@@ -1,12 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 
-import {
-  getOrganizationById,
-  type OrganizationRecord,
-  type PageId,
-  type ProjectRecord,
-} from "../data/portfolio";
-import { isSectionId, parseHash, SECTION_IDS, type SectionId, type ViewId } from "../lib/routing";
+import { getOrganizationById, type OrganizationRecord, type ProjectRecord } from "../data/portfolio";
+import type { SectionId } from "../lib/routing";
+import { useHashRoute } from "../hooks/useHashRoute";
 import { BoardViewer } from "./BoardViewer";
 import { CircuitTrace } from "./CircuitTrace";
 import { Contact } from "./Contact";
@@ -33,15 +29,12 @@ export type { SectionId } from "../lib/routing";
 export function Layout() {
   const mainRef = useRef<HTMLElement | null>(null);
   const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement | null>>>({});
-  const initialRoute = parseHash(window.location.hash);
-  const pendingSectionRef = useRef<SectionId | null>(
-    initialRoute.view === "portfolio" && initialRoute.section !== "home" ? initialRoute.section : null,
-  );
+  const { view, activeSection, selectedProject, setSelectedProject, navigate } = useHashRoute({
+    mainRef,
+    sectionRefs,
+  });
 
-  const [view, setView] = useState<ViewId>(initialRoute.view);
-  const [activeSection, setActiveSection] = useState<SectionId>(initialRoute.section);
   const [projectsViewMode, setProjectsViewMode] = useState<"all" | "featured">("featured");
-  const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(initialRoute.project);
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationRecord | null>(null);
   const [organizationReturnProject, setOrganizationReturnProject] = useState<ProjectRecord | null>(null);
   const [viewerReturnProject, setViewerReturnProject] = useState<ProjectRecord | null>(null);
@@ -49,114 +42,6 @@ export function Layout() {
   const [reportProject, setReportProject] = useState<ProjectRecord | null>(null);
   const [boardProject, setBoardProject] = useState<ProjectRecord | null>(null);
   const [bomProject, setBomProject] = useState<ProjectRecord | null>(null);
-
-  const scrollToSection = (sectionId: SectionId) => {
-    const element = sectionRefs.current[sectionId];
-    if (!element) {
-      return;
-    }
-
-    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-    element.scrollIntoView({ behavior, block: "start" });
-  };
-
-  const handleNavigate = (target: PageId) => {
-    if (target === "updates") {
-      setView("updates");
-      return;
-    }
-
-    if (view !== "portfolio") {
-      pendingSectionRef.current = target;
-      setView("portfolio");
-      return;
-    }
-
-    setActiveSection(target);
-    scrollToSection(target);
-  };
-
-  // Handles the deferred scroll after switching back to the portfolio view
-  // (also covers the initial deep-link scroll on mount).
-  useEffect(() => {
-    if (view === "portfolio" && pendingSectionRef.current) {
-      const sectionId = pendingSectionRef.current;
-      pendingSectionRef.current = null;
-      setActiveSection(sectionId);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollToSection(sectionId));
-      });
-    }
-
-    if (view === "updates") {
-      mainRef.current?.scrollTo({ top: 0 });
-      window.scrollTo({ top: 0 });
-    }
-  }, [view]);
-
-  // Scroll spy: highlight the section currently in the middle of the screen.
-  useEffect(() => {
-    if (view !== "portfolio") {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const sectionId = entry.target.getAttribute("data-section");
-            if (sectionId && isSectionId(sectionId)) {
-              setActiveSection(sectionId);
-            }
-          }
-        }
-      },
-      { rootMargin: "-35% 0px -55% 0px", threshold: 0 },
-    );
-
-    for (const sectionId of SECTION_IDS) {
-      const element = sectionRefs.current[sectionId];
-      if (element) {
-        observer.observe(element);
-      }
-    }
-
-    return () => observer.disconnect();
-  }, [view]);
-
-  useEffect(() => {
-    const nextHash = selectedProject
-      ? `#/projects/${selectedProject.slug}`
-      : view === "updates"
-        ? "#/updates"
-        : `#/${activeSection}`;
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, "", nextHash);
-    }
-  }, [view, activeSection, selectedProject]);
-
-  useEffect(() => {
-    const onHashChange = () => {
-      const route = parseHash(window.location.hash);
-      setView(route.view);
-      setSelectedProject(route.project);
-
-      if (route.view === "portfolio") {
-        pendingSectionRef.current = route.section;
-        requestAnimationFrame(() => {
-          if (pendingSectionRef.current) {
-            const sectionId = pendingSectionRef.current;
-            pendingSectionRef.current = null;
-            setActiveSection(sectionId);
-            scrollToSection(sectionId);
-          }
-        });
-      }
-    };
-
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
 
   const openOrganizationById = (orgId: string) => {
     const organization = getOrganizationById(orgId);
@@ -192,7 +77,7 @@ export function Layout() {
     <div className="space-y-16 lg:space-y-24">
       <section ref={registerSection("home")} data-section="home" className={sectionClass}>
         <Home
-          onNavigate={handleNavigate}
+          onNavigate={navigate}
           onOpenProject={setSelectedProject}
           onOpenOrganization={(project) => openOrganization(project, false)}
           onOpenResume={() => setResumeOpen(true)}
@@ -244,7 +129,7 @@ export function Layout() {
       <div className="relative mx-auto max-w-[1500px] px-4 py-4 lg:flex lg:gap-6 lg:px-5">
         <Sidebar
           activeItem={view === "updates" ? "updates" : activeSection}
-          onSelect={handleNavigate}
+          onSelect={navigate}
         />
         <main
           ref={mainRef}
