@@ -107,8 +107,20 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
 
       const renderTask = page.render({ canvasContext: context, viewport });
       renderTaskRef.current = renderTask;
+      renderTask.promise.catch((error: unknown) => {
+        if ((error as { name?: string })?.name === "RenderingCancelledException") {
+          return;
+        }
+        if (cancelled) {
+          return;
+        }
+        setLoadError(true);
+      });
     })
       .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
         if ((error as { name?: string })?.name === "RenderingCancelledException") {
           return;
         }
@@ -125,6 +137,8 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
       return;
     }
 
+    let cancelled = false;
+
     const observer = new ResizeObserver(async () => {
       if (!pdfRef.current) {
         return;
@@ -132,9 +146,15 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
 
       try {
         const page = await pdfRef.current.getPage(currentPage);
+        if (cancelled) {
+          return;
+        }
         const nextFit = calculateFitScale(page, viewerRef.current);
         setFitScale(nextFit);
       } catch (error: unknown) {
+        if (cancelled) {
+          return;
+        }
         if ((error as { name?: string })?.name === "RenderingCancelledException") {
           return;
         }
@@ -143,7 +163,10 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
     });
 
     observer.observe(viewerRef.current);
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
   }, [currentPage, open]);
 
   return (
