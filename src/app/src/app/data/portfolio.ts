@@ -136,12 +136,12 @@ const assetBase = "/portfolio/assets";
 
 const reportPages = Array.from({ length: 28 }, (_, index) => {
   const page = String(index + 1).padStart(2, "0");
-  return `${assetBase}/media/reports/engineering-1030/page-${page}.jpg`;
+  return `${assetBase}/media/reports/engineering-1030/page-${page}.webp`;
 });
 
 export const documents = {
   resume: `${assetBase}/documents/resume/cameron-lewis-resume.pdf`,
-  resumePreview: `${assetBase}/media/documents/resume-preview-page-1.png`,
+  resumePreview: `${assetBase}/media/documents/resume-preview-page-1.webp`,
   engineeringReport: `${assetBase}/documents/reports/engineering-1030-project-report.pdf`,
 };
 
@@ -212,8 +212,8 @@ export const experience: ExperienceRecord[] = [
     role: "Electrical Team Member",
     location: "St. John's, NL",
     period: "September 2025 — Present",
-    logo: `${assetBase}/media/experience/paradigm-logo.png`,
-    marker: `${assetBase}/media/experience/paradigm-marker.png`,
+    logo: `${assetBase}/media/experience/paradigm-logo.webp`,
+    marker: `${assetBase}/media/experience/paradigm-marker.webp`,
     logoLight: `${assetBase}/media/experience/paradigm-logo-light.png`,
     markerLight: `${assetBase}/media/experience/paradigm-marker-light.png`,
     bullets: [
@@ -332,8 +332,8 @@ export const projects: ProjectRecord[] = [
     category: "Microcontroller Systems",
     status: "in-progress",
     featured: true,
-    cardImg: `${assetBase}/media/projects/thermal-camera-schematic-card.png`,
-    hoverImg: `${assetBase}/media/projects/thermal-camera-schematic-hover.png`,
+    cardImg: `${assetBase}/media/projects/thermal-camera-schematic-card.webp`,
+    hoverImg: `${assetBase}/media/projects/thermal-camera-schematic-hover.webp`,
     cardBackground: "#f5f4ef",
     cardContain: true,
     cardScale: 0.88,
@@ -362,9 +362,9 @@ export const projects: ProjectRecord[] = [
     category: "PCB Design",
     status: "completed",
     featured: true,
-    cardImg: `${assetBase}/media/projects/aux-control-board-card.png`,
+    cardImg: `${assetBase}/media/projects/aux-control-board-card.webp`,
     bannerImg: `${assetBase}/media/projects/aux-control-board-banner.png`,
-    hoverImg: `${assetBase}/media/projects/aux-control-board-schematic-hover.png`,
+    hoverImg: `${assetBase}/media/projects/aux-control-board-schematic-hover.webp`,
     cardBackground: "#000f28",
     hoverPreviewWidth: 980,
     hoverPreviewHeight: 620,
@@ -395,8 +395,8 @@ export const projects: ProjectRecord[] = [
     status: "completed",
     featured: true,
     cardImg: `${assetBase}/media/projects/aux-power-board-card.webp`,
-    bannerImg: `${assetBase}/media/projects/aux-power-board-banner.png`,
-    hoverImg: `${assetBase}/media/projects/aux-power-board-schematic-hover.png`,
+    bannerImg: `${assetBase}/media/projects/aux-power-board-banner.webp`,
+    hoverImg: `${assetBase}/media/projects/aux-power-board-schematic-hover.webp`,
     cardBackground: "#000f28",
     hoverPreviewWidth: 980,
     hoverPreviewHeight: 620,
@@ -428,8 +428,8 @@ export const projects: ProjectRecord[] = [
     status: "completed",
     featured: true,
     cardImg: `${assetBase}/media/projects/brick-buck-board-card.webp`,
-    bannerImg: `${assetBase}/media/projects/brick-buck-board-layout-hero.png`,
-    hoverImg: `${assetBase}/media/projects/brick-buck-board-schematic.png`,
+    bannerImg: `${assetBase}/media/projects/brick-buck-board-layout-hero.webp`,
+    hoverImg: `${assetBase}/media/projects/brick-buck-board-schematic.webp`,
     cardBackground: "#000f28",
     hoverBackground: "#f5f4ef",
     modalContain: true,
@@ -507,7 +507,7 @@ export const organizations: OrganizationRecord[] = [
       "The work has been iterative rather than one-off: re-architecting the failed first revision into split power/control boards, tightening noise margins and interface design, and then carrying those boards into bring-up and integration testing ahead of competition deadlines.",
     ],
     tags: ["STM32", "KiCad", "Embedded C", "PCB Design", "FDCAN", "Power Electronics"],
-    logo: `${assetBase}/media/experience/paradigm-logo.png`,
+    logo: `${assetBase}/media/experience/paradigm-logo.webp`,
     logoLight: `${assetBase}/media/experience/paradigm-logo-light.png`,
     builds: [
       {
@@ -523,7 +523,7 @@ export const organizations: OrganizationRecord[] = [
           "Manually re-verified all critical library footprints against datasheets after the first revision failed because of a manufacturer footprint error.",
         ],
         tags: ["Buck Conversion", "Protection", "Remote E-Stop", "IPC-2221"],
-        media: `${assetBase}/media/projects/aux-power-board-banner.png`,
+        media: `${assetBase}/media/projects/aux-power-board-banner.webp`,
         mediaBackground: "#000f28",
         projectSlug: "aux-power-board",
       },
@@ -557,7 +557,7 @@ export const organizations: OrganizationRecord[] = [
           "Worked through the sourcing constraint of a limited-stock Mornsun module and accepted that tradeoff only because this board was intentionally scoped as a backup, not the long-term production path.",
         ],
         tags: ["Backup Strategy", "Mornsun Brick", "12V to 5V Buck", "Competition Prep"],
-        media: `${assetBase}/media/projects/brick-buck-board-layout.png`,
+        media: `${assetBase}/media/projects/brick-buck-board-layout.webp`,
         mediaBackground: "#000f28",
         mediaContain: true,
         projectSlug: "brick-buck-board",
@@ -575,7 +575,7 @@ export const organizations: OrganizationRecord[] = [
           "Documented findings and design updates so the rest of the electrical team could build on a stable hardware baseline going into competition prep.",
         ],
         tags: ["Validation", "Bring-Up", "Oscilloscope", "Documentation"],
-        media: `${assetBase}/media/projects/aux-control-board-card.png`,
+        media: `${assetBase}/media/projects/aux-control-board-card.webp`,
         mediaBackground: "#000f28",
         mediaContain: true,
       },
@@ -725,7 +725,7 @@ export const organizations: OrganizationRecord[] = [
           "Using the layout phase to work through routing, thermal separation, and practical enclosure constraints before hardware bring-up.",
         ],
         tags: ["ESP32", "AMG8833", "Display Pipeline", "PCB Layout"],
-        media: `${assetBase}/media/projects/thermal-camera-schematic-card.png`,
+        media: `${assetBase}/media/projects/thermal-camera-schematic-card.webp`,
         mediaBackground: "#f5f4ef",
         mediaContain: true,
         projectSlug: "thermal-camera",

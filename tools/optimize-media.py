@@ -26,24 +26,43 @@ except ImportError:
     sys.exit("Pillow is required: python3 -m pip install Pillow")
 
 ROOT = Path(__file__).resolve().parent.parent
-MEDIA = ROOT / "public/portfolio/assets/media/projects"
+MEDIA = ROOT / "public/portfolio/assets/media"
 ORIGINALS = ROOT / "assets-src/media-originals"
 
 MAX_EDGE = 2400
 WEBP_QUALITY = 82
 
 # Images referenced by portfolio.ts that ship far larger than they render.
+# Paths are relative to MEDIA; originals are still archived flat by basename.
 RESIZE = [
-    "aux-power-board-card.png",
-    "brick-buck-board-card.jpg",
-    "aux-power-hiccup-fix.jpg",
-    "brick-buck-kart-testing.jpg",
-]
+    "projects/aux-power-board-card.png",
+    "projects/brick-buck-board-card.jpg",
+    "projects/aux-power-hiccup-fix.jpg",
+    "projects/brick-buck-kart-testing.jpg",
+    "projects/brick-buck-board-layout-hero.png",
+    "projects/thermal-camera-schematic-card.png",
+    "projects/aux-control-board-card.png",
+    "projects/brick-buck-board-layout.png",
+    "projects/aux-control-board-schematic-hover.png",
+    "projects/brick-buck-board-schematic.png",
+    "projects/aux-power-board-schematic-hover.png",
+    "projects/aux-power-board-banner.png",
+    "projects/thermal-camera-schematic-hover.png",
+    "experience/paradigm-logo.png",
+    "experience/paradigm-marker.png",
+    "documents/resume-preview-page-1.png",
+] + [f"reports/engineering-1030/page-{i:02d}.jpg" for i in range(1, 29)]
+
+# Per-file quality override where the default hurts (document text legibility).
+QUALITY = {
+    "documents/resume-preview-page-1.png": 92,
+    **{f"reports/engineering-1030/page-{i:02d}.jpg": 72 for i in range(1, 29)},
+}
 
 # Zero references anywhere in src/ - kept as sources, not deployed.
 ORPHANS = [
-    "brick-buck-board-card.png",
-    "aux-power-board-card-3d.png",
+    "projects/brick-buck-board-card.png",
+    "projects/aux-power-board-card-3d.png",
 ]
 
 
@@ -52,8 +71,13 @@ def mib(n):
 
 
 def resolve_source(name):
-    """Prefer the preserved original so repeat runs never recompress output."""
-    archived = ORIGINALS / name
+    """Prefer the preserved original so repeat runs never recompress output.
+
+    `name` may include a subdirectory relative to MEDIA (e.g.
+    "experience/paradigm-logo.png"); the archive itself stays flat by
+    basename, matching the existing assets-src/media-originals/ layout.
+    """
+    archived = ORIGINALS / Path(name).name
     if archived.exists():
         return archived, False
     live = MEDIA / name
@@ -68,7 +92,7 @@ def archive(live: Path, name: str):
     Overwriting here would destroy the only remaining copy of whichever file
     loses, so a collision is an error rather than a silent replace.
     """
-    target = ORIGINALS / name
+    target = ORIGINALS / Path(name).name
     if target.exists():
         if target.stat().st_size == live.stat().st_size and target.read_bytes() == live.read_bytes():
             live.unlink()  # byte-identical, nothing to preserve
@@ -83,28 +107,35 @@ def archive(live: Path, name: str):
 def load_for_web(path: Path):
     """Open an image with its orientation applied and its colours in sRGB.
 
-    Two things a naive open+convert silently drops:
+    Three things a naive open+convert silently drops:
       * EXIF orientation - phone photos store landscape pixels plus a rotate
         flag, so skipping this ships them sideways.
       * A wide-gamut ICC profile - reinterpreting Display P3 values as sRGB
         oversaturates everything. Converting is safer than forwarding the
         profile, since WebP ICC handling varies across decoders.
+      * Alpha - logos (paradigm-logo.png etc.) are RGBA; forcing RGB would
+        flatten transparency onto opaque black/white.
     """
     img = Image.open(path)
     img = ImageOps.exif_transpose(img)
+    has_alpha = img.mode in ("RGBA", "LA") or "transparency" in img.info
 
     icc = img.info.get("icc_profile")
     if icc:
         try:
             source = ImageCms.ImageCmsProfile(io.BytesIO(icc))
-            img = ImageCms.profileToProfile(
-                img, source, ImageCms.createProfile("sRGB"), outputMode="RGB"
+            alpha = img.getchannel("A") if has_alpha and "A" in img.getbands() else None
+            rgb = img.convert("RGB")
+            converted = ImageCms.profileToProfile(
+                rgb, source, ImageCms.createProfile("sRGB"), outputMode="RGB"
             )
-            return img, True
+            if alpha is not None:
+                converted.putalpha(alpha)
+            return converted, True
         except Exception as error:  # noqa: BLE001 - fall back rather than fail the build
             print(f"    warning: could not convert ICC profile ({error}); using raw values")
 
-    return img.convert("RGB"), False
+    return img.convert("RGBA" if has_alpha else "RGB"), False
 
 
 def main():
@@ -124,7 +155,8 @@ def main():
             failures.append(f"{name}: not found in {MEDIA} or {ORIGINALS}")
             continue
 
-        out = MEDIA / (Path(name).stem + ".webp")
+        out = MEDIA / Path(name).with_suffix(".webp")
+        quality = QUALITY.get(name, WEBP_QUALITY)
         img, converted = load_for_web(source)
         # Size AFTER exif_transpose - the display orientation, not the stored one.
         src_w, src_h = img.size
@@ -136,7 +168,7 @@ def main():
             print(f"  {name}: {src_w}x{src_h} {mib(source.stat().st_size)} -> {dst[0]}x{dst[1]} webp")
             continue
 
-        img.resize(dst, Image.LANCZOS).save(out, "WEBP", quality=WEBP_QUALITY, method=6)
+        img.resize(dst, Image.LANCZOS).save(out, "WEBP", quality=quality, method=6)
         img.close()
 
         original_size = source.stat().st_size

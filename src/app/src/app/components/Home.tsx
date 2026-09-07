@@ -34,6 +34,7 @@ interface HomeProps {
 }
 
 const HEADSHOT = "/portfolio/assets/headshot.jpg";
+const HEADSHOT_WEBP = "/portfolio/assets/headshot.webp";
 
 /** Outgoing and incoming boards travel the same way, so they read as one move. */
 const boardPanelVariants = {
@@ -231,21 +232,20 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
           </div>
 
           <div className="relative w-full shrink-0 overflow-hidden lg:w-56 xl:w-64">
-            <div className="relative h-56 w-full lg:hidden">
-              <img
-                src={HEADSHOT}
-                alt={profile.name}
-                className="h-full w-full object-cover object-top"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-1)]/60 to-transparent" />
-            </div>
-            <div className="absolute inset-0 hidden lg:block">
-              <img
-                src={HEADSHOT}
-                alt={profile.name}
-                className="h-full w-full object-cover object-top"
-              />
-              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--surface-1)] to-transparent" />
+            <div className="relative h-56 w-full lg:absolute lg:inset-0 lg:h-auto">
+              <picture>
+                <source srcSet={HEADSHOT_WEBP} type="image/webp" />
+                <img
+                  src={HEADSHOT}
+                  alt={profile.name}
+                  width={1638}
+                  height={2048}
+                  decoding="async"
+                  className="h-full w-full object-cover object-top"
+                />
+              </picture>
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-1)]/60 to-transparent lg:hidden" />
+              <div className="absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-[var(--surface-1)] to-transparent lg:block" />
             </div>
           </div>
         </div>
