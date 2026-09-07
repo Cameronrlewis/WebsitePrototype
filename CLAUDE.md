@@ -12,7 +12,10 @@ When you need to understand the codebase, docs, or any files in this project:
 
 ## Commands
 
-Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
+Package manager is **pnpm** (Node 20+). `pnpm typecheck` runs `tsc --noEmit` and `pnpm test`
+runs Vitest; both gate CI ahead of the build. `pnpm build` itself still does not run `tsc`,
+so verify locally with `pnpm typecheck && pnpm test && pnpm build`. There is no lint script.
+`pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
 
 **Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
 
@@ -25,7 +28,7 @@ The real application lives under **`src/app/src/app/`**, not `src/`. The entry c
 - `src/app/src/app/App.tsx` — `ThemeProvider` + `MotionConfig reducedMotion="user"` wrapping `Layout`.
 - Components in `src/app/src/app/components/`, content data in `src/app/src/app/data/`, 3D asset maps in `src/app/src/app/lib/`, styles in `src/app/src/styles/`.
 
-`@` aliases to `./src` (see `vite.config.ts`). **The root-level `src/styles/` is a stale partial duplicate** — `main.tsx` imports `src/app/src/styles/index.css` (the only copy that also imports `globals.css`); edit the `src/app/src/styles/` copies, not `src/styles/`.
+`@` aliases to `./src` (see `vite.config.ts`). `main.tsx` imports `src/app/src/styles/index.css`; that is the only stylesheet entry point in the repo — edit the `src/app/src/styles/` copies.
 
 ## Architecture
 
@@ -54,5 +57,8 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 ## Gotchas
 
-- **`node-local` is a ~230MB tracked file** (a bundled Node runtime, not a directory) in the repo, which makes `git status`/`add`/`commit` slow (multi-second index refresh). Expect git operations to lag; run them in the background if they exceed the tool timeout.
-- No type-checking or tests gate anything, so a change that compiles under esbuild can still be type-incorrect — read surrounding code carefully rather than relying on a checker.
+- **`node-local` is a ~230MB file** (a bundled Node runtime, not a directory) sitting in the
+  working tree. It is gitignored, but its size still makes `git status` slow (multi-second
+  index refresh). Expect git operations to lag; run them in the background if they exceed
+  the tool timeout.
+- `pnpm build` itself still does not run `tsc`, so a change that compiles under esbuild can still be type-incorrect at build time — `pnpm typecheck` (or the CI gate) is what catches it, not `build`.
