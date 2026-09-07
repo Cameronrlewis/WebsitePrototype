@@ -191,7 +191,7 @@ export function Projects({
                       <span>{project.category}</span>
                       {project.status ? <span className="text-[var(--text-muted)]">{project.status === "in-progress" ? "In Progress" : "Completed"}</span> : null}
                     </div>
-                    <h2 className="font-display text-[1.2rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">{project.title}</h2>
+                    <h3 className="font-display text-[1.2rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">{project.title}</h3>
                     <p className="text-[0.98rem] leading-7 text-[var(--text-soft)]">{truncateCopy(project.description, 170)}</p>
                   </div>
 

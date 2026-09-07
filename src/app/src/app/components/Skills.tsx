@@ -155,7 +155,7 @@ export function Skills() {
               <div className="flex size-12 items-center justify-center rounded-xl bg-[var(--toggle-active-bg)] text-[var(--toggle-active-text)] shadow-[var(--shadow-button)]">
                 <Icon className="size-5" />
               </div>
-              <h2 className="mt-5 font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{item.title}</h2>
+              <h3 className="mt-5 font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{item.title}</h3>
               <p className="mt-3 text-[0.98rem] leading-8 text-[var(--text-body)]">{item.detail}</p>
             </motion.article>
           );

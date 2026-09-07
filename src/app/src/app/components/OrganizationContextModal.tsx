@@ -48,9 +48,9 @@ export function OrganizationContextModal({
                   <OrganizationAvatar organization={organization} size="lg" tone={theme === "dark" ? "dark" : "light"} />
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-[2.6rem] font-semibold tracking-[-0.05em] text-[var(--org-text)] sm:text-[3.25rem]">
+                      <h3 className="text-[2.6rem] font-semibold tracking-[-0.05em] text-[var(--org-text)] sm:text-[3.25rem]">
                         {organization.name}
-                      </h2>
+                      </h3>
                       <span className="rounded-full border border-[color:var(--org-badge-border)] bg-[var(--org-badge-bg)] px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-[var(--org-badge-text)]">
                         {organizationKindLabel[organization.kind]}
                       </span>

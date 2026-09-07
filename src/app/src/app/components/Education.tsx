@@ -153,9 +153,9 @@ export function Education() {
                 <span className={metaClass}>{entry.gpa}</span>
               </div>
 
-              <h2 className="mt-3 font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
+              <h3 className="mt-3 font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
                 {entry.credential}
-              </h2>
+              </h3>
               <p className="mt-1 text-[var(--text-body)]">{entry.institution}</p>
 
               <p className="mt-4 text-[0.98rem] leading-8 text-[var(--text-soft)]">
