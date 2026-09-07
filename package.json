@@ -10,6 +10,7 @@
     "dev": "vite",
     "postinstall": "node tools/patch-rollup-native.mjs",
     "preview": "vite preview",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -36,7 +37,8 @@
     "tailwindcss": "4.1.12",
     "three": "0.174.0",
     "typescript": "5.7.3",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "2.1.8"
   },
   "pnpm": {
     "overrides": {
