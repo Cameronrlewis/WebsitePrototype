@@ -24,6 +24,7 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [scale, setScale] = useState(1);
   const [fitScale, setFitScale] = useState(1);
+  const [loadError, setLoadError] = useState(false);
 
   const zoomPercent = useMemo(() => Math.round((scale / fitScale) * 100), [fitScale, scale]);
 
@@ -36,6 +37,7 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
       setTotalPages(1);
       setScale(1);
       setFitScale(1);
+      setLoadError(false);
       if (canvasRef.current) {
         const context = canvasRef.current.getContext("2d");
         context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -45,23 +47,30 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
 
     let cancelled = false;
 
-    pdfjsLib.getDocument(documents.resume).promise.then(async (pdf) => {
-      if (cancelled) {
-        pdf.destroy();
-        return;
-      }
+    pdfjsLib
+      .getDocument(documents.resume)
+      .promise.then(async (pdf) => {
+        if (cancelled) {
+          pdf.destroy();
+          return;
+        }
 
-      pdfRef.current = pdf;
-      setTotalPages(pdf.numPages);
+        pdfRef.current = pdf;
+        setTotalPages(pdf.numPages);
 
-      const page = await pdf.getPage(1);
-      if (cancelled) {
-        return;
-      }
-      const nextFit = calculateFitScale(page, viewerRef.current);
-      setFitScale(nextFit);
-      setScale(nextFit);
-    });
+        const page = await pdf.getPage(1);
+        if (cancelled) {
+          return;
+        }
+        const nextFit = calculateFitScale(page, viewerRef.current);
+        setFitScale(nextFit);
+        setScale(nextFit);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -98,7 +107,13 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
 
       const renderTask = page.render({ canvasContext: context, viewport });
       renderTaskRef.current = renderTask;
-    });
+    })
+      .catch((error: unknown) => {
+        if ((error as { name?: string })?.name === "RenderingCancelledException") {
+          return;
+        }
+        setLoadError(true);
+      });
 
     return () => {
       cancelled = true;
@@ -115,9 +130,16 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
         return;
       }
 
-      const page = await pdfRef.current.getPage(currentPage);
-      const nextFit = calculateFitScale(page, viewerRef.current);
-      setFitScale(nextFit);
+      try {
+        const page = await pdfRef.current.getPage(currentPage);
+        const nextFit = calculateFitScale(page, viewerRef.current);
+        setFitScale(nextFit);
+      } catch (error: unknown) {
+        if ((error as { name?: string })?.name === "RenderingCancelledException") {
+          return;
+        }
+        setLoadError(true);
+      }
     });
 
     observer.observe(viewerRef.current);
@@ -179,9 +201,28 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
           </div>
 
           <div ref={viewerRef} className="min-h-0 flex-1 overflow-auto bg-[var(--surface-4)] p-6">
-            <div className="flex min-h-full justify-center">
-              <canvas ref={canvasRef} className="rounded-[1rem] bg-white shadow-[var(--shadow-strong)]" />
-            </div>
+            {loadError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+                <p className="font-display text-lg font-semibold text-[var(--text-strong)]">
+                  The resume preview could not be loaded.
+                </p>
+                <p className="max-w-sm text-sm text-[var(--text-soft)]">
+                  The inline viewer failed to start. You can still download the PDF directly.
+                </p>
+                <a
+                  href={documents.resume}
+                  download
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-button)]"
+                >
+                  <Download className="size-4" />
+                  Download resume
+                </a>
+              </div>
+            ) : (
+              <div className="flex min-h-full justify-center">
+                <canvas ref={canvasRef} className="rounded-[1rem] bg-white shadow-[var(--shadow-strong)]" />
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
