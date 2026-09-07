@@ -9,6 +9,7 @@ export function Updates() {
 
   return (
     <div className="space-y-6">
+      <h1 className="sr-only">Updates</h1>
       <SectionHeader
         kicker="Log"
         title="Updates"
