@@ -179,9 +179,9 @@ export const profile: ProfileRecord = {
   email: "Cameronrl@mun.ca",
   liveSite: "https://cameron-lewis.com",
   summary:
-    "Third-year Electrical Engineering Student with interests in Hardware, Robotics, and Space. Currently I'm completing a workterm at Nokia!",
+    "Third-year Electrical Engineering student with interests in hardware, robotics, and space. I am currently completing a work term at Nokia.",
   about: [
-    "I'm Cameron Lewis, a second-year Electrical Engineering student at Memorial University focused on PCB design, embedded systems, and hardware development. I care about understanding how things work at a circuit level and building things that hold up in the real world.",
+    "I'm Cameron Lewis, a third-year Electrical Engineering student at Memorial University, focused on PCB design, embedded systems, and hardware development. I care about understanding how things work at a circuit level and building things that hold up in the real world.",
     "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. Most recently I completed a co-op term at Kraken Robotics, getting hands-on exposure to professional hardware development.",
     "Outside the lab, I play competitive table tennis and have previously represented Team Newfoundland at the Atlantic Championships. I also contribute to Paradigm Engineering, MUN's student design team, where I work on electrical systems for our autonomous kart entry.",
   ],
