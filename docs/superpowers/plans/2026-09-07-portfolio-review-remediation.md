@@ -63,6 +63,7 @@ Every finding this plan must close, with the task that closes it.
 | L9 | Low | Confirm em-dash convention compliance in `portfolio.ts` | 15 |
 | L10 | Low | Hand-counted project stat will drift from `projects.length` | 1 |
 | L11 | Low | Orphaned `scripts/ui/pdf-viewer.js` loads a cdnjs PDF.js worker; nothing references it (found during Task 2 review) | 14 |
+| L12 | Low | `parseHash` sends a dead project deep link to the bare Projects grid instead of Home (found during Task 11 review) | 14 |
 | P21 | Content | Hero undersells; 3D viewer buried | 15 |
 | P22 | Content | Impact evidence thin relative to process detail | 20 |
 | P23 | Refactor | Extract `useHashRoute()` from `Layout.tsx` | 16 |
@@ -1834,6 +1835,7 @@ Closes: **L1, L2, L3**
 - Delete: `src/styles/default_theme.css`, `src/styles/index.css`, `src/app/default_shadcn_theme.css`, `default_shadcn_theme.css` (root)
 - Modify: `README.md`
 - Modify: `CLAUDE.md`
+- Modify: `.claude/skills/optimize-media/SKILL.md`
 
 **Interfaces:**
 - Consumes: nothing.
@@ -1941,7 +1943,13 @@ so verify locally with `pnpm typecheck && pnpm test && pnpm build`.
 
 And update the styles paragraph if it still describes the root `src/styles/` duplicate as existing — it no longer does after Step 2.
 
-- [ ] **Step 6: Verify**
+- [ ] **Step 6: Resync the optimize-media skill with the tool it documents**
+
+Task 12 extended `tools/optimize-media.py` — it gained subdirectory support, alpha-preserving ICC conversion, and a per-file `QUALITY` override dict — but `.claude/skills/optimize-media/SKILL.md` still describes the old contract (implicit `media/projects/` only, no alpha handling, no quality override). A skill that misdescribes its tool is the same defect class this task exists to fix.
+
+Read the current script and the skill doc, then update the doc to match the actual behavior. Also record the known gap the Task 12 review identified: a palette-mode PNG carrying `transparency` in `info` (rather than a true RGBA `A` band) combined with an ICC profile would still lose transparency, because the alpha-preserving path requires an actual `A` band. No current input hits this, so it is latent, not live.
+
+- [ ] **Step 7: Verify**
 
 ```bash
 npx pnpm@latest typecheck && npx pnpm@latest test && npx pnpm@latest build
@@ -1949,9 +1957,9 @@ npx pnpm@latest typecheck && npx pnpm@latest test && npx pnpm@latest build
 
 Expected: all exit 0.
 
-Re-read both documents start to finish and check every factual claim against the tree — file paths, command names, script names. This is a documentation task; a stale line left behind is the defect.
+Re-read all three documents start to finish and check every factual claim against the tree — file paths, command names, script names. This is a documentation task; a stale line left behind is the defect.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -1968,7 +1976,7 @@ when it is gitignored."
 
 ### Task 14: Modernize link rel attributes and text decoding, delete orphaned prototype scripts
 
-Closes: **L7, L8, L11**
+Closes: **L7, L8, L11, L12**
 
 **Files:**
 - Modify: `src/app/src/app/components/Home.tsx` (2 sites), `Contact.tsx` (2 sites), `ProjectModal.tsx` (2 sites)
@@ -2043,7 +2051,50 @@ grep -rln "cdnjs\|jsdelivr\|unpkg\|cloudflare" public/ src/ index.html
 
 Expected: no output.
 
-- [ ] **Step 4: Verify the BOM still decodes**
+- [ ] **Step 4: Fix the dead-project-slug fallback in `parseHash`**
+
+Found during the Task 11 review. In `src/app/src/app/lib/routing.ts`, the projects branch only returns early when the slug RESOLVES:
+
+```ts
+  if (first === "projects" && slug) {
+    const project = getProjectBySlug(slug);
+    if (project) {
+      return { view: "portfolio", section: "projects", project };
+    }
+  }
+```
+
+When the slug does not resolve, control falls through to `isSectionId(first)` — and `"projects"` is itself a valid section id, so a deep link to a deleted or renamed project silently lands on the bare Projects grid with no explanation, instead of falling back to Home.
+
+Add the explicit fallback:
+
+```ts
+  if (first === "projects" && slug) {
+    const project = getProjectBySlug(slug);
+    if (project) {
+      return { view: "portfolio", section: "projects", project };
+    }
+    // A slug that no longer resolves is a dead link, not a request for the
+    // projects section - send it home rather than showing a bare grid.
+    return { view: "portfolio", section: "home", project: null };
+  }
+```
+
+Then update the characterization test in `tests/routing.test.ts`. It currently asserts the OLD behavior (Task 11 corrected it to match the code at the time):
+
+```ts
+  it("sends an unresolvable project slug back to home", () => {
+    expect(parseHash("#/projects/does-not-exist")).toEqual({
+      view: "portfolio",
+      section: "home",
+      project: null,
+    });
+  });
+```
+
+Run `npx pnpm@10.17.1 test` and confirm the suite passes with the updated expectation. Confirm `parseHash("#/projects")` with no slug at all still reaches the projects section, since that path does not enter this branch.
+
+- [ ] **Step 5: Verify the BOM still decodes**
 
 The interactive BOM is exactly what this function decodes, so a wrong decode shows up as mojibake in the rendered BOM.
 
@@ -2056,10 +2107,10 @@ Open the Interactive BOM for a board that uses the embedded payload path (one wh
 
 Then click each external link (GitHub, LinkedIn, project demo/github) and confirm they still open in a new tab.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add -A src/app/src/app/components/ src/app/src/app/lib/board-assets.ts public/portfolio/assets/scripts/ui
+git add -A src/app/src/app/components/ src/app/src/app/lib/ tests/ public/portfolio/assets/scripts/ui
 git commit -m "chore: add noopener to external links, drop dead prototype scripts
 
 rel=noreferrer already implies noopener in current browsers, but stating both
@@ -2659,7 +2710,7 @@ This step must be a pure move. Do not rename, do not "clean up", do not change a
 
 Before writing tests, prove the move is inert. Run `npx pnpm@latest dev` at 1440px and compare against `git stash`-ed original if needed:
 
-- All six IC blocks render in the inter-section gaps.
+- All five placeable IC blocks render in the inter-section gaps (rectifier, buck, LDO, MCU, FPGA; timer555 has no gap left).
 - The power-rail flags read `AC IN → +12V → +3V3 → +1V8 → GND` down the trunk.
 - The trace animates on scroll as before.
 - At a narrow desktop width (about 1100px), the buck block drops out as it did before — that is the `avail >= 340` threshold working.
@@ -2688,10 +2739,13 @@ function sectionsWithGap(gapPx: number) {
 }
 
 describe("circuit geometry placement", () => {
-  it("places every centerpiece at the desktop gap of 96px", () => {
+  it("places one centerpiece per usable gap at the desktop gap of 96px", () => {
     const gaps = computeGaps(sectionsWithGap(96));
     const placed = placeCenterpieces(gaps, 900);
-    expect(placed).toHaveLength(6);
+    // Six stacked sections yield FIVE inter-section gaps, and the queue drops
+    // one block per gap - so the sixth queue entry (timer555) never places.
+    // This is by design, not a defect. Confirmed during Task 16.
+    expect(placed).toHaveLength(5);
   });
 
   it("places nothing when the gap falls below the 70px threshold", () => {
@@ -2993,6 +3047,6 @@ npx pnpm@latest build       # exit 0    (available throughout)
 5. `components/ui/` contains exactly five files.
 6. CI runs `typecheck` and `test` before `build`, and a deliberate type error or failing test fails the job.
 7. `du -sh public/portfolio/assets/media` is under 5 MB.
-8. All six CircuitTrace IC blocks still render at 1440px, and `tests/circuit-geometry.test.ts` passes.
+8. Five CircuitTrace IC blocks render at 1440px (six stacked sections give five inter-section gaps, so the queue's sixth entry never places - confirmed during Task 16), and `tests/circuit-geometry.test.ts` passes.
 9. All ten modal transitions in Task 17 Step 3 behave as listed.
 10. `npx pnpm@latest preview` renders the site with no console errors and no third-party network requests.
