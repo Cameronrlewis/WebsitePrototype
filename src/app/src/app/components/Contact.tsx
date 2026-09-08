@@ -35,7 +35,7 @@ interface PinRow {
   content: ReactNode;
 }
 
-async function copyText(value: string) {
+export async function copyText(value: string) {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(value);
