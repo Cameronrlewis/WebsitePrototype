@@ -172,14 +172,14 @@ export const profile: ProfileRecord = {
   name: "Cameron Lewis",
   initials: "CL",
   headline: "Electrical Engineering Student",
-  typedPhrases: ["Electrical Engineering Student", "PCB Design Builder", "Embedded Systems Teammate"],
+  typedPhrases: ["Electrical Engineering Student", "PCB Design Builder", "Embedded Systems Developer"],
   school: "Memorial University of Newfoundland",
   availability: "On a co-op work term, Fall 2026",
   location: "St. John's, NL, Canada",
   email: "Cameronrl@mun.ca",
   liveSite: "https://cameron-lewis.com",
   summary:
-    "Second-year electrical engineering student focused on PCB design, embedded systems, and hardware development.",
+    "Second-year electrical engineering student who ships boards. Six documented builds with browser-inspectable 3D models, schematics, and bills of materials, including the power and control boards running Paradigm Engineering's autonomous kart. Kraken Robotics co-op.",
   about: [
     "I'm Cameron Lewis, a second-year Electrical Engineering student at Memorial University focused on PCB design, embedded systems, and hardware development. I care about understanding how things work at a circuit level and building things that hold up in the real world.",
     "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. Most recently I completed a co-op term at Kraken Robotics, getting hands-on exposure to professional hardware development.",

@@ -149,6 +149,16 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
             <Download className="size-4" />
             Resume
           </button>
+          {featuredBoardProjects[0] ? (
+            <button
+              type="button"
+              onClick={() => onOpen3D(featuredBoardProjects[0])}
+              className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-5 py-2.5 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+            >
+              <Orbit className="size-4" />
+              Inspect a board in 3D
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-[color:var(--outline-soft)] pt-6 sm:grid-cols-4">
