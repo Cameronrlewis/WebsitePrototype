@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseHash } from "../src/app/src/app/lib/routing";
+import { isAppRoute, parseHash } from "../src/app/src/app/lib/routing";
 import { projects } from "../src/app/src/app/data/portfolio";
 
 describe("parseHash", () => {
@@ -42,5 +42,30 @@ describe("parseHash", () => {
 
   it("tolerates a hash with no leading slash", () => {
     expect(parseHash("#skills")).toEqual({ view: "portfolio", section: "skills", project: null });
+  });
+
+  // parseHash itself has no way to tell "unknown route" from "not a route at
+  // all" apart, so it falls back to home for both - that's expected, and not
+  // the bug. The skip link firing the router (#main-content routing home and
+  // closing an open modal) is fixed by useHashRoute's hashchange listener
+  // never calling parseHash for a non-route hash in the first place.
+  it("falls back to home for a plain in-page anchor, same as any other non-route hash", () => {
+    expect(parseHash("#main-content")).toEqual({ view: "portfolio", section: "home", project: null });
+  });
+});
+
+describe("isAppRoute", () => {
+  it("accepts the app's own hash routes", () => {
+    expect(isAppRoute("#/education")).toBe(true);
+    expect(isAppRoute(`#/projects/${projects[0].slug}`)).toBe(true);
+    expect(isAppRoute("#/updates")).toBe(true);
+  });
+
+  it("rejects a plain in-page anchor like the skip link's target", () => {
+    expect(isAppRoute("#main-content")).toBe(false);
+  });
+
+  it("rejects an empty hash", () => {
+    expect(isAppRoute("")).toBe(false);
   });
 });

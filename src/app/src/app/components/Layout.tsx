@@ -129,10 +129,7 @@ export function Layout() {
         onOpenChange={(open) => {
           if (!open) modals.closeOrganization();
         }}
-        onOpenProject={(project) => {
-          modals.closeOrganization();
-          setSelectedProject(project);
-        }}
+        onOpenProject={modals.organizationToProject}
       />
 
       {modals.resumeOpen ? (
@@ -161,14 +158,7 @@ export function Layout() {
         onOpenChange={(open) => {
           if (!open) modals.closeBoard();
         }}
-        onOpenBom={(project) => {
-          // These two must stay in one synchronous handler: React 18 batches
-          // them, so closeBoard's restore of selectedProject/returnProject is
-          // overwritten by openBom before anything commits. Put an await or a
-          // setTimeout between them and the project modal flashes for a frame.
-          modals.closeBoard();
-          modals.openBom(project, true);
-        }}
+        onOpenBom={modals.boardToBom}
       />
 
       <InteractiveBomViewer

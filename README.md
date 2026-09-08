@@ -28,9 +28,13 @@ A Vite, React, and TypeScript portfolio prototype for Cameron Lewis. The site pr
 
 Use Node.js 20 or newer.
 
+The pnpm version is pinned to `10.17.1` on every command below - resolving pnpm via the
+unpinned `latest` tag currently pulls in a major version that silently drops the `overrides:`
+block `package.json` uses to pin Vite and alias rollup, so don't "helpfully" bump this version back.
+
 ```bash
-npx pnpm@latest install
-npx pnpm@latest dev
+npx pnpm@10.17.1 install
+npx pnpm@10.17.1 dev
 ```
 
 The development server will print a local URL, usually `http://localhost:5173`.
@@ -38,23 +42,23 @@ The development server will print a local URL, usually `http://localhost:5173`.
 ## Useful Commands
 
 ```bash
-npx pnpm@latest dev
-npx pnpm@latest build
-npx pnpm@latest preview
-npx pnpm@latest typecheck
-npx pnpm@latest test
+npx pnpm@10.17.1 dev
+npx pnpm@10.17.1 build
+npx pnpm@10.17.1 preview
+npx pnpm@10.17.1 typecheck
+npx pnpm@10.17.1 test
 ```
 
-- `npx pnpm@latest dev` starts the local Vite development server.
-- `npx pnpm@latest build` creates a production build in `dist/`.
-- `npx pnpm@latest preview` serves the production build locally.
-- `npx pnpm@latest typecheck` runs `tsc --noEmit`.
-- `npx pnpm@latest test` runs the Vitest suite.
+- `npx pnpm@10.17.1 dev` starts the local Vite development server.
+- `npx pnpm@10.17.1 build` creates a production build in `dist/`.
+- `npx pnpm@10.17.1 preview` serves the production build locally.
+- `npx pnpm@10.17.1 typecheck` runs `tsc --noEmit`.
+- `npx pnpm@10.17.1 test` runs the Vitest suite.
 
 If `npx` reports an npm cache permissions error on macOS, run the same command with a temporary cache:
 
 ```bash
-env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install
+env npm_config_cache=/private/tmp/npm-cache npx pnpm@10.17.1 install
 ```
 
 ## Project Structure
@@ -95,7 +99,7 @@ Most portfolio copy, links, project metadata, and asset paths live in `src/app/s
 
 The 3D board viewer fetches quantized binary geometry per board from
 `public/portfolio/assets/viewers/geometry/<asset>.pcbgeo`, inside the viewer iframe.
-Regenerate with `npx pnpm@latest build:geometry`.
+Regenerate with `npx pnpm@10.17.1 build:geometry`.
 
 ## Notes
 

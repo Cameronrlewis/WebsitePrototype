@@ -9,6 +9,14 @@ export function isSectionId(value: string): value is SectionId {
   return (SECTION_IDS as readonly string[]).includes(value);
 }
 
+// The app's own routes are always "#/...". A plain in-page anchor - like the
+// skip link's "#main-content" - isn't one, and shouldn't be handed to
+// parseHash by the hashchange listener: parseHash has no way to distinguish
+// "unknown route" from "not a route at all" and falls back to home for both.
+export function isAppRoute(hash: string): boolean {
+  return hash.startsWith("#/");
+}
+
 // Parses "#/updates", "#/education", "#/projects/aux-power-board" so every
 // view, section, and project stays deep-linkable.
 export function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import type { PageId, ProjectRecord } from "../data/portfolio";
-import { isSectionId, parseHash, SECTION_IDS, type SectionId, type ViewId } from "../lib/routing";
+import { isAppRoute, isSectionId, parseHash, SECTION_IDS, type SectionId, type ViewId } from "../lib/routing";
 
 interface UseHashRouteOptions {
   mainRef: RefObject<HTMLElement | null>;
@@ -112,6 +112,13 @@ export function useHashRoute({ mainRef, sectionRefs }: UseHashRouteOptions) {
 
   useEffect(() => {
     const onHashChange = () => {
+      // A non-route hash (e.g. the skip link's "#main-content") isn't a
+      // navigation - ignore it instead of falling through parseHash's home
+      // fallback, which would scroll to home and close any open project modal.
+      if (!isAppRoute(window.location.hash)) {
+        return;
+      }
+
       const route = parseHash(window.location.hash);
       setView(route.view);
       setSelectedProject(route.project);

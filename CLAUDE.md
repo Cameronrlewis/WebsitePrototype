@@ -15,9 +15,9 @@ When you need to understand the codebase, docs, or any files in this project:
 Package manager is **pnpm** (Node 20+). `pnpm typecheck` runs `tsc --noEmit` and `pnpm test`
 runs Vitest; both gate CI ahead of the build. `pnpm build` itself still does not run `tsc`,
 so verify locally with `pnpm typecheck && pnpm test && pnpm build`. There is no lint script.
-`pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
+`pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@10.17.1 install`. Always pin the version (`@10.17.1`), never `@latest` - see below for why.
 
-**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
+**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround. This is also why every command in this file and the README pins the pnpm version (`npx pnpm@10.17.1`) instead of resolving it via the unpinned `latest` tag: a newer pnpm major has silently dropped this `overrides:` block on install before, which un-pins Vite and breaks the build.
 
 ## Directory layout (important — it's nested and duplicated)
 
@@ -32,7 +32,7 @@ The real application lives under **`src/app/src/app/`**, not `src/`. The entry c
 
 ## Architecture
 
-**Page composition.** `Layout.tsx` is the app shell: a `Sidebar` plus a scrollable `<main>` holding the portfolio. The portfolio is one vertical scroll of six sections rendered inline in `Layout.tsx` — `home / education / experience / projects / skills / contact` — each wrapped in a `<section data-section="…">` (`SECTION_IDS`). `Updates.tsx` is a **separate view** (hash `#/updates`), swapped in place of the portfolio, not part of the scroll. Navigation is hash-based: `parseHash` (in `lib/routing.ts`, called from `Layout.tsx`) handles `#/education`, `#/projects/<slug>`, `#/updates`; a scroll-spy `IntersectionObserver` (`rootMargin: "-35% 0px -55% 0px"`) drives the sidebar highlight.
+**Page composition.** `Layout.tsx` is the app shell: a `Sidebar` plus a scrollable `<main>` holding the portfolio. The portfolio is one vertical scroll of six sections rendered inline in `Layout.tsx` — `home / education / experience / projects / skills / contact` — each wrapped in a `<section data-section="…">` (`SECTION_IDS`). `Updates.tsx` is a **separate view** (hash `#/updates`), swapped in place of the portfolio, not part of the scroll. Navigation is hash-based: `parseHash` (in `lib/routing.ts`) handles `#/education`, `#/projects/<slug>`, `#/updates`; it's called from `hooks/useHashRoute.ts`, which owns the hash-routing state (`view`, `activeSection`, `selectedProject`) that `Layout.tsx` consumes; a scroll-spy `IntersectionObserver` (`rootMargin: "-35% 0px -55% 0px"`) drives the sidebar highlight.
 
 **CircuitTrace background animation — the critical coupling.** `CircuitTrace.tsx` renders an animated PCB "power chain" SVG behind the content, revealed on scroll. It **measures the rendered layout** rather than dictating it: it reads every `[data-section]` element's geometry (`offsetTop`/`offsetHeight`) and forms the inter-section gaps, then drops IC blocks (`centerpieceQueue` = `rectifier → buck → ldo → mcu → fpga → timer555`) one per gap. A gap is only usable when `gap.bottom - gap.top >= 70` (px), and the buck block needs horizontal room `avail ≥ 340` derived from the full `<main>` width. Consequences when editing section layout:
 

@@ -27,15 +27,18 @@ export function useModalStack({ selectedProject, setSelectedProject }: UseModalS
   }, [returnProject, setSelectedProject]);
 
   // A viewer-to-viewer handoff (e.g. BoardViewer's onOpenBom in Layout.tsx)
-  // closes one viewer with closeViewer/closeOrganization, whose restore() call
-  // sets selectedProject, then immediately opens the next with openViewer,
-  // which sets selectedProject back to null. This only lands correctly
-  // because both calls run inside one synchronous event handler: React 18
-  // batches them into a single commit, so restore()'s intermediate value is
-  // overwritten before anything renders. If a handoff like that is ever split
-  // across an await, a setTimeout, or a network-gated loader, the two
-  // setState calls land in separate commits and the project modal will flash
-  // open for one frame between them.
+  // moves straight from one viewer to the next via transferViewer below,
+  // without transiting restore() or touching returnProject - returnProject is
+  // already correct from when the first viewer was opened, so the handoff
+  // just swaps which viewer is showing.
+  const transferViewer = useCallback(
+    (fromSetter: (value: null) => void, toSetter: (project: ProjectRecord) => void) =>
+      (project: ProjectRecord) => {
+        fromSetter(null);
+        toSetter(project);
+      },
+    [],
+  );
 
   const openOrganizationById = useCallback((orgId: string) => {
     const organization = getOrganizationById(orgId);
@@ -93,6 +96,7 @@ export function useModalStack({ selectedProject, setSelectedProject }: UseModalS
     openOrganizationById,
     openOrganization,
     closeOrganization,
+    organizationToProject: transferViewer(setSelectedOrganization, setSelectedProject),
     openResume: useCallback(() => setResumeOpen(true), []),
     closeResume: useCallback(() => setResumeOpen(false), []),
     openReport: useCallback(
@@ -107,5 +111,6 @@ export function useModalStack({ selectedProject, setSelectedProject }: UseModalS
     closeBoard: closeViewer(setBoardProject),
     openBom: openViewer(setBomProject),
     closeBom: closeViewer(setBomProject),
+    boardToBom: transferViewer(setBoardProject, setBomProject),
   };
 }

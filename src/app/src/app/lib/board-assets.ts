@@ -2,7 +2,7 @@ import type { ProjectRecord } from "../data/portfolio";
 
 /**
  * Board 3D geometry is not loaded here - `board-viewer-shell.html` fetches its
- * own per-board binary payload from `assets/viewers/geometry/<asset>.bin.gz`
+ * own per-board binary payload from `assets/viewers/geometry/<asset>.pcbgeo`
  * inside the viewer iframe. This module only supplies the interactive BOM.
  */
 
