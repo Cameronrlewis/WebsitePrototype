@@ -26,6 +26,17 @@ export function useModalStack({ selectedProject, setSelectedProject }: UseModalS
     }
   }, [returnProject, setSelectedProject]);
 
+  // A viewer-to-viewer handoff (e.g. BoardViewer's onOpenBom in Layout.tsx)
+  // closes one viewer with closeViewer/closeOrganization, whose restore() call
+  // sets selectedProject, then immediately opens the next with openViewer,
+  // which sets selectedProject back to null. This only lands correctly
+  // because both calls run inside one synchronous event handler: React 18
+  // batches them into a single commit, so restore()'s intermediate value is
+  // overwritten before anything renders. If a handoff like that is ever split
+  // across an await, a setTimeout, or a network-gated loader, the two
+  // setState calls land in separate commits and the project modal will flash
+  // open for one frame between them.
+
   const openOrganizationById = useCallback((orgId: string) => {
     const organization = getOrganizationById(orgId);
     if (!organization) return;
