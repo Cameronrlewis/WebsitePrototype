@@ -47,6 +47,7 @@ npx pnpm@10.17.1 build
 npx pnpm@10.17.1 preview
 npx pnpm@10.17.1 typecheck
 npx pnpm@10.17.1 test
+npx pnpm@10.17.1 e2e
 ```
 
 - `npx pnpm@10.17.1 dev` starts the local Vite development server.
@@ -54,6 +55,7 @@ npx pnpm@10.17.1 test
 - `npx pnpm@10.17.1 preview` serves the production build locally.
 - `npx pnpm@10.17.1 typecheck` runs `tsc --noEmit`.
 - `npx pnpm@10.17.1 test` runs the Vitest suite.
+- `npx pnpm@10.17.1 e2e` runs the Playwright e2e suite (`e2e/*.spec.ts`) against a dev server it starts automatically. Run `npx playwright install chromium` once first to fetch the browser binary.
 
 If `npx` reports an npm cache permissions error on macOS, run the same command with a temporary cache:
 
