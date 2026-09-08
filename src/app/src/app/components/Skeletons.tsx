@@ -14,7 +14,8 @@ import { cn } from "./ui/utils";
  */
 
 /* --------------------------------------------------------------------------
- * TEMPORARY design-review flag. Remove once the skeleton pass is signed off.
+ * Development-only design-review flag. Compiled out of production builds by
+ * `import.meta.env.DEV`, so the query string has no effect on the live site.
  *
  *   ?skeleton=1      pin every loading placeholder open; the app stays
  *                    navigable so modals and viewers can still be opened
@@ -24,7 +25,9 @@ import { cn } from "./ui/utils";
  * (navigation here is hash-based, which leaves the search params intact).
  * ----------------------------------------------------------------------- */
 const skeletonParam =
-  typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("skeleton");
+  import.meta.env.DEV && typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("skeleton")
+    : null;
 
 export const FORCE_SKELETONS = skeletonParam !== null;
 export const FORCE_CARD_SKELETONS = skeletonParam === "cards";

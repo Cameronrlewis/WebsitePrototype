@@ -34,6 +34,7 @@ interface HomeProps {
 }
 
 const HEADSHOT = "/portfolio/assets/headshot.jpg";
+const HEADSHOT_WEBP = "/portfolio/assets/headshot.webp";
 
 /** Outgoing and incoming boards travel the same way, so they read as one move. */
 const boardPanelVariants = {
@@ -61,7 +62,7 @@ const copyBlockVariants = {
 const copyItemVariants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-};
+} as const;
 
 const copyBlockVariantsReduced = {
   hidden: {},
@@ -71,7 +72,7 @@ const copyBlockVariantsReduced = {
 const copyItemVariantsReduced = {
   hidden: { opacity: 0, y: 0 },
   show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "linear" } },
-};
+} as const;
 
 /** Shared-element fill that travels between rail segments. */
 const RAIL_SPRING = { type: "spring", stiffness: 260, damping: 24 } as const;
@@ -148,6 +149,16 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
             <Download className="size-4" />
             Resume
           </button>
+          {featuredBoardProjects[0] ? (
+            <button
+              type="button"
+              onClick={() => onOpen3D(featuredBoardProjects[0])}
+              className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-5 py-2.5 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
+            >
+              <Orbit className="size-4" />
+              Inspect a board in 3D
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-[color:var(--outline-soft)] pt-6 sm:grid-cols-4">
@@ -199,7 +210,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 <a
                   href={githubLink.href}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
                 >
                   <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -210,7 +221,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
                 <a
                   href={linkedInLink.href}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--outline-soft)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-3)]"
                 >
                   <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -231,21 +242,20 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
           </div>
 
           <div className="relative w-full shrink-0 overflow-hidden lg:w-56 xl:w-64">
-            <div className="relative h-56 w-full lg:hidden">
-              <img
-                src={HEADSHOT}
-                alt={profile.name}
-                className="h-full w-full object-cover object-top"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-1)]/60 to-transparent" />
-            </div>
-            <div className="absolute inset-0 hidden lg:block">
-              <img
-                src={HEADSHOT}
-                alt={profile.name}
-                className="h-full w-full object-cover object-top"
-              />
-              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--surface-1)] to-transparent" />
+            <div className="relative h-56 w-full lg:absolute lg:inset-0 lg:h-auto">
+              <picture>
+                <source srcSet={HEADSHOT_WEBP} type="image/webp" />
+                <img
+                  src={HEADSHOT}
+                  alt={profile.name}
+                  width={1638}
+                  height={2048}
+                  decoding="async"
+                  className="h-full w-full object-cover object-top"
+                />
+              </picture>
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-1)]/60 to-transparent lg:hidden" />
+              <div className="absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-[var(--surface-1)] to-transparent lg:block" />
             </div>
           </div>
         </div>

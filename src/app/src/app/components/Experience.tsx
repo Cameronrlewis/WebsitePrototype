@@ -76,7 +76,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                     />
 
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-display text-[1.25rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{entry.role}</h2>
+                      <h3 className="font-display text-[1.25rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{entry.role}</h3>
                       <p className="mt-1 text-lg text-[var(--text-body)] lg:whitespace-nowrap">{entry.company}</p>
                     </div>
                   </div>

@@ -151,7 +151,7 @@ export function Contact({ onOpenResume }: ContactProps) {
         <a
           href={linkedinLink?.href ?? "https://www.linkedin.com/in/cameron-lewis-/"}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--surface-3)]"
         >
           <Linkedin className="size-4 shrink-0 text-[var(--text-muted)]" />
@@ -167,7 +167,7 @@ export function Contact({ onOpenResume }: ContactProps) {
         <a
           href={githubLink?.href ?? "https://github.com/Cameronrlewis"}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--surface-3)]"
         >
           <Github className="size-4 shrink-0 text-[var(--text-muted)]" />

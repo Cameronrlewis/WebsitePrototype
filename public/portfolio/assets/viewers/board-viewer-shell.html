@@ -112,20 +112,12 @@
       </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!--
-      chevrotain + VRMLLoader are only needed for mode=wrl, and the geometry
-      bundle is now fetched per board rather than loaded as a blocking script.
-      Both are pulled in on demand below.
-    -->
+    <script src="/portfolio/assets/viewers/vendor/three.min.js"></script>
     <script>
       (function () {
         const params = new URLSearchParams(window.location.search);
-        const mode = params.get("mode") === "wrl" ? "wrl" : "bundle";
         const assetParam = params.get("asset");
         const asset = assetParam === "control" || assetParam === "brick" ? assetParam : "power";
-        const modelParam = params.get("model");
-        const modelUrl = modelParam ? new URL(modelParam, window.location.origin).toString() : null;
         const mount = document.getElementById("viewer");
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
@@ -298,20 +290,6 @@
           });
         }
 
-        // Loads a script tag on demand and resolves once it has executed. Used
-        // only for the WRL path, which no current board uses.
-        function loadScript(src) {
-          return new Promise(function (resolve, reject) {
-            const el = document.createElement("script");
-            el.src = src;
-            el.onload = resolve;
-            el.onerror = function () {
-              reject(new Error("Failed to load " + src));
-            };
-            document.head.appendChild(el);
-          });
-        }
-
         /**
          * Fetches one board's quantized binary payload. See
          * tools/build-board-geometry-bin.mjs for the format.
@@ -426,56 +404,6 @@
           return group;
         }
 
-        async function createWrlGroup() {
-          if (!window.THREE) {
-            throw new Error("Three.js failed to load.");
-          }
-
-          if (!THREE.VRMLLoader) {
-            await loadScript("https://cdn.jsdelivr.net/npm/chevrotain@10.4.1/lib/chevrotain.min.js");
-            await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/VRMLLoader.js");
-          }
-
-          if (!THREE.VRMLLoader) {
-            throw new Error("VRML loader failed to load.");
-          }
-
-          if (!modelUrl) {
-            throw new Error("A WRL model URL was not provided.");
-          }
-
-          return new Promise(function (resolve, reject) {
-            const loader = new THREE.VRMLLoader();
-            loader.load(
-              modelUrl,
-              function (object) {
-                object.rotation.x = -Math.PI / 2;
-                object.traverse(function (node) {
-                  if (!node.isMesh) {
-                    return;
-                  }
-
-                  node.castShadow = false;
-                  node.receiveShadow = false;
-                  const materials = Array.isArray(node.material) ? node.material : [node.material];
-                  materials.forEach(function (material) {
-                    if (!material) {
-                      return;
-                    }
-
-                    material.side = THREE.DoubleSide;
-                  });
-                });
-                resolve(object);
-              },
-              undefined,
-              function (error) {
-                reject(error instanceof Error ? error : new Error("WRL model failed to load."));
-              }
-            );
-          });
-        }
-
         async function buildScene() {
           if (!window.THREE) {
             throw new Error("Three.js failed to load.");
@@ -492,7 +420,7 @@
 
           scene = new THREE.Scene();
           camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
-          boardGroup = mode === "wrl" ? await createWrlGroup() : createBundleGroup(await fetchBoardGeometry(asset));
+          boardGroup = createBundleGroup(await fetchBoardGeometry(asset));
 
           const box = new THREE.Box3().setFromObject(boardGroup);
           const center = new THREE.Vector3();
@@ -525,9 +453,9 @@
           scene.add(rim);
 
           defaults = {
-            theta: mode === "wrl" ? -0.62 : -0.5,
-            phi: mode === "wrl" ? 1.08 : 1.0,
-            r: maxDimension * (mode === "wrl" ? 1.7 : 1.5),
+            theta: -0.5,
+            phi: 1.0,
+            r: maxDimension * 1.5,
             tx: 0,
             ty: 0,
             tz: 0,

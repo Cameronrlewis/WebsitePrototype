@@ -23,13 +23,7 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
     }
 
     const url = new URL("/portfolio/assets/viewers/board-viewer-shell.html", window.location.origin);
-    url.searchParams.set("mode", project.viewerMode === "wrl" ? "wrl" : "bundle");
-    if (project.viewerMode === "wrl" && project.viewerModelUrl) {
-      url.searchParams.set("model", project.viewerModelUrl);
-    } else {
-      url.searchParams.set("asset", project.viewerAsset ?? "power");
-    }
-    url.searchParams.set("title", project.title);
+    url.searchParams.set("asset", project.viewerAsset ?? "power");
     return url.toString();
   }, [project]);
 

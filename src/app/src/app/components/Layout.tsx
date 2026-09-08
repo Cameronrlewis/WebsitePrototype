@@ -1,12 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 
-import {
-  getOrganizationById,
-  getProjectBySlug,
-  type OrganizationRecord,
-  type PageId,
-  type ProjectRecord,
-} from "../data/portfolio";
+import type { SectionId } from "../lib/routing";
+import { useHashRoute } from "../hooks/useHashRoute";
+import { useModalStack } from "../hooks/useModalStack";
 import { BoardViewer } from "./BoardViewer";
 import { CircuitTrace } from "./CircuitTrace";
 import { Contact } from "./Contact";
@@ -28,189 +24,18 @@ const ResumeViewer = lazy(() =>
   import("./ResumeViewer").then((module) => ({ default: module.ResumeViewer })),
 );
 
-const SECTION_IDS = ["home", "education", "experience", "projects", "skills", "contact"] as const;
-export type SectionId = (typeof SECTION_IDS)[number];
-type ViewId = "portfolio" | "updates";
-
-function isSectionId(value: string): value is SectionId {
-  return (SECTION_IDS as readonly string[]).includes(value);
-}
-
-// Parses "#/updates", "#/education", "#/projects/aux-power-board" so every
-// view, section, and project stays deep-linkable.
-function parseHash(hash: string): { view: ViewId; section: SectionId; project: ProjectRecord | null } {
-  const segments = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-  const [first, slug] = segments;
-
-  if (first === "updates") {
-    return { view: "updates", section: "home", project: null };
-  }
-
-  if (first === "projects" && slug) {
-    const project = getProjectBySlug(slug);
-    if (project) {
-      return { view: "portfolio", section: "projects", project };
-    }
-  }
-
-  if (first && isSectionId(first)) {
-    return { view: "portfolio", section: first, project: null };
-  }
-
-  return { view: "portfolio", section: "home", project: null };
-}
+export type { SectionId } from "../lib/routing";
 
 export function Layout() {
   const mainRef = useRef<HTMLElement | null>(null);
   const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement | null>>>({});
-  const initialRoute = parseHash(window.location.hash);
-  const pendingSectionRef = useRef<SectionId | null>(
-    initialRoute.view === "portfolio" && initialRoute.section !== "home" ? initialRoute.section : null,
-  );
+  const { view, activeSection, selectedProject, setSelectedProject, navigate } = useHashRoute({
+    mainRef,
+    sectionRefs,
+  });
 
-  const [view, setView] = useState<ViewId>(initialRoute.view);
-  const [activeSection, setActiveSection] = useState<SectionId>(initialRoute.section);
   const [projectsViewMode, setProjectsViewMode] = useState<"all" | "featured">("featured");
-  const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(initialRoute.project);
-  const [selectedOrganization, setSelectedOrganization] = useState<OrganizationRecord | null>(null);
-  const [organizationReturnProject, setOrganizationReturnProject] = useState<ProjectRecord | null>(null);
-  const [viewerReturnProject, setViewerReturnProject] = useState<ProjectRecord | null>(null);
-  const [resumeOpen, setResumeOpen] = useState(false);
-  const [reportProject, setReportProject] = useState<ProjectRecord | null>(null);
-  const [boardProject, setBoardProject] = useState<ProjectRecord | null>(null);
-  const [bomProject, setBomProject] = useState<ProjectRecord | null>(null);
-
-  const scrollToSection = (sectionId: SectionId) => {
-    const element = sectionRefs.current[sectionId];
-    if (!element) {
-      return;
-    }
-
-    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-    element.scrollIntoView({ behavior, block: "start" });
-  };
-
-  const handleNavigate = (target: PageId) => {
-    if (target === "updates") {
-      setView("updates");
-      return;
-    }
-
-    if (view !== "portfolio") {
-      pendingSectionRef.current = target;
-      setView("portfolio");
-      return;
-    }
-
-    setActiveSection(target);
-    scrollToSection(target);
-  };
-
-  // Handles the deferred scroll after switching back to the portfolio view
-  // (also covers the initial deep-link scroll on mount).
-  useEffect(() => {
-    if (view === "portfolio" && pendingSectionRef.current) {
-      const sectionId = pendingSectionRef.current;
-      pendingSectionRef.current = null;
-      setActiveSection(sectionId);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollToSection(sectionId));
-      });
-    }
-
-    if (view === "updates") {
-      mainRef.current?.scrollTo({ top: 0 });
-      window.scrollTo({ top: 0 });
-    }
-  }, [view]);
-
-  // Scroll spy: highlight the section currently in the middle of the screen.
-  useEffect(() => {
-    if (view !== "portfolio") {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const sectionId = entry.target.getAttribute("data-section");
-            if (sectionId && isSectionId(sectionId)) {
-              setActiveSection(sectionId);
-            }
-          }
-        }
-      },
-      { rootMargin: "-35% 0px -55% 0px", threshold: 0 },
-    );
-
-    for (const sectionId of SECTION_IDS) {
-      const element = sectionRefs.current[sectionId];
-      if (element) {
-        observer.observe(element);
-      }
-    }
-
-    return () => observer.disconnect();
-  }, [view]);
-
-  useEffect(() => {
-    const nextHash = selectedProject
-      ? `#/projects/${selectedProject.slug}`
-      : view === "updates"
-        ? "#/updates"
-        : `#/${activeSection}`;
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, "", nextHash);
-    }
-  }, [view, activeSection, selectedProject]);
-
-  useEffect(() => {
-    const onHashChange = () => {
-      const route = parseHash(window.location.hash);
-      setView(route.view);
-      setSelectedProject(route.project);
-
-      if (route.view === "portfolio") {
-        pendingSectionRef.current = route.section;
-        requestAnimationFrame(() => {
-          if (pendingSectionRef.current) {
-            const sectionId = pendingSectionRef.current;
-            pendingSectionRef.current = null;
-            setActiveSection(sectionId);
-            scrollToSection(sectionId);
-          }
-        });
-      }
-    };
-
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  const openOrganizationById = (orgId: string) => {
-    const organization = getOrganizationById(orgId);
-    if (!organization) return;
-    setOrganizationReturnProject(null);
-    setSelectedOrganization(organization);
-  };
-
-  const openOrganization = (project: ProjectRecord, restoreProject: boolean) => {
-    const organization = getOrganizationById(project.organizationId);
-
-    if (!organization) {
-      return;
-    }
-
-    if (restoreProject) {
-      setOrganizationReturnProject(project);
-      setSelectedProject(null);
-    } else {
-      setOrganizationReturnProject(null);
-    }
-
-    setSelectedOrganization(organization);
-  };
+  const modals = useModalStack({ selectedProject, setSelectedProject });
 
   const sectionClass = "scroll-mt-32 lg:scroll-mt-2";
 
@@ -222,15 +47,11 @@ export function Layout() {
     <div className="space-y-16 lg:space-y-24">
       <section ref={registerSection("home")} data-section="home" className={sectionClass}>
         <Home
-          onNavigate={handleNavigate}
+          onNavigate={navigate}
           onOpenProject={setSelectedProject}
-          onOpenOrganization={(project) => openOrganization(project, false)}
-          onOpenResume={() => setResumeOpen(true)}
-          onOpen3D={(project) => {
-            setViewerReturnProject(null);
-            setSelectedProject(null);
-            setBoardProject(project);
-          }}
+          onOpenOrganization={(project) => modals.openOrganization(project, false)}
+          onOpenResume={modals.openResume}
+          onOpen3D={(project) => modals.openBoard(project, false)}
         />
       </section>
 
@@ -239,13 +60,13 @@ export function Layout() {
       </section>
 
       <section ref={registerSection("experience")} data-section="experience" className={sectionClass}>
-        <Experience onOpenOrganization={openOrganizationById} />
+        <Experience onOpenOrganization={modals.openOrganizationById} />
       </section>
 
       <section ref={registerSection("projects")} data-section="projects" className={sectionClass}>
         <Projects
           onOpenProject={setSelectedProject}
-          onOpenOrganization={(project) => openOrganization(project, false)}
+          onOpenOrganization={(project) => modals.openOrganization(project, false)}
           viewMode={projectsViewMode}
           onViewModeChange={setProjectsViewMode}
         />
@@ -256,13 +77,16 @@ export function Layout() {
       </section>
 
       <section ref={registerSection("contact")} data-section="contact" className={sectionClass}>
-        <Contact onOpenResume={() => setResumeOpen(true)} />
+        <Contact onOpenResume={modals.openResume} />
       </section>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-10rem] top-[-7rem] size-[28rem] rounded-full bg-[var(--page-blob-1)] blur-3xl" />
         <div className="absolute bottom-[-12rem] right-[-10rem] size-[26rem] rounded-full bg-[var(--page-blob-2)] blur-3xl" />
@@ -271,9 +95,14 @@ export function Layout() {
       <div className="relative mx-auto max-w-[1500px] px-4 py-4 lg:flex lg:gap-6 lg:px-5">
         <Sidebar
           activeItem={view === "updates" ? "updates" : activeSection}
-          onSelect={handleNavigate}
+          onSelect={navigate}
         />
-        <main ref={mainRef} className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+        <main
+          ref={mainRef}
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 pb-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2"
+        >
           <div className="relative">
             <CircuitTrace scrollRef={mainRef} pageKey={view} />
             {/* lg:pl-12 / lg:pr-12 reserve gutter corridors for the circuit trace spine on both sides */}
@@ -286,55 +115,29 @@ export function Layout() {
         project={selectedProject}
         open={Boolean(selectedProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            setSelectedProject(null);
-            setViewerReturnProject(null);
-          }
+          if (!open) setSelectedProject(null);
         }}
-        onOpenOrganization={(project) => openOrganization(project, true)}
-        onOpen3D={(project) => {
-          setViewerReturnProject(project);
-          setSelectedProject(null);
-          setBoardProject(project);
-        }}
-        onOpenReport={(project) => {
-          setSelectedProject(null);
-          setReportProject(project);
-        }}
-        onOpenBom={(project) => {
-          setViewerReturnProject(project);
-          setSelectedProject(null);
-          setBomProject(project);
-        }}
+        onOpenOrganization={(project) => modals.openOrganization(project, true)}
+        onOpen3D={(project) => modals.openBoard(project, true)}
+        onOpenReport={modals.openReport}
+        onOpenBom={(project) => modals.openBom(project, true)}
       />
 
       <OrganizationContextModal
-        organization={selectedOrganization}
-        open={Boolean(selectedOrganization)}
+        organization={modals.selectedOrganization}
+        open={Boolean(modals.selectedOrganization)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = organizationReturnProject;
-            setSelectedOrganization(null);
-
-            if (project) {
-              setSelectedProject(project);
-              setOrganizationReturnProject(null);
-            }
-          }
+          if (!open) modals.closeOrganization();
         }}
-        onOpenProject={(project) => {
-          setSelectedOrganization(null);
-          setOrganizationReturnProject(null);
-          setSelectedProject(project);
-        }}
+        onOpenProject={modals.organizationToProject}
       />
 
-      {resumeOpen ? (
+      {modals.resumeOpen ? (
         FORCE_SKELETONS ? (
-          <ResumeViewerSkeleton onDismiss={() => setResumeOpen(false)} />
+          <ResumeViewerSkeleton onDismiss={modals.closeResume} />
         ) : (
           <Suspense fallback={<ResumeViewerSkeleton />}>
-            <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
+            <ResumeViewer open={modals.resumeOpen} onOpenChange={(open) => (open ? modals.openResume() : modals.closeResume())} />
           </Suspense>
         )
       ) : null}
@@ -342,46 +145,27 @@ export function Layout() {
       <SkeletonPreviewBadge />
 
       <ReportViewer
-        project={reportProject}
-        open={Boolean(reportProject)}
+        project={modals.reportProject}
+        open={Boolean(modals.reportProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            setReportProject(null);
-          }
+          if (!open) modals.closeReport();
         }}
       />
 
       <BoardViewer
-        project={boardProject}
-        open={Boolean(boardProject)}
+        project={modals.boardProject}
+        open={Boolean(modals.boardProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = viewerReturnProject;
-            setBoardProject(null);
-            if (project) {
-              setSelectedProject(project);
-              setViewerReturnProject(null);
-            }
-          }
+          if (!open) modals.closeBoard();
         }}
-        onOpenBom={(project) => {
-          setBoardProject(null);
-          setBomProject(project);
-        }}
+        onOpenBom={modals.boardToBom}
       />
 
       <InteractiveBomViewer
-        project={bomProject}
-        open={Boolean(bomProject)}
+        project={modals.bomProject}
+        open={Boolean(modals.bomProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = viewerReturnProject;
-            setBomProject(null);
-            if (project) {
-              setSelectedProject(project);
-              setViewerReturnProject(null);
-            }
-          }
+          if (!open) modals.closeBom();
         }}
       />
     </div>

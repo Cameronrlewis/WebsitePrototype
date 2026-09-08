@@ -28,9 +28,13 @@ A Vite, React, and TypeScript portfolio prototype for Cameron Lewis. The site pr
 
 Use Node.js 20 or newer.
 
+The pnpm version is pinned to `10.17.1` on every command below - resolving pnpm via the
+unpinned `latest` tag currently pulls in a major version that silently drops the `overrides:`
+block `package.json` uses to pin Vite and alias rollup, so don't "helpfully" bump this version back.
+
 ```bash
-npx pnpm@latest install
-npx pnpm@latest dev
+npx pnpm@10.17.1 install
+npx pnpm@10.17.1 dev
 ```
 
 The development server will print a local URL, usually `http://localhost:5173`.
@@ -38,19 +42,23 @@ The development server will print a local URL, usually `http://localhost:5173`.
 ## Useful Commands
 
 ```bash
-npx pnpm@latest dev
-npx pnpm@latest build
-npx pnpm@latest preview
+npx pnpm@10.17.1 dev
+npx pnpm@10.17.1 build
+npx pnpm@10.17.1 preview
+npx pnpm@10.17.1 typecheck
+npx pnpm@10.17.1 test
 ```
 
-- `npx pnpm@latest dev` starts the local Vite development server.
-- `npx pnpm@latest build` creates a production build in `dist/`.
-- `npx pnpm@latest preview` serves the production build locally.
+- `npx pnpm@10.17.1 dev` starts the local Vite development server.
+- `npx pnpm@10.17.1 build` creates a production build in `dist/`.
+- `npx pnpm@10.17.1 preview` serves the production build locally.
+- `npx pnpm@10.17.1 typecheck` runs `tsc --noEmit`.
+- `npx pnpm@10.17.1 test` runs the Vitest suite.
 
 If `npx` reports an npm cache permissions error on macOS, run the same command with a temporary cache:
 
 ```bash
-env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install
+env npm_config_cache=/private/tmp/npm-cache npx pnpm@10.17.1 install
 ```
 
 ## Project Structure
@@ -60,8 +68,12 @@ src/app/src/app/
   App.tsx                 Main application entry
   components/             Portfolio pages, modals, viewers, and layout pieces
   data/portfolio.ts       Typed portfolio content and project records
-  lib/                    Shared helpers for assets and viewer behavior
-  styles/globals.css      Theme tokens and global styles
+  hooks/                  Hash routing and modal stack state
+  lib/                    Routing helpers, board asset loading
+src/app/src/styles/
+  index.css               Style entry (imports the two below)
+  default_theme.css       Tailwind @theme inline block
+  globals.css             Light and dark semantic tokens
 
 public/portfolio/
   assets/media/           Project, logo, and document preview imagery
@@ -70,16 +82,26 @@ public/portfolio/
   assets/bom/             Interactive BOM HTML assets
 
 tools/
-  build-brick-geometry.mjs
-  patch-rollup-native.mjs
+  build-board-geometry-bin.mjs  Regenerates .pcbgeo viewer geometry
+  build-brick-geometry.mjs      Brick Buck board geometry source build
+  build-favicon-ico.mjs         Packs PNG icons into favicon.ico
+  build-logo-light-variants.py  Generates light-theme logo variants
+  build_resume_improved.py      Builds the resume document
+  debug-vrml.mjs                VRML inspection helper
+  flatten-vrml.mjs              VRML flattening helper
+  optimize-media.py             Downscales and re-encodes project media
+  patch-rollup-native.mjs       Rollup native-binary workaround
 ```
 
 ## Content Updates
 
 Most portfolio copy, links, project metadata, and asset paths live in `src/app/src/app/data/portfolio.ts`. Project media should be added under `public/portfolio/assets/media/projects` and referenced from the typed data source.
 
-3D board models use prebuilt geometry bundles served from `public/portfolio/assets/scripts/viewer/board-model-data.js`. Regenerate the Brick Buck bundle with the geometry build tool when its source board model changes.
+The 3D board viewer fetches quantized binary geometry per board from
+`public/portfolio/assets/viewers/geometry/<asset>.pcbgeo`, inside the viewer iframe.
+Regenerate with `npx pnpm@10.17.1 build:geometry`.
 
 ## Notes
 
-The contact form is local prototype behavior only. It does not submit to a backend service.
+The contact section is a PCB-pinout layout with copy-to-clipboard, mailto, and direct
+document links. There is no form and no backend service.

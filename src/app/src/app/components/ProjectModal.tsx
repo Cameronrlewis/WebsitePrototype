@@ -155,7 +155,7 @@ export function ProjectModal({
                     <div className="flex flex-wrap gap-3">
                       {project.github ? (
                         <Button asChild className="rounded-[1rem] shadow-[var(--shadow-button)]">
-                          <a href={project.github} target="_blank" rel="noreferrer">
+                          <a href={project.github} target="_blank" rel="noopener noreferrer">
                             <Github className="size-4" />
                             GitHub
                           </a>
@@ -163,7 +163,7 @@ export function ProjectModal({
                       ) : null}
                       {project.demo ? (
                         <Button asChild variant="outline" className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]">
-                          <a href={project.demo} target="_blank" rel="noreferrer">
+                          <a href={project.demo} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="size-4" />
                             Demo
                           </a>

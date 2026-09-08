@@ -12,9 +12,12 @@ When you need to understand the codebase, docs, or any files in this project:
 
 ## Commands
 
-Package manager is **pnpm** (Node 20+); the README drives everything through `npx pnpm@latest <cmd>`. There is no test suite, no lint script, and no `tsconfig.json` — Vite/esbuild transpiles TS without type-checking, and `build` does **not** run `tsc`, so type errors never fail a build. Verify changes by running the dev server and loading the page. `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@latest install`.
+Package manager is **pnpm** (Node 20+). `pnpm typecheck` runs `tsc --noEmit` and `pnpm test`
+runs Vitest; both gate CI ahead of the build. `pnpm build` itself still does not run `tsc`,
+so verify locally with `pnpm typecheck && pnpm test && pnpm build`. There is no lint script.
+`pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@10.17.1 install`. Always pin the version (`@10.17.1`), never `@latest` - see below for why.
 
-**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround.
+**Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround. This is also why every command in this file and the README pins the pnpm version (`npx pnpm@10.17.1`) instead of resolving it via the unpinned `latest` tag: a newer pnpm major has silently dropped this `overrides:` block on install before, which un-pins Vite and breaks the build.
 
 ## Directory layout (important — it's nested and duplicated)
 
@@ -23,13 +26,13 @@ The real application lives under **`src/app/src/app/`**, not `src/`. The entry c
 - `index.html` loads `/src/main.tsx` and the Google Fonts `<link>` (Space Grotesk / Inter / JetBrains Mono — fonts are loaded here, referenced from CSS).
 - `src/main.tsx` — the Vite entry at repo root. Bootstraps the theme (reads `localStorage["portfolio-theme"]` / `prefers-color-scheme`, toggles `.dark` on `<html>` **before render** to avoid a flash), then imports `App` from `./app/src/app/App.tsx` and styles from `./app/src/styles/index.css`, and mounts. Runtime theme state/persistence is managed by `components/ThemeProvider.tsx` (`STORAGE_KEY = "portfolio-theme"`).
 - `src/app/src/app/App.tsx` — `ThemeProvider` + `MotionConfig reducedMotion="user"` wrapping `Layout`.
-- Components in `src/app/src/app/components/`, content data in `src/app/src/app/data/`, 3D asset maps in `src/app/src/app/lib/`, styles in `src/app/src/styles/`.
+- Components in `src/app/src/app/components/`, content data in `src/app/src/app/data/`, routing and BOM-loading helpers in `src/app/src/app/lib/`, styles in `src/app/src/styles/`.
 
-`@` aliases to `./src` (see `vite.config.ts`). **The root-level `src/styles/` is a stale partial duplicate** — `main.tsx` imports `src/app/src/styles/index.css` (the only copy that also imports `globals.css`); edit the `src/app/src/styles/` copies, not `src/styles/`.
+`@` aliases to `./src` (see `vite.config.ts`). `main.tsx` imports `src/app/src/styles/index.css`; that is the only stylesheet entry point in the repo — edit the `src/app/src/styles/` copies.
 
 ## Architecture
 
-**Page composition.** `Layout.tsx` is the app shell: a `Sidebar` plus a scrollable `<main>` holding the portfolio. The portfolio is one vertical scroll of six sections rendered inline in `Layout.tsx` — `home / education / experience / projects / skills / contact` — each wrapped in a `<section data-section="…">` (`SECTION_IDS`). `Updates.tsx` is a **separate view** (hash `#/updates`), swapped in place of the portfolio, not part of the scroll. Navigation is hash-based: `parseHash` in `Layout.tsx` handles `#/education`, `#/projects/<slug>`, `#/updates`; a scroll-spy `IntersectionObserver` (`rootMargin: "-35% 0px -55% 0px"`) drives the sidebar highlight.
+**Page composition.** `Layout.tsx` is the app shell: a `Sidebar` plus a scrollable `<main>` holding the portfolio. The portfolio is one vertical scroll of six sections rendered inline in `Layout.tsx` — `home / education / experience / projects / skills / contact` — each wrapped in a `<section data-section="…">` (`SECTION_IDS`). `Updates.tsx` is a **separate view** (hash `#/updates`), swapped in place of the portfolio, not part of the scroll. Navigation is hash-based: `parseHash` (in `lib/routing.ts`) handles `#/education`, `#/projects/<slug>`, `#/updates`; it's called from `hooks/useHashRoute.ts`, which owns the hash-routing state (`view`, `activeSection`, `selectedProject`) that `Layout.tsx` consumes; a scroll-spy `IntersectionObserver` (`rootMargin: "-35% 0px -55% 0px"`) drives the sidebar highlight.
 
 **CircuitTrace background animation — the critical coupling.** `CircuitTrace.tsx` renders an animated PCB "power chain" SVG behind the content, revealed on scroll. It **measures the rendered layout** rather than dictating it: it reads every `[data-section]` element's geometry (`offsetTop`/`offsetHeight`) and forms the inter-section gaps, then drops IC blocks (`centerpieceQueue` = `rectifier → buck → ldo → mcu → fpga → timer555`) one per gap. A gap is only usable when `gap.bottom - gap.top >= 70` (px), and the buck block needs horizontal room `avail ≥ 340` derived from the full `<main>` width. Consequences when editing section layout:
 
@@ -50,9 +53,12 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Assets & deploy.** Static project media (images, PDFs, board models, BOM files) is served from `public/portfolio/`. `public/CNAME` = `cameron-lewis.com` (a duplicate `CNAME` also sits at repo root) points the custom domain; `robots.txt` + `sitemap.xml` accompany it. Favicons are generated (`tools/build-favicon-ico.mjs` packs `icon-{16,32,48}.png` into `public/favicon.ico`); `tools/build_resume_improved.py` builds the résumé.
 
-**Project media** (image optimization pipeline) and **board geometry** (regenerating `.pcbgeo` viewer assets) each have a dedicated skill under `.claude/skills/` — see `optimize-media` and `rebuild-board-geometry` before touching `assets-src/media-originals/` or `assets-src/board-geometry/`.
+**Project media** (image optimization pipeline) has a dedicated skill under `.claude/skills/` — see `optimize-media` before touching `assets-src/media-originals/`. Board geometry (`.pcbgeo` viewer assets) is regenerated with `pnpm build:geometry`, which runs `tools/build-board-geometry-bin.mjs`.
 
 ## Gotchas
 
-- **`node-local` is a ~230MB tracked file** (a bundled Node runtime, not a directory) in the repo, which makes `git status`/`add`/`commit` slow (multi-second index refresh). Expect git operations to lag; run them in the background if they exceed the tool timeout.
-- No type-checking or tests gate anything, so a change that compiles under esbuild can still be type-incorrect — read surrounding code carefully rather than relying on a checker.
+- **`node-local` is a ~230MB file** (a bundled Node runtime, not a directory) sitting in the
+  working tree. It is gitignored, but its size still makes `git status` slow (multi-second
+  index refresh). Expect git operations to lag; run them in the background if they exceed
+  the tool timeout.
+- `pnpm build` itself still does not run `tsc`, so a change that compiles under esbuild can still be type-incorrect at build time — `pnpm typecheck` (or the CI gate) is what catches it, not `build`.

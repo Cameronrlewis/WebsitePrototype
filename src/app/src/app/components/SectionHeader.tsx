@@ -44,9 +44,9 @@ export function SectionHeader({ index, kicker, title, intro, action }: SectionHe
             aria-hidden="true"
           />
         </div>
-        <h1 className="mt-3.5 font-display text-[2rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2.55rem]">
+        <h2 className="mt-3.5 font-display text-[2rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)] sm:text-[2.55rem]">
           {title}
-        </h1>
+        </h2>
         {intro ? (
           <p className="mt-2.5 max-w-2xl text-base leading-relaxed text-[var(--text-body)]">
             {intro}

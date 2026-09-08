@@ -9,6 +9,7 @@ export function Updates() {
 
   return (
     <div className="space-y-6">
+      <h1 className="sr-only">Updates</h1>
       <SectionHeader
         kicker="Log"
         title="Updates"
@@ -43,9 +44,9 @@ export function Updates() {
                   )}
                 </div>
 
-                <h2 className="font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
+                <h3 className="font-display text-[1.35rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
                   {entry.title}
-                </h2>
+                </h3>
 
                 <p className="text-[1rem] leading-8 text-[var(--text-soft)] sm:text-[1.04rem]">
                   {entry.summary}

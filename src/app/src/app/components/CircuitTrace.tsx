@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
+import {
+  centerpieceQueueFor,
+  computeGaps,
+  takeCenterpiece,
+  usableGaps as filterUsableGaps,
+  type SectionGap,
+} from "../lib/circuit-geometry";
+
 interface CircuitTraceProps {
   scrollRef: RefObject<HTMLElement | null>;
   pageKey: string;
@@ -301,7 +309,7 @@ function horizontalInductor(pb: PathBuilder, y: number, dir: number) {
 // side of the page; every IC stage hangs off it as a branch sub-network
 // with timed pin fan-outs, and power rails split off the stage outputs to
 // run down the rest of the page in parallel — no serpentine snake.
-function buildTrace(width: number, height: number, gaps: Array<{ top: number; bottom: number }>): TraceGeometry {
+function buildTrace(width: number, height: number, gaps: SectionGap[]): TraceGeometry {
   const rightX = Math.max(width - 26, LEFT_X + 200);
   const span = rightX - LEFT_X;
   const allowBranches = width >= 500;
@@ -325,8 +333,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   // input (AC side) → rail12 → rail33 → rail18 → load.
   let stage: "input" | "rail12" | "rail33" | "rail18" | "load" = "input";
   const inputQueue: OverlayType[] = ["fuse", "switch"];
-  const centerpieceQueue: Array<"rectifier" | "buck" | "ldo" | "mcu" | "fpga" | "timer555"> =
-    span >= 420 ? ["rectifier", "buck", "ldo", "mcu", "fpga", "timer555"] : ["buck", "ldo", "mcu", "timer555"];
+  const centerpieceQueue = centerpieceQueueFor(span);
   let loadToggle = 0;
 
   // The bus lives in the left band of the page; blocks extend rightward.
@@ -1414,7 +1421,7 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     emitVerticalLeg(yEnd);
   };
 
-  const usableGaps = gaps.filter((gap) => gap.bottom - gap.top >= 70);
+  const usableGaps = filterUsableGaps(gaps);
 
   // The chain starts at the mains. Anchored on the trunk column itself (the
   // bus descends from y = 0 at x = pb.x); the tag body extends right, clear
@@ -1424,7 +1431,6 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
   usableGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
     const isLastGap = gapIndex === usableGaps.length - 1;
-    const pending = centerpieceQueue[0];
     const crossY = gap.top + gapDepth * between(0.3, 0.5);
 
     emitWander(crossY);
@@ -1433,14 +1439,16 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
     // Available width to the right of the bus for a block — leaving the
     // reserved rail gutter clear so pass-through rails can dodge past.
     const avail = blockMaxX - pb.x - 40;
-    if (pending === "rectifier" && avail >= 300) {
-      const s = Math.min(2, Math.max(1.3, avail / 260));
+    // Decides which queued block fits this gap and at what scale, and consumes
+    // the queue head when it does. Pure math, see lib/circuit-geometry.
+    const plan = takeCenterpiece(centerpieceQueue, avail);
+    if (plan?.kind === "rectifier") {
+      const s = plan.scale;
       // AC arrives here (pb at the transformer-primary node) and is converted.
       const busX = pb.x; // left-band column the DC bus resumes in
       const dcPlusX = pb.x + 200 * s; // rectifier +12V output node (= cxc + 100*s)
       const dcBusY = crossY + 52 * s; // below the block body + its ground shunts
       emitRectifierBlock(crossY, s);
-      centerpieceQueue.shift();
       stage = "rail12";
       // Thread the continuous spine THROUGH the rectifier: the horizontal run at
       // crossY is hidden under the block's background occluder, so the wire reads
@@ -1453,34 +1461,29 @@ function buildTrace(width: number, height: number, gaps: Array<{ top: number; bo
       // The trunk below the rectifier is the +12V DC bus feeding the downstream ICs.
       // Anchored on the corner where the DC return lands back in the bus column.
       netFlags.push({ x: busX, y: dcBusY, text: "+12V", triggerDist: pb.dist, side: "right" });
-    } else if (pending === "buck" && avail >= 340) {
-      const s = Math.min(3.2, Math.max(1.5, avail / 300));
+    } else if (plan?.kind === "buck") {
+      const s = plan.scale;
       emitBuckBlock(crossY, s);
-      centerpieceQueue.shift();
       stage = "rail33";
       // Trunk stepped down to the +3V3 logic rail feeding the MCU/FPGA.
-    } else if (pending === "ldo" && avail >= 240) {
-      const s = Math.min(2.4, Math.max(1.3, avail / 200));
+    } else if (plan?.kind === "ldo") {
+      const s = plan.scale;
       emitLdoBlock(crossY, s);
-      centerpieceQueue.shift();
       stage = "rail18";
       // Trunk stepped down to the +1V8 core rail.
       // Anchored on the trunk just below the block (the bus always runs from
       // crossY down to at least crossY + 24 in this column).
       netFlags.push({ x: pb.x, y: crossY + 20, text: "+1V8", triggerDist: pb.dist, side: "right" });
-    } else if (pending === "mcu" && avail >= 300) {
-      const s = Math.min(2.4, Math.max(1.3, avail / 220));
+    } else if (plan?.kind === "mcu") {
+      const s = plan.scale;
       emitMcuBlock(crossY, s);
-      centerpieceQueue.shift();
-    } else if (pending === "fpga" && avail >= 320) {
-      const s = Math.min(2.2, Math.max(1.3, avail / 260));
+    } else if (plan?.kind === "fpga") {
+      const s = plan.scale;
       emitFpgaBlock(crossY, s);
-      centerpieceQueue.shift();
       stage = "load";
-    } else if (pending === "timer555" && avail >= 260) {
-      const s = Math.min(2.2, Math.max(1.3, avail / 200));
+    } else if (plan?.kind === "timer555") {
+      const s = plan.scale;
       emit555Block(crossY, s);
-      centerpieceQueue.shift();
       stage = "load";
     } else if (stage === "load" && avail >= 160 && gap.bottom - crossY >= 60) {
       emitIndicatorStub(pb.x, crossY, 1);
@@ -2098,13 +2101,7 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       }
 
       const sections = Array.from(container.querySelectorAll<HTMLElement>("[data-section]"));
-      const gaps: Array<{ top: number; bottom: number }> = [];
-      for (let i = 0; i < sections.length - 1; i += 1) {
-        gaps.push({
-          top: sections[i].offsetTop + sections[i].offsetHeight,
-          bottom: sections[i + 1].offsetTop,
-        });
-      }
+      const gaps = computeGaps(sections.map((el) => ({ top: el.offsetTop, height: el.offsetHeight })));
 
       // Skip rebuilds when the layout hasn't actually changed: the
       // ResizeObserver refires during load (fonts, lazy images), and each
@@ -2659,7 +2656,6 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
             <rect x={-35} y={-28} width={70} height={56} rx={2} fill="var(--background)" />
           ) : component.type === "rectifier" ||
             component.type === "buck" ||
-            component.type === "mcu" ||
             component.type === "ldo" ||
             component.type === "fpga" ||
             component.type === "timer555" ? (
