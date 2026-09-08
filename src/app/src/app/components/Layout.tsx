@@ -1,8 +1,8 @@
 import { lazy, Suspense, useRef, useState } from "react";
 
-import { getOrganizationById, type OrganizationRecord, type ProjectRecord } from "../data/portfolio";
 import type { SectionId } from "../lib/routing";
 import { useHashRoute } from "../hooks/useHashRoute";
+import { useModalStack } from "../hooks/useModalStack";
 import { BoardViewer } from "./BoardViewer";
 import { CircuitTrace } from "./CircuitTrace";
 import { Contact } from "./Contact";
@@ -35,37 +35,7 @@ export function Layout() {
   });
 
   const [projectsViewMode, setProjectsViewMode] = useState<"all" | "featured">("featured");
-  const [selectedOrganization, setSelectedOrganization] = useState<OrganizationRecord | null>(null);
-  const [organizationReturnProject, setOrganizationReturnProject] = useState<ProjectRecord | null>(null);
-  const [viewerReturnProject, setViewerReturnProject] = useState<ProjectRecord | null>(null);
-  const [resumeOpen, setResumeOpen] = useState(false);
-  const [reportProject, setReportProject] = useState<ProjectRecord | null>(null);
-  const [boardProject, setBoardProject] = useState<ProjectRecord | null>(null);
-  const [bomProject, setBomProject] = useState<ProjectRecord | null>(null);
-
-  const openOrganizationById = (orgId: string) => {
-    const organization = getOrganizationById(orgId);
-    if (!organization) return;
-    setOrganizationReturnProject(null);
-    setSelectedOrganization(organization);
-  };
-
-  const openOrganization = (project: ProjectRecord, restoreProject: boolean) => {
-    const organization = getOrganizationById(project.organizationId);
-
-    if (!organization) {
-      return;
-    }
-
-    if (restoreProject) {
-      setOrganizationReturnProject(project);
-      setSelectedProject(null);
-    } else {
-      setOrganizationReturnProject(null);
-    }
-
-    setSelectedOrganization(organization);
-  };
+  const modals = useModalStack({ selectedProject, setSelectedProject });
 
   const sectionClass = "scroll-mt-32 lg:scroll-mt-2";
 
@@ -79,13 +49,9 @@ export function Layout() {
         <Home
           onNavigate={navigate}
           onOpenProject={setSelectedProject}
-          onOpenOrganization={(project) => openOrganization(project, false)}
-          onOpenResume={() => setResumeOpen(true)}
-          onOpen3D={(project) => {
-            setViewerReturnProject(null);
-            setSelectedProject(null);
-            setBoardProject(project);
-          }}
+          onOpenOrganization={(project) => modals.openOrganization(project, false)}
+          onOpenResume={modals.openResume}
+          onOpen3D={(project) => modals.openBoard(project, false)}
         />
       </section>
 
@@ -94,13 +60,13 @@ export function Layout() {
       </section>
 
       <section ref={registerSection("experience")} data-section="experience" className={sectionClass}>
-        <Experience onOpenOrganization={openOrganizationById} />
+        <Experience onOpenOrganization={modals.openOrganizationById} />
       </section>
 
       <section ref={registerSection("projects")} data-section="projects" className={sectionClass}>
         <Projects
           onOpenProject={setSelectedProject}
-          onOpenOrganization={(project) => openOrganization(project, false)}
+          onOpenOrganization={(project) => modals.openOrganization(project, false)}
           viewMode={projectsViewMode}
           onViewModeChange={setProjectsViewMode}
         />
@@ -111,7 +77,7 @@ export function Layout() {
       </section>
 
       <section ref={registerSection("contact")} data-section="contact" className={sectionClass}>
-        <Contact onOpenResume={() => setResumeOpen(true)} />
+        <Contact onOpenResume={modals.openResume} />
       </section>
     </div>
   );
@@ -149,55 +115,32 @@ export function Layout() {
         project={selectedProject}
         open={Boolean(selectedProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            setSelectedProject(null);
-            setViewerReturnProject(null);
-          }
+          if (!open) setSelectedProject(null);
         }}
-        onOpenOrganization={(project) => openOrganization(project, true)}
-        onOpen3D={(project) => {
-          setViewerReturnProject(project);
-          setSelectedProject(null);
-          setBoardProject(project);
-        }}
-        onOpenReport={(project) => {
-          setSelectedProject(null);
-          setReportProject(project);
-        }}
-        onOpenBom={(project) => {
-          setViewerReturnProject(project);
-          setSelectedProject(null);
-          setBomProject(project);
-        }}
+        onOpenOrganization={(project) => modals.openOrganization(project, true)}
+        onOpen3D={(project) => modals.openBoard(project, true)}
+        onOpenReport={modals.openReport}
+        onOpenBom={(project) => modals.openBom(project, true)}
       />
 
       <OrganizationContextModal
-        organization={selectedOrganization}
-        open={Boolean(selectedOrganization)}
+        organization={modals.selectedOrganization}
+        open={Boolean(modals.selectedOrganization)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = organizationReturnProject;
-            setSelectedOrganization(null);
-
-            if (project) {
-              setSelectedProject(project);
-              setOrganizationReturnProject(null);
-            }
-          }
+          if (!open) modals.closeOrganization();
         }}
         onOpenProject={(project) => {
-          setSelectedOrganization(null);
-          setOrganizationReturnProject(null);
+          modals.closeOrganization();
           setSelectedProject(project);
         }}
       />
 
-      {resumeOpen ? (
+      {modals.resumeOpen ? (
         FORCE_SKELETONS ? (
-          <ResumeViewerSkeleton onDismiss={() => setResumeOpen(false)} />
+          <ResumeViewerSkeleton onDismiss={modals.closeResume} />
         ) : (
           <Suspense fallback={<ResumeViewerSkeleton />}>
-            <ResumeViewer open={resumeOpen} onOpenChange={setResumeOpen} />
+            <ResumeViewer open={modals.resumeOpen} onOpenChange={(open) => (open ? modals.openResume() : modals.closeResume())} />
           </Suspense>
         )
       ) : null}
@@ -205,46 +148,30 @@ export function Layout() {
       <SkeletonPreviewBadge />
 
       <ReportViewer
-        project={reportProject}
-        open={Boolean(reportProject)}
+        project={modals.reportProject}
+        open={Boolean(modals.reportProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            setReportProject(null);
-          }
+          if (!open) modals.closeReport();
         }}
       />
 
       <BoardViewer
-        project={boardProject}
-        open={Boolean(boardProject)}
+        project={modals.boardProject}
+        open={Boolean(modals.boardProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = viewerReturnProject;
-            setBoardProject(null);
-            if (project) {
-              setSelectedProject(project);
-              setViewerReturnProject(null);
-            }
-          }
+          if (!open) modals.closeBoard();
         }}
         onOpenBom={(project) => {
-          setBoardProject(null);
-          setBomProject(project);
+          modals.closeBoard();
+          modals.openBom(project, true);
         }}
       />
 
       <InteractiveBomViewer
-        project={bomProject}
-        open={Boolean(bomProject)}
+        project={modals.bomProject}
+        open={Boolean(modals.bomProject)}
         onOpenChange={(open) => {
-          if (!open) {
-            const project = viewerReturnProject;
-            setBomProject(null);
-            if (project) {
-              setSelectedProject(project);
-              setViewerReturnProject(null);
-            }
-          }
+          if (!open) modals.closeBom();
         }}
       />
     </div>

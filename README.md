@@ -64,6 +64,7 @@ src/app/src/app/
   App.tsx                 Main application entry
   components/             Portfolio pages, modals, viewers, and layout pieces
   data/portfolio.ts       Typed portfolio content and project records
+  hooks/                  Hash routing and modal stack state
   lib/                    Routing helpers, board asset loading
 src/app/src/styles/
   index.css               Style entry (imports the two below)
