@@ -320,10 +320,15 @@ export const coursework = [
   "ECE-3300 — Circuits & Electronics",
   "ECE-3400 — Foundations of Programming (C++)",
   "ECE-3500 — Digital Logic",
+  "ECE-4300 — Electronic Circuits I",
+  "ECE-4500 — Microprocessors",
+  "ECE-4600 — Introduction to Systems and Signals",
+  "ECE-4800 — Electromechanical Devices",
   "PHYS-3000 — Physics of Device Materials",
   "ENGI-1020 — Introduction to Programming (Python)",
   "ENGI-1030 — Graphics & 3D Design",
   "ENGI-1050 — Circuits",
+  "ENGI-4430 — Advanced Calculus for Engineering",
   "MATH-2050 — Linear Algebra",
 ];
 
