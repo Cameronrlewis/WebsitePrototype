@@ -13,6 +13,8 @@ interface ParsedCourse {
   department: string;
   /** Full course code, e.g. "ECE-3300". Empty when the string doesn't parse. */
   code: string;
+  /** Thousand-level of the course number, e.g. 4000 for ECE-4300. Zero when unknown. */
+  level: number;
   /** Course title, or the verbatim source string when it doesn't parse. */
   title: string;
   /** Original string, used as a stable key. */
@@ -27,7 +29,7 @@ interface ParsedCourse {
 function parseCourse(raw: string): ParsedCourse {
   const separator = raw.indexOf(EM_DASH);
   if (separator === -1) {
-    return { department: "", code: "", title: raw.trim(), raw };
+    return { department: "", level: 0, code: "", title: raw.trim(), raw };
   }
 
   const code = raw.slice(0, separator).trim();
@@ -35,46 +37,90 @@ function parseCourse(raw: string): ParsedCourse {
   const prefix = /^[A-Za-z]+/.exec(code);
 
   if (!code || !title || !prefix) {
-    return { department: "", code: "", title: raw.trim(), raw };
+    return { department: "", level: 0, code: "", title: raw.trim(), raw };
   }
 
-  return { department: prefix[0].toUpperCase(), code, title, raw };
+  const number = /(\d+)/.exec(code);
+  const level = number ? Math.floor(Number(number[1]) / 1000) * 1000 : 0;
+
+  return { department: prefix[0].toUpperCase(), level, code, title, raw };
 }
 
-/** Groups parsed courses by department, preserving first-appearance order. */
+/**
+ * Groups parsed courses by department and level, preserving first-appearance
+ * order, so upper-year work reads as its own block rather than sitting in one
+ * flat list with the foundations. The level is only shown for departments that
+ * span more than one; elsewhere it would just repeat the course code.
+ */
 function groupCoursework(entries: readonly string[]) {
-  const groups: { department: string; courses: ParsedCourse[] }[] = [];
+  const groups: { department: string; level: number; courses: ParsedCourse[] }[] = [];
 
   for (const entry of entries) {
     const course = parseCourse(entry);
-    const key = course.department || "Other";
-    const existing = groups.find((group) => group.department === key);
+    const department = course.department || "Other";
+    const existing = groups.find(
+      (group) => group.department === department && group.level === course.level,
+    );
     if (existing) {
       existing.courses.push(course);
     } else {
-      groups.push({ department: key, courses: [course] });
+      groups.push({ department, level: course.level, courses: [course] });
     }
   }
 
-  return groups;
+  const spansLevels = new Set(
+    groups
+      .filter((group, _, all) =>
+        all.some((other) => other.department === group.department && other.level !== group.level),
+      )
+      .map((group) => group.department),
+  );
+
+  return groups.map((group) => ({
+    ...group,
+    label: spansLevels.has(group.department) && group.level
+      ? `${group.department} ${group.level}`
+      : group.department,
+  }));
 }
 
 type CourseGroup = ReturnType<typeof groupCoursework>[number];
 
 /**
- * Packs the department groups into two balanced columns instead of a rigid grid,
- * so a one-course department never sits beside a three-course one with a void
- * under it. Largest group first, each placed into whichever column is currently
- * shorter; a group's height is its header row plus one row per course.
+ * Packs the coursework into two balanced columns instead of a rigid grid, so a
+ * one-course group never sits beside a three-course one with a void under it.
+ *
+ * A department's levels travel together as one block, upper year first, so
+ * ECE 4000 is never stranded in a different column from ECE 3000. Blocks are
+ * placed largest first into whichever column is currently shorter; a group's
+ * height is its header row plus one row per course.
  */
 function balanceColumns(groups: CourseGroup[]): CourseGroup[][] {
+  const blocks: CourseGroup[][] = [];
+
+  for (const group of groups) {
+    const existing = blocks.find((block) => block[0].department === group.department);
+    if (existing) {
+      existing.push(group);
+    } else {
+      blocks.push([group]);
+    }
+  }
+
+  for (const block of blocks) {
+    block.sort((a, b) => b.level - a.level);
+  }
+
+  const height = (block: CourseGroup[]) =>
+    block.reduce((total, group) => total + group.courses.length + 1, 0);
+
   const columns: CourseGroup[][] = [[], []];
   const heights = [0, 0];
 
-  for (const group of [...groups].sort((a, b) => b.courses.length - a.courses.length)) {
+  for (const block of [...blocks].sort((a, b) => height(b) - height(a))) {
     const target = heights[0] <= heights[1] ? 0 : 1;
-    columns[target].push(group);
-    heights[target] += group.courses.length + 1;
+    columns[target].push(...block);
+    heights[target] += height(block);
   }
 
   return columns.filter((column) => column.length > 0);
@@ -193,12 +239,12 @@ export function Education() {
 
         <div className="mt-5 grid gap-x-10 gap-y-6 sm:grid-cols-2">
           {courseColumns.map((column) => (
-            <div key={column[0].department} className="space-y-6">
+            <div key={column[0].label} className="space-y-6">
               {column.map((group) => (
-                <div key={group.department}>
+                <div key={group.label}>
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono text-[0.73rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--header-kicker-text)]">
-                      {group.department}
+                      {group.label}
                     </span>
                     <span className="font-mono text-[0.68rem] tracking-[0.14em] text-[var(--text-muted)]">
                       {String(group.courses.length).padStart(2, "0")}
