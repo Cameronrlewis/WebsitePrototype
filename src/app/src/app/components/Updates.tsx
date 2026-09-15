@@ -31,7 +31,7 @@ export function Updates() {
                   <span
                     className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-[0.14em] ${
                       entry.orgId === "paradigm-engineering"
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/10 text-[color:var(--header-kicker-text)]"
                         : "bg-[var(--surface-4)] text-[var(--text-muted)]"
                     }`}
                   >
@@ -53,8 +53,8 @@ export function Updates() {
                 </p>
 
                 <ul className="space-y-3">
-                  {entry.bullets.map((bullet, i) => (
-                    <li key={i} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
+                  {entry.bullets.map((bullet) => (
+                    <li key={bullet} className="flex gap-3 text-[1rem] leading-8 text-[var(--text-soft)]">
                       <span className="mt-3 size-2 shrink-0 rounded-full bg-[var(--text-muted)]" />
                       <span>{bullet}</span>
                     </li>

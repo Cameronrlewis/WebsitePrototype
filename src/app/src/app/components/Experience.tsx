@@ -77,7 +77,7 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
 
                     <div className="min-w-0 flex-1">
                       <h3 className="font-display text-[1.25rem] font-semibold tracking-[-0.02em] text-[var(--text-strong)]">{entry.role}</h3>
-                      <p className="mt-1 text-lg text-[var(--text-body)] lg:whitespace-nowrap">{entry.company}</p>
+                      <p className="mt-1 text-lg text-[var(--text-body)]">{entry.company}</p>
                     </div>
                   </div>
 
@@ -94,8 +94,8 @@ export function Experience({ onOpenOrganization }: ExperienceProps) {
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  {entry.bullets.map((bullet, i) => (
-                    <p key={i} className="text-[0.98rem] leading-8 text-[var(--text-strong)]">
+                  {entry.bullets.map((bullet) => (
+                    <p key={bullet} className="text-[0.98rem] leading-8 text-[var(--text-strong)]">
                       {bullet}
                     </p>
                   ))}

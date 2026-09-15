@@ -5,7 +5,6 @@ import { SectionHeader } from "./SectionHeader";
 
 /** Rail geometry, mirroring the Experience timeline so the two sections rhyme. */
 const MARKER_SHELL_SIZE = 40;
-const MARKER_CENTER_X = 20;
 
 const EM_DASH = "—";
 
@@ -120,7 +119,7 @@ export function Education() {
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
             <span className={metaClass}>{graduation.label}</span>
             <span className="h-px flex-1 bg-[var(--outline-soft)]" aria-hidden="true" />
-            <span className="font-mono text-[0.95rem] font-semibold tracking-[0.02em] text-primary">
+            <span className="font-mono text-[0.95rem] font-semibold tracking-[0.02em] text-[color:var(--header-kicker-text)]">
               {graduation.date}
             </span>
           </div>
@@ -198,7 +197,7 @@ export function Education() {
               {column.map((group) => (
                 <div key={group.department}>
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[0.73rem] font-semibold uppercase tracking-[0.18em] text-primary">
+                    <span className="font-mono text-[0.73rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--header-kicker-text)]">
                       {group.department}
                     </span>
                     <span className="font-mono text-[0.68rem] tracking-[0.14em] text-[var(--text-muted)]">
