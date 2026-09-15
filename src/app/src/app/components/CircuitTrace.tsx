@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import {
   centerpieceQueueFor,
   computeGaps,
+  MIN_GAP_DEPTH,
   takeCenterpiece,
   usableGaps as filterUsableGaps,
   type SectionGap,
@@ -312,7 +313,6 @@ function horizontalInductor(pb: PathBuilder, y: number, dir: number) {
 function buildTrace(width: number, height: number, gaps: SectionGap[]): TraceGeometry {
   const rightX = Math.max(width - 26, LEFT_X + 200);
   const span = rightX - LEFT_X;
-  const allowBranches = width >= 500;
   const rand = mulberry32(Math.round(width) * 31 + Math.round(height));
   const between = (a: number, b: number) => a + rand() * (b - a);
   const components: OverlayComponent[] = [];
@@ -1639,6 +1639,15 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// Must match Tailwind's `lg` breakpoint: the SVG below is only ever shown via
+// `hidden lg:block`, so below 1024px it is invisible and this component
+// should do no measuring/animation work at all.
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function matchesDesktop() {
+  return window.matchMedia(DESKTOP_QUERY).matches;
+}
+
 // Schematic symbols, drawn for vertical flow (+y); rotated -90° for horizontal.
 function symbolFor(type: OverlayType, sub: string[] = []): ReactNode {
   switch (type) {
@@ -2085,11 +2094,22 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
   const rafRef = useRef<number | null>(null);
   const lastMeasureRef = useRef<string>("");
   const reducedMotion = prefersReducedMotion();
+  const [isDesktop, setIsDesktop] = useState(matchesDesktop);
+
+  // Track the lg breakpoint so a desktop window narrowed past it (or a
+  // tablet rotated across it) stops/starts the work below, not just the CSS.
+  useEffect(() => {
+    const mql = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => setIsDesktop(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   // Measure content + section gaps and (re)build the route.
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container) {
+    if (!container || !isDesktop) {
       return;
     }
 
@@ -2115,6 +2135,23 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       }
       lastMeasureRef.current = signature;
 
+      // Warn (dev only) when a gap is too shallow to host an IC block, since
+      // that failure is otherwise silent (see CircuitTrace coupling notes).
+      // Gated on every section actually having a measured height so this
+      // doesn't cry wolf on the pre-layout pass, before fonts/images settle
+      // and offsetHeight is still 0 for sections that haven't painted yet.
+      if (import.meta.env.DEV && sections.length > 0 && sections.every((el) => el.offsetHeight > 0)) {
+        const shallow = gaps.filter((g) => g.bottom - g.top < MIN_GAP_DEPTH);
+        if (shallow.length > 0) {
+          const depths = shallow.map((g) => Math.round(g.bottom - g.top)).join("px, ");
+          console.warn(
+            `[CircuitTrace] ${shallow.length} section gap(s) are only ${depths}px deep ` +
+              `(need >= ${MIN_GAP_DEPTH}px), so their IC block will not render. ` +
+              `Check the section spacing in Layout.tsx (space-y-16 lg:space-y-24).`,
+          );
+        }
+      }
+
       setGeometry(buildTrace(width, height, gaps));
     };
 
@@ -2131,11 +2168,11 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, [scrollRef, pageKey]);
+  }, [scrollRef, pageKey, isDesktop]);
 
   // Drive the bolt, energized wake, branch fills, component lighting, and the display.
   useEffect(() => {
-    if (!geometry || reducedMotion) {
+    if (!geometry || reducedMotion || !isDesktop) {
       return;
     }
 
@@ -2467,9 +2504,9 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
         rafRef.current = null;
       }
     };
-  }, [geometry, reducedMotion, scrollRef]);
+  }, [geometry, reducedMotion, isDesktop, scrollRef]);
 
-  if (!geometry) {
+  if (!geometry || !isDesktop) {
     return null;
   }
 
