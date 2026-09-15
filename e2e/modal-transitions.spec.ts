@@ -50,3 +50,19 @@ test("organization opened from a project card returns to the page", async ({ pag
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Explore 3D Board" })).toHaveCount(0);
 });
+
+test("report viewer returns to the project modal that opened it", async ({ page }) => {
+  await page.goto("/#/projects/dji-m600-sensor-mount");
+
+  const modal = page.getByRole("dialog");
+  await expect(modal).toBeVisible();
+
+  await page.getByRole("button", { name: "View Report" }).click();
+  await expect(page.getByRole("button", { name: "View Report" })).toBeHidden();
+
+  await page.getByRole("button", { name: "Close" }).click();
+
+  // openReport used to skip the returnProject mechanism, leaving nothing on screen.
+  await expect(modal).toBeVisible();
+  await expect(page.getByRole("button", { name: "View Report" })).toBeVisible();
+});

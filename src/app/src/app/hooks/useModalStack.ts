@@ -99,14 +99,8 @@ export function useModalStack({ selectedProject, setSelectedProject }: UseModalS
     organizationToProject: transferViewer(setSelectedOrganization, setSelectedProject),
     openResume: useCallback(() => setResumeOpen(true), []),
     closeResume: useCallback(() => setResumeOpen(false), []),
-    openReport: useCallback(
-      (project: ProjectRecord) => {
-        setSelectedProject(null);
-        setReportProject(project);
-      },
-      [setSelectedProject],
-    ),
-    closeReport: useCallback(() => setReportProject(null), []),
+    openReport: openViewer(setReportProject),
+    closeReport: closeViewer(setReportProject),
     openBoard: openViewer(setBoardProject),
     closeBoard: closeViewer(setBoardProject),
     openBom: openViewer(setBomProject),

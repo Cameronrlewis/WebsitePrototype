@@ -113,6 +113,7 @@ export function BoardViewer({ project, open, onOpenChange, onOpenBom }: BoardVie
               ref={iframeRef}
               title={`${project.title} 3D board viewer`}
               src={viewerSrc}
+              sandbox="allow-scripts allow-same-origin"
               className={`block h-full w-full border-0 bg-[#0c0c14] transition-opacity duration-500 ${showBoard ? "opacity-100" : "opacity-0"}`}
             />
             {showBoard ? null : <BoardViewerSkeleton />}

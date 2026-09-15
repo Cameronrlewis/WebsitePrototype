@@ -5,7 +5,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 
 import { documents } from "../data/portfolio";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
@@ -27,6 +27,15 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
   const [loadError, setLoadError] = useState(false);
 
   const zoomPercent = useMemo(() => Math.round((scale / fitScale) * 100), [fitScale, scale]);
+
+  // Layout.tsx unmounts this component (rather than passing open=false) once
+  // the viewer closes, so the `!open` branch below never runs its teardown on
+  // close - only this unmount-only cleanup does.
+  useEffect(() => {
+    return () => {
+      pdfRef.current?.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -176,6 +185,7 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
           <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] px-6 py-4 pr-18 sm:pr-20">
             <div className="min-w-0">
               <DialogTitle className="text-xl text-[var(--text-strong)]">Cameron Lewis - Resume</DialogTitle>
+              <DialogDescription className="sr-only">Interactive PDF preview of the resume.</DialogDescription>
               <p className="mt-1 text-sm text-[var(--text-soft)]">Interactive PDF preview with zoom and page controls.</p>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">

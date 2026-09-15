@@ -305,7 +305,10 @@
          */
         async function fetchBoardGeometry(assetName) {
           const url = "/portfolio/assets/viewers/geometry/" + assetName + ".pcbgeo";
-          const response = await fetch(url);
+          const fetchOptions = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+            ? { signal: AbortSignal.timeout(15000) }
+            : {};
+          const response = await fetch(url, fetchOptions);
           if (!response.ok) {
             throw new Error("Board geometry failed to load (" + response.status + ").");
           }

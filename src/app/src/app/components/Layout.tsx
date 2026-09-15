@@ -119,7 +119,7 @@ export function Layout() {
         }}
         onOpenOrganization={(project) => modals.openOrganization(project, true)}
         onOpen3D={(project) => modals.openBoard(project, true)}
-        onOpenReport={modals.openReport}
+        onOpenReport={(project) => modals.openReport(project, true)}
         onOpenBom={(project) => modals.openBom(project, true)}
       />
 
