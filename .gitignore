@@ -16,3 +16,8 @@ output/
 
 # SDD scratch
 .superpowers/
+
+# local scratch
+review-prompt.md
+test-results/
+playwright-report/
