@@ -47,7 +47,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }, 850);
 
     setThemeState(nextTheme);
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    } catch {
+      // Persistence failure shouldn't break the in-memory theme switch.
+    }
   }, []);
 
   const toggleTheme = useCallback(() => {

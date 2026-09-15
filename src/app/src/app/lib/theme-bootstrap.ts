@@ -7,10 +7,22 @@ export function resolveInitialTheme(): ThemeMode {
     return "light";
   }
 
-  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  // localStorage/matchMedia can throw under some browser storage policies or
+  // embedded webviews; this runs before React renders, so an uncaught throw
+  // here would leave the page blank. Fall through to the next step instead.
+  let savedTheme: string | null = null;
+  try {
+    savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    savedTheme = null;
+  }
   if (savedTheme === "light" || savedTheme === "dark") {
     return savedTheme;
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }

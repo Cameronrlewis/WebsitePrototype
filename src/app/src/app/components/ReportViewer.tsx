@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import type { ProjectRecord } from "../data/portfolio";
 import { SkeletonImage } from "./Skeletons";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 interface ReportViewerProps {
   project: ProjectRecord | null;
   open: boolean;
@@ -22,6 +22,7 @@ export function ReportViewer({ project, open, onOpenChange }: ReportViewerProps)
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] px-6 py-4">
             <div>
               <DialogTitle className="text-xl text-[var(--text-strong)]">{project.title} - Engineering Report</DialogTitle>
+              <DialogDescription className="sr-only">Rendered pages from the engineering report.</DialogDescription>
               <p className="mt-1 text-sm text-[var(--text-soft)]">Rendered report pages from the original portfolio site.</p>
             </div>
             <Button asChild className="rounded-[1rem] shadow-[var(--shadow-button)]">

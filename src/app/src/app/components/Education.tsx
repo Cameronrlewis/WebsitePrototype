@@ -1,85 +1,11 @@
 import { motion } from "motion/react";
 
 import { coursework, education, graduation } from "../data/portfolio";
+import { balanceColumns, groupCoursework } from "../lib/coursework";
 import { SectionHeader } from "./SectionHeader";
 
 /** Rail geometry, mirroring the Experience timeline so the two sections rhyme. */
 const MARKER_SHELL_SIZE = 40;
-const MARKER_CENTER_X = 20;
-
-const EM_DASH = "—";
-
-interface ParsedCourse {
-  /** Alpha prefix of the course code, e.g. "ECE". Empty when the string doesn't parse. */
-  department: string;
-  /** Full course code, e.g. "ECE-3300". Empty when the string doesn't parse. */
-  code: string;
-  /** Course title, or the verbatim source string when it doesn't parse. */
-  title: string;
-  /** Original string, used as a stable key. */
-  raw: string;
-}
-
-/**
- * Splits "ECE-3300 — Circuits & Electronics" into its code, title and department.
- * Anything that doesn't carry an em-dash is kept verbatim as the title so no
- * course is ever dropped or mangled.
- */
-function parseCourse(raw: string): ParsedCourse {
-  const separator = raw.indexOf(EM_DASH);
-  if (separator === -1) {
-    return { department: "", code: "", title: raw.trim(), raw };
-  }
-
-  const code = raw.slice(0, separator).trim();
-  const title = raw.slice(separator + EM_DASH.length).trim();
-  const prefix = /^[A-Za-z]+/.exec(code);
-
-  if (!code || !title || !prefix) {
-    return { department: "", code: "", title: raw.trim(), raw };
-  }
-
-  return { department: prefix[0].toUpperCase(), code, title, raw };
-}
-
-/** Groups parsed courses by department, preserving first-appearance order. */
-function groupCoursework(entries: readonly string[]) {
-  const groups: { department: string; courses: ParsedCourse[] }[] = [];
-
-  for (const entry of entries) {
-    const course = parseCourse(entry);
-    const key = course.department || "Other";
-    const existing = groups.find((group) => group.department === key);
-    if (existing) {
-      existing.courses.push(course);
-    } else {
-      groups.push({ department: key, courses: [course] });
-    }
-  }
-
-  return groups;
-}
-
-type CourseGroup = ReturnType<typeof groupCoursework>[number];
-
-/**
- * Packs the department groups into two balanced columns instead of a rigid grid,
- * so a one-course department never sits beside a three-course one with a void
- * under it. Largest group first, each placed into whichever column is currently
- * shorter; a group's height is its header row plus one row per course.
- */
-function balanceColumns(groups: CourseGroup[]): CourseGroup[][] {
-  const columns: CourseGroup[][] = [[], []];
-  const heights = [0, 0];
-
-  for (const group of [...groups].sort((a, b) => b.courses.length - a.courses.length)) {
-    const target = heights[0] <= heights[1] ? 0 : 1;
-    columns[target].push(group);
-    heights[target] += group.courses.length + 1;
-  }
-
-  return columns.filter((column) => column.length > 0);
-}
 
 const metaClass =
   "font-mono text-[0.73rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-soft)]";
@@ -120,7 +46,7 @@ export function Education() {
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
             <span className={metaClass}>{graduation.label}</span>
             <span className="h-px flex-1 bg-[var(--outline-soft)]" aria-hidden="true" />
-            <span className="font-mono text-[0.95rem] font-semibold tracking-[0.02em] text-primary">
+            <span className="font-mono text-[0.95rem] font-semibold tracking-[0.02em] text-[color:var(--header-kicker-text)]">
               {graduation.date}
             </span>
           </div>
@@ -194,12 +120,12 @@ export function Education() {
 
         <div className="mt-5 grid gap-x-10 gap-y-6 sm:grid-cols-2">
           {courseColumns.map((column) => (
-            <div key={column[0].department} className="space-y-6">
+            <div key={column[0].label} className="space-y-6">
               {column.map((group) => (
-                <div key={group.department}>
+                <div key={group.label}>
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[0.73rem] font-semibold uppercase tracking-[0.18em] text-primary">
-                      {group.department}
+                    <span className="font-mono text-[0.73rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--header-kicker-text)]">
+                      {group.label}
                     </span>
                     <span className="font-mono text-[0.68rem] tracking-[0.14em] text-[var(--text-muted)]">
                       {String(group.courses.length).padStart(2, "0")}

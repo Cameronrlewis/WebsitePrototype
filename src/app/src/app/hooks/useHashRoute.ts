@@ -31,6 +31,27 @@ export function useHashRoute({ mainRef, sectionRefs }: UseHashRouteOptions) {
     [sectionRefs],
   );
 
+  // Shared by both the view-switch effect and the hashchange listener: after
+  // the portfolio view (re)mounts, the target section isn't laid out yet on
+  // the frame the view switches, so wait two animation frames before
+  // scrolling. Re-checks pendingSectionRef before scrolling so a second,
+  // faster navigation that overwrites the pending target wins.
+  const scrollToPendingSection = useCallback(
+    (sectionId: SectionId) => {
+      pendingSectionRef.current = sectionId;
+      setActiveSection(sectionId);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (pendingSectionRef.current === sectionId) {
+            pendingSectionRef.current = null;
+            scrollToSection(sectionId);
+          }
+        });
+      });
+    },
+    [scrollToSection],
+  );
+
   const navigate = useCallback(
     (target: PageId) => {
       if (target === "updates") {
@@ -51,23 +72,17 @@ export function useHashRoute({ mainRef, sectionRefs }: UseHashRouteOptions) {
   );
 
   // Deferred scroll after switching back to the portfolio view; also covers the
-  // initial deep-link scroll on mount. Two nested rAFs because the target
-  // section is not laid out yet on the frame the view switches.
+  // initial deep-link scroll on mount.
   useEffect(() => {
     if (view === "portfolio" && pendingSectionRef.current) {
-      const sectionId = pendingSectionRef.current;
-      pendingSectionRef.current = null;
-      setActiveSection(sectionId);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollToSection(sectionId));
-      });
+      scrollToPendingSection(pendingSectionRef.current);
     }
 
     if (view === "updates") {
       mainRef.current?.scrollTo({ top: 0 });
       window.scrollTo({ top: 0 });
     }
-  }, [mainRef, scrollToSection, view]);
+  }, [mainRef, scrollToPendingSection, view]);
 
   // Scroll spy: highlight the section currently in the middle of the screen.
   useEffect(() => {
@@ -124,21 +139,13 @@ export function useHashRoute({ mainRef, sectionRefs }: UseHashRouteOptions) {
       setSelectedProject(route.project);
 
       if (route.view === "portfolio") {
-        pendingSectionRef.current = route.section;
-        requestAnimationFrame(() => {
-          if (pendingSectionRef.current) {
-            const sectionId = pendingSectionRef.current;
-            pendingSectionRef.current = null;
-            setActiveSection(sectionId);
-            scrollToSection(sectionId);
-          }
-        });
+        scrollToPendingSection(route.section);
       }
     };
 
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [scrollToSection]);
+  }, [scrollToPendingSection]);
 
   return { view, activeSection, selectedProject, setView, setActiveSection, setSelectedProject, navigate };
 }

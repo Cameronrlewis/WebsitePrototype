@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import type { ProjectRecord } from "../data/portfolio";
 import { loadInteractiveBom } from "../lib/board-assets";
 import { FORCE_SKELETONS, InteractiveBomSkeleton } from "./Skeletons";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 
 interface InteractiveBomViewerProps {
   project: ProjectRecord | null;
@@ -13,11 +14,15 @@ interface InteractiveBomViewerProps {
 
 export function InteractiveBomViewer({ project, open, onOpenChange }: InteractiveBomViewerProps) {
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!open || !project?.viewer3d) {
       return;
     }
+
+    setFailed(false);
 
     if (project.bomUrl) {
       setIframeUrl(project.bomUrl);
@@ -39,7 +44,11 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
         setIframeUrl(createdUrl);
       })
       .catch(() => {
+        if (!active) {
+          return;
+        }
         setIframeUrl(null);
+        setFailed(true);
       });
 
     return () => {
@@ -49,7 +58,7 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
       }
       setIframeUrl(null);
     };
-  }, [open, project]);
+  }, [open, project, retryToken]);
 
   if (!project?.viewer3d) {
     return null;
@@ -61,10 +70,27 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
         <div className="flex h-full min-h-0 flex-col">
           <div className="border-b border-[color:var(--outline-soft)] px-6 py-4">
             <DialogTitle className="text-xl text-[var(--text-strong)]">{project.title} - Interactive BOM</DialogTitle>
+            <DialogDescription className="sr-only">Interactive bill of materials for this board.</DialogDescription>
           </div>
           <div className="min-h-0 flex-1">
-            {iframeUrl && !FORCE_SKELETONS ? (
-              <iframe title={`${project.title} interactive BOM`} src={iframeUrl} className="block h-full w-full bg-white" />
+            {failed ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+                <p className="font-mono text-sm text-[var(--text-soft)]">The interactive BOM could not be loaded.</p>
+                <Button
+                  variant="outline"
+                  className="rounded-[1rem] border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--surface-3)]"
+                  onClick={() => setRetryToken((token) => token + 1)}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : iframeUrl && !FORCE_SKELETONS ? (
+              <iframe
+                title={`${project.title} interactive BOM`}
+                src={iframeUrl}
+                sandbox="allow-scripts allow-same-origin"
+                className="block h-full w-full bg-white"
+              />
             ) : (
               <>
                 <InteractiveBomSkeleton />

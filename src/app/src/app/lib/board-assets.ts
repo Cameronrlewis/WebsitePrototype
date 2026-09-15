@@ -6,65 +6,27 @@ import type { ProjectRecord } from "../data/portfolio";
  * inside the viewer iframe. This module only supplies the interactive BOM.
  */
 
-interface BomBundle {
-  power: string;
-  control: string;
-}
+const FETCH_TIMEOUT_MS = 15_000;
 
-declare global {
-  interface Window {
-    __portfolioBomPromise?: Promise<BomBundle>;
-  }
-}
-
-const viewerUrl = "/portfolio/assets/scripts/viewer/board-viewer.js";
+// One static IBOM export per board, checked into public/ - see M3 in the
+// review remediation notes for why this replaced scraping two base64 blobs
+// out of a 2MB bundled script that nothing else loaded.
+const bomUrlByAsset: Record<string, string> = {
+  power: "/portfolio/assets/bom/power/IBOM.html",
+  control: "/portfolio/assets/bom/control/IBOM.html",
+};
 
 async function fetchText(url: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(FETCH_TIMEOUT_MS) : undefined,
+  });
   if (!response.ok) {
     throw new Error(`Failed to load ${url}`);
   }
   return response.text();
 }
 
-/** Decodes a base64 payload as UTF-8. `atob` yields one byte per char, so the
- *  string has to go back through a byte array before TextDecoder can read it. */
-function decodeBase64Html(payload: string) {
-  const binary = window.atob(payload);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder("utf-8").decode(bytes);
-}
-
 export async function loadInteractiveBom(project: ProjectRecord) {
-  if (project.bomUrl) {
-    return fetchText(project.bomUrl);
-  }
-
-  if (!window.__portfolioBomPromise) {
-    window.__portfolioBomPromise = fetchText(viewerUrl).then((source) => {
-      const ctrlMarker = 'var IBOM_B64_CTRL = "';
-      const powerMarker = 'var IBOM_B64 = "';
-      const powerStart = source.indexOf(powerMarker);
-      const ctrlStart = source.indexOf(ctrlMarker);
-
-      const power = powerStart === -1
-        ? ""
-        : source.slice(powerStart + powerMarker.length, source.indexOf('";', powerStart + powerMarker.length));
-      const control = ctrlStart === -1
-        ? power
-        : source.slice(ctrlStart + ctrlMarker.length, source.indexOf('";', ctrlStart + ctrlMarker.length));
-
-      return {
-        power: decodeBase64Html(power),
-        control: decodeBase64Html(control),
-      };
-    });
-  }
-
-  const bundle = await window.__portfolioBomPromise;
-  if (project.viewerAsset === "control") {
-    return bundle.control;
-  }
-
-  return bundle.power;
+  const url = project.bomUrl ?? bomUrlByAsset[project.viewerAsset ?? "power"] ?? bomUrlByAsset.power;
+  return fetchText(url);
 }

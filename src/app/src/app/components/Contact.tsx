@@ -64,6 +64,7 @@ export async function copyText(value: string) {
 export function Contact({ onOpenResume }: ContactProps) {
   const [hoveredPin, setHoveredPin] = useState<PinId | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -82,9 +83,15 @@ export function Contact({ onOpenResume }: ContactProps) {
 
   const handleCopyEmail = async () => {
     const ok = await copyText(profile.email);
-    if (!ok) return;
-    setCopied(true);
     if (copyTimer.current) clearTimeout(copyTimer.current);
+    if (!ok) {
+      setCopied(false);
+      setCopyFailed(true);
+      copyTimer.current = setTimeout(() => setCopyFailed(false), 2000);
+      return;
+    }
+    setCopyFailed(false);
+    setCopied(true);
     copyTimer.current = setTimeout(() => setCopied(false), 2000);
   };
 
@@ -105,17 +112,28 @@ export function Contact({ onOpenResume }: ContactProps) {
             </span>
             <span className="min-w-0 flex-1 overflow-hidden">
               <AnimatePresence mode="wait" initial={false}>
-                {copied ? (
+                {copyFailed ? (
+                  <motion.span
+                    key="fail"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex items-center gap-2 truncate font-mono text-sm uppercase tracking-[0.16em] text-[color:var(--header-kicker-text)]"
+                  >
+                    Couldn't copy, select to copy manually
+                  </motion.span>
+                ) : copied ? (
                   <motion.span
                     key="ack"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.18 }}
-                    className="flex items-center gap-2 truncate font-mono text-sm uppercase tracking-[0.16em] text-[color:var(--primary)]"
+                    className="flex items-center gap-2 truncate font-mono text-sm uppercase tracking-[0.16em] text-[color:var(--header-kicker-text)]"
                   >
                     <Check className="size-4 shrink-0" />
-                    ACK — copied to clipboard
+                    ACK, copied to clipboard
                   </motion.span>
                 ) : (
                   <motion.span
@@ -156,6 +174,7 @@ export function Contact({ onOpenResume }: ContactProps) {
         >
           <Linkedin className="size-4 shrink-0 text-[var(--text-muted)]" />
           <span className="min-w-0 flex-1 truncate">{linkedinLink?.value ?? "LinkedIn"}</span>
+          <span className="sr-only"> (opens in a new tab)</span>
           <ExternalLink className="size-3.5 shrink-0 text-[var(--text-muted)]" />
         </a>
       ),
@@ -172,6 +191,7 @@ export function Contact({ onOpenResume }: ContactProps) {
         >
           <Github className="size-4 shrink-0 text-[var(--text-muted)]" />
           <span className="min-w-0 flex-1 truncate">{githubLink?.value ?? "GitHub"}</span>
+          <span className="sr-only"> (opens in a new tab)</span>
           <ExternalLink className="size-3.5 shrink-0 text-[var(--text-muted)]" />
         </a>
       ),
@@ -432,7 +452,7 @@ export function Contact({ onOpenResume }: ContactProps) {
                   </span>
                   <span
                     className={`hidden w-24 shrink-0 font-mono text-[0.62rem] uppercase tracking-[0.16em] transition-colors sm:block xl:w-28 xl:text-[0.65rem] xl:tracking-[0.18em] ${
-                      active ? "text-[color:var(--primary)]" : "text-[var(--text-muted)]"
+                      active ? "text-[color:var(--header-kicker-text)]" : "text-[var(--text-muted)]"
                     }`}
                   >
                     {row.pin}
