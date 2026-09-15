@@ -182,12 +182,29 @@ export const profile: ProfileRecord = {
     "Third-year Electrical Engineering student with interests in hardware, robotics, and space. I am currently completing a work term at Nokia.",
   about: [
     "I'm Cameron Lewis, a third-year Electrical Engineering student at Memorial University, focused on PCB design, embedded systems, and hardware development. I care about understanding how things work at a circuit level and building things that hold up in the real world.",
-    "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. Most recently I completed a co-op term at Kraken Robotics, getting hands-on exposure to professional hardware development.",
+    "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. I'm currently on a co-op term at Nokia working on hardware and software integration, after a term at Kraken Robotics that gave me hands-on exposure to professional hardware development.",
     "Outside the lab, I play competitive table tennis and have previously represented Team Newfoundland at the Atlantic Championships. I also contribute to Paradigm Engineering, MUN's student design team, where I work on electrical systems for our autonomous kart entry.",
   ],
 };
 
 export const experience: ExperienceRecord[] = [
+  {
+    company: "Nokia",
+    role: "HW/SW Integration Eng Co-op",
+    location: "Ottawa, ON",
+    period: "September 2026 — December 2026",
+    logo: `${assetBase}/media/experience/nokia-logo.png`,
+    marker: `${assetBase}/media/experience/nokia-marker.png`,
+    logoLight: `${assetBase}/media/experience/nokia-logo-light.png`,
+    markerLight: `${assetBase}/media/experience/nokia-marker-light.png`,
+    bullets: [
+      "Working on the IP Hardware Development team in a split hardware and software role, validating how router hardware behaves once it is driven and exercised from software rather than on the bench alone.",
+      "Working with the Timing team on the coordination and protocols that keep transmitted and received data synchronized across telecommunication routers, where holding an accurate clock across the network is the constraint everything else depends on.",
+      "Working with the Hardware Optical team on optical sensors and the transmitter and receiver modules they feed, covering how an optical link is brought up, exercised, and measured.",
+      "Note: this term started in September 2026. The description above covers the scope assigned so far and will be updated with specific work as the role progresses.",
+    ],
+    tags: ["Hardware Integration", "Timing Protocols", "Optical Systems", "Telecommunications"],
+  },
   {
     company: "Kraken Robotics Systems Inc.",
     role: "Electrical Engineering Student",
@@ -209,7 +226,7 @@ export const experience: ExperienceRecord[] = [
   {
     company: "Paradigm Engineering — MUN Student Design Team",
     orgId: "paradigm-engineering",
-    role: "Electrical Team Member",
+    role: "Electrical Team Lead",
     location: "St. John's, NL",
     period: "September 2025 — Present",
     logo: `${assetBase}/media/experience/paradigm-logo.webp`,
@@ -228,7 +245,7 @@ export const experience: ExperienceRecord[] = [
     orgId: "horizon-aerospace",
     role: "Avionics — Electrical",
     location: "St. John's, NL",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026 — September 2026",
     logo: `${assetBase}/media/experience/horizon-logo.png`,
     marker: `${assetBase}/media/experience/horizon-logo.png`,
     logoLight: `${assetBase}/media/experience/horizon-logo-light.png`,
@@ -303,10 +320,15 @@ export const coursework = [
   "ECE-3300 — Circuits & Electronics",
   "ECE-3400 — Foundations of Programming (C++)",
   "ECE-3500 — Digital Logic",
+  "ECE-4300 — Electronic Circuits I",
+  "ECE-4500 — Microprocessors",
+  "ECE-4600 — Introduction to Systems and Signals",
+  "ECE-4800 — Electromechanical Devices",
   "PHYS-3000 — Physics of Device Materials",
   "ENGI-1020 — Introduction to Programming (Python)",
   "ENGI-1030 — Graphics & 3D Design",
   "ENGI-1050 — Circuits",
+  "ENGI-4430 — Advanced Calculus for Engineering",
   "MATH-2050 — Linear Algebra",
 ];
 
@@ -621,13 +643,13 @@ export const organizations: OrganizationRecord[] = [
     name: "Horizon Aerospace",
     kind: "team",
     role: "Avionics — Electrical",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026 — September 2026",
     showInUpdates: false,
     cardSummary:
       "Camera module power PCB for MUN's Class FAA2 rocket: three bucks, an LDO, and an STM32G0 sequencing the payload.",
     overview: [
-      "Horizon Aerospace is Memorial University's student rocketry team. The team designs, builds, and tests a Class FAA2 high-power rocket for Launch Canada 2026 in Timmins, Ontario, split across four sub-teams: structures and propulsion, avionics, guidance navigation and control, and recovery and payload. The last of these flies a camera payload capturing zenith, nadir, and horizon views.",
-      "I joined the avionics sub-team in June 2026, and my main effort has been the camera module PCB that records multiple angles of the rocket through launch, descent, and recovery. The board runs off a 3S LiPo and splits into three buck converters: an enable-gated rail for a DJI O4 Air unit, a second enable-gated rail for three RunCam modules, and an always-on rail feeding four 5V fans that cool the cameras. Alongside them, a 3.3V LDO powers an STM32G0 that drives the enable signals and the fan-control PWM.",
+      "Horizon Aerospace was Memorial University's student rocketry team. The team designed, built, and tested a Class FAA2 high-power rocket for Launch Canada 2026 in Timmins, Ontario, split across four sub-teams: structures and propulsion, avionics, guidance navigation and control, and recovery and payload. The last of these carried a camera payload capturing zenith, nadir, and horizon views, and the rocket flew at the competition.",
+      "I joined the avionics sub-team in June 2026, and my main effort was the camera module PCB, which flew with the rocket and carried the cameras recording multiple angles through launch, descent, and recovery. The board ran off a 3S LiPo and split into three buck converters: an enable-gated rail for a DJI O4 Air unit, a second enable-gated rail for three RunCam modules, and an always-on rail feeding four 5V fans that cooled the cameras. Alongside them, a 3.3V LDO powered an STM32G0 that drove the enable signals and the fan-control PWM.",
     ],
     tags: ["Avionics", "Power Electronics", "Buck Converters", "STM32G0", "PWM", "PCB Design"],
     logo: `${assetBase}/media/experience/horizon-logo.png`,
@@ -636,9 +658,9 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "horizon-camera-module-power",
         title: "Camera Module Power PCB",
-        period: "Jun 2026 — Present",
+        period: "Jun 2026 — September 2026",
         summary:
-          "Designing the power board for the rocket's camera module, which records multiple angles through launch, descent, and recovery. A single 3S LiPo input feeds three buck converters and an LDO, with an STM32G0 sequencing what turns on and when.",
+          "Designed the power board for the rocket's camera module, which flew at Launch Canada 2026 carrying the cameras aimed at launch, descent, and recovery. A single 3S LiPo input fed three buck converters and an LDO, with an STM32G0 sequencing what turned on and when.",
         bullets: [
           "Took a 3S LiPo as the only board input and split it into three separate buck-converted rails rather than sharing one regulator across loads with very different current and noise profiles.",
           "Gated the DJI O4 Air unit and the three RunCam modules on their own enable-controlled bucks so the flight computer can bring each camera rail up independently instead of powering the whole payload at once.",
