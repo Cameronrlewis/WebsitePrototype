@@ -21,3 +21,6 @@ output/
 review-prompt.md
 test-results/
 playwright-report/
+
+# design-feedback scratch
+.superset/
