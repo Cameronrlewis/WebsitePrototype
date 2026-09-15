@@ -198,9 +198,10 @@ export const experience: ExperienceRecord[] = [
     logoLight: `${assetBase}/media/experience/nokia-logo-light.png`,
     markerLight: `${assetBase}/media/experience/nokia-marker-light.png`,
     bullets: [
-      "Working with the IP Hardware Development team in a split hardware and software role, testing how hardware behaves and integrates from a software environment.",
-      "Supporting the Timing team, learning timing coordination and the protocols that keep data transmission and reception synchronized across telecommunication routers.",
-      "Supporting the Hardware Optical team, working with optical sensors and the transmitter and receiver modules they feed.",
+      "Working on the IP Hardware Development team in a split hardware and software role, validating how router hardware behaves once it is driven and exercised from software rather than on the bench alone.",
+      "Working with the Timing team on the coordination and protocols that keep transmitted and received data synchronized across telecommunication routers, where holding an accurate clock across the network is the constraint everything else depends on.",
+      "Working with the Hardware Optical team on optical sensors and the transmitter and receiver modules they feed, covering how an optical link is brought up, exercised, and measured.",
+      "Note: this term started in September 2026. The description above covers the scope assigned so far and will be updated with specific work as the role progresses.",
     ],
     tags: ["Hardware Integration", "Timing Protocols", "Optical Systems", "Telecommunications"],
   },
@@ -225,7 +226,7 @@ export const experience: ExperienceRecord[] = [
   {
     company: "Paradigm Engineering — MUN Student Design Team",
     orgId: "paradigm-engineering",
-    role: "Electrical Team Member",
+    role: "Electrical Team Lead",
     location: "St. John's, NL",
     period: "September 2025 — Present",
     logo: `${assetBase}/media/experience/paradigm-logo.webp`,
@@ -244,7 +245,7 @@ export const experience: ExperienceRecord[] = [
     orgId: "horizon-aerospace",
     role: "Avionics — Electrical",
     location: "St. John's, NL",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026 — September 2026",
     logo: `${assetBase}/media/experience/horizon-logo.png`,
     marker: `${assetBase}/media/experience/horizon-logo.png`,
     logoLight: `${assetBase}/media/experience/horizon-logo-light.png`,
@@ -637,7 +638,7 @@ export const organizations: OrganizationRecord[] = [
     name: "Horizon Aerospace",
     kind: "team",
     role: "Avionics — Electrical",
-    period: "Jun 2026 — Present",
+    period: "Jun 2026 — September 2026",
     showInUpdates: false,
     cardSummary:
       "Camera module power PCB for MUN's Class FAA2 rocket: three bucks, an LDO, and an STM32G0 sequencing the payload.",
@@ -652,7 +653,7 @@ export const organizations: OrganizationRecord[] = [
       {
         id: "horizon-camera-module-power",
         title: "Camera Module Power PCB",
-        period: "Jun 2026 — Present",
+        period: "Jun 2026 — September 2026",
         summary:
           "Designing the power board for the rocket's camera module, which records multiple angles through launch, descent, and recovery. A single 3S LiPo input feeds three buck converters and an LDO, with an STM32G0 sequencing what turns on and when.",
         bullets: [
