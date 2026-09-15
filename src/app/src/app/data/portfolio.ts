@@ -643,8 +643,8 @@ export const organizations: OrganizationRecord[] = [
     cardSummary:
       "Camera module power PCB for MUN's Class FAA2 rocket: three bucks, an LDO, and an STM32G0 sequencing the payload.",
     overview: [
-      "Horizon Aerospace is Memorial University's student rocketry team. The team designs, builds, and tests a Class FAA2 high-power rocket for Launch Canada 2026 in Timmins, Ontario, split across four sub-teams: structures and propulsion, avionics, guidance navigation and control, and recovery and payload. The last of these flies a camera payload capturing zenith, nadir, and horizon views.",
-      "I joined the avionics sub-team in June 2026, and my main effort has been the camera module PCB that records multiple angles of the rocket through launch, descent, and recovery. The board runs off a 3S LiPo and splits into three buck converters: an enable-gated rail for a DJI O4 Air unit, a second enable-gated rail for three RunCam modules, and an always-on rail feeding four 5V fans that cool the cameras. Alongside them, a 3.3V LDO powers an STM32G0 that drives the enable signals and the fan-control PWM.",
+      "Horizon Aerospace was Memorial University's student rocketry team. The team designed, built, and tested a Class FAA2 high-power rocket for Launch Canada 2026 in Timmins, Ontario, split across four sub-teams: structures and propulsion, avionics, guidance navigation and control, and recovery and payload. The last of these carried a camera payload capturing zenith, nadir, and horizon views.",
+      "I joined the avionics sub-team in June 2026, and my main effort was the camera module PCB, designed to record multiple angles of the rocket through launch, descent, and recovery. The board ran off a 3S LiPo and split into three buck converters: an enable-gated rail for a DJI O4 Air unit, a second enable-gated rail for three RunCam modules, and an always-on rail feeding four 5V fans that cooled the cameras. Alongside them, a 3.3V LDO powered an STM32G0 that drove the enable signals and the fan-control PWM.",
     ],
     tags: ["Avionics", "Power Electronics", "Buck Converters", "STM32G0", "PWM", "PCB Design"],
     logo: `${assetBase}/media/experience/horizon-logo.png`,
@@ -655,7 +655,7 @@ export const organizations: OrganizationRecord[] = [
         title: "Camera Module Power PCB",
         period: "Jun 2026 — September 2026",
         summary:
-          "Designing the power board for the rocket's camera module, which records multiple angles through launch, descent, and recovery. A single 3S LiPo input feeds three buck converters and an LDO, with an STM32G0 sequencing what turns on and when.",
+          "Designed the power board for the rocket's camera module, which recorded multiple angles through launch, descent, and recovery. A single 3S LiPo input fed three buck converters and an LDO, with an STM32G0 sequencing what turned on and when.",
         bullets: [
           "Took a 3S LiPo as the only board input and split it into three separate buck-converted rails rather than sharing one regulator across loads with very different current and noise profiles.",
           "Gated the DJI O4 Air unit and the three RunCam modules on their own enable-controlled bucks so the flight computer can bring each camera rail up independently instead of powering the whole payload at once.",
