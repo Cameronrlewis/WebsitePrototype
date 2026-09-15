@@ -182,12 +182,28 @@ export const profile: ProfileRecord = {
     "Third-year Electrical Engineering student with interests in hardware, robotics, and space. I am currently completing a work term at Nokia.",
   about: [
     "I'm Cameron Lewis, a third-year Electrical Engineering student at Memorial University, focused on PCB design, embedded systems, and hardware development. I care about understanding how things work at a circuit level and building things that hold up in the real world.",
-    "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. Most recently I completed a co-op term at Kraken Robotics, getting hands-on exposure to professional hardware development.",
+    "It started with building my first PC at age 11. That curiosity grew into a serious interest in electronics and I've since worked through analog circuit design, signal processing, and embedded firmware. I'm currently on a co-op term at Nokia working on hardware and software integration, after a term at Kraken Robotics that gave me hands-on exposure to professional hardware development.",
     "Outside the lab, I play competitive table tennis and have previously represented Team Newfoundland at the Atlantic Championships. I also contribute to Paradigm Engineering, MUN's student design team, where I work on electrical systems for our autonomous kart entry.",
   ],
 };
 
 export const experience: ExperienceRecord[] = [
+  {
+    company: "Nokia",
+    role: "HW/SW Integration Eng Co-op",
+    location: "Ottawa, ON",
+    period: "September 2026 — December 2026",
+    logo: `${assetBase}/media/experience/nokia-logo.png`,
+    marker: `${assetBase}/media/experience/nokia-marker.png`,
+    logoLight: `${assetBase}/media/experience/nokia-logo-light.png`,
+    markerLight: `${assetBase}/media/experience/nokia-marker-light.png`,
+    bullets: [
+      "Working with the IP Hardware Development team in a split hardware and software role, testing how hardware behaves and integrates from a software environment.",
+      "Supporting the Timing team, learning timing coordination and the protocols that keep data transmission and reception synchronized across telecommunication routers.",
+      "Supporting the Hardware Optical team, working with optical sensors and the transmitter and receiver modules they feed.",
+    ],
+    tags: ["Hardware Integration", "Timing Protocols", "Optical Systems", "Telecommunications"],
+  },
   {
     company: "Kraken Robotics Systems Inc.",
     role: "Electrical Engineering Student",
