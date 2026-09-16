@@ -15,6 +15,10 @@ When you need to understand the codebase, docs, or any files in this project:
 Package manager is **pnpm** (Node 20+). `pnpm typecheck` runs `tsc --noEmit` and `pnpm test`
 runs Vitest; both gate CI ahead of the build. `pnpm build` itself still does not run `tsc`,
 so verify locally with `pnpm typecheck && pnpm test && pnpm build`. There is no lint script.
+`pnpm e2e` runs Playwright against the dev server; `pnpm e2e:preview` builds and runs it against
+the production bundle. The preview run also sits inside `pages.yml`'s build job between Build and
+Upload artifact, so a failing bundle e2e **blocks the deploy** - a flake there stops a release, and
+the fix is to make the test deterministic, never to move the step after the upload.
 `pnpm install`'s postinstall runs `tools/patch-rollup-native.mjs` (rollup native-binary workaround). On macOS npm-cache permission errors: `env npm_config_cache=/private/tmp/npm-cache npx pnpm@10.17.1 install`. Always pin the version (`@10.17.1`), never `@latest` - see below for why.
 
 **Rollup/Vite pinning.** `package.json` `pnpm.overrides` pins `vite` to `6.3.5` and aliases `rollup` → `@rollup/wasm-node` (the WASM build) to dodge the native-binary issue; `tools/patch-rollup-native.mjs` (postinstall) reinforces this. Don't bump Vite or unpin rollup casually — the build depends on this workaround. This is also why every command in this file and the README pins the pnpm version (`npx pnpm@10.17.1`) instead of resolving it via the unpinned `latest` tag: a newer pnpm major has silently dropped this `overrides:` block on install before, which un-pins Vite and breaks the build.
@@ -28,7 +32,7 @@ The real application lives under **`src/app/src/app/`**, not `src/`. The entry c
 - `src/app/src/app/App.tsx` — `ThemeProvider` + `MotionConfig reducedMotion="user"` wrapping `Layout`.
 - Components in `src/app/src/app/components/`, content data in `src/app/src/app/data/`, routing and BOM-loading helpers in `src/app/src/app/lib/`, styles in `src/app/src/styles/`.
 
-`@` aliases to `./src` (see `vite.config.ts`). `main.tsx` imports `src/app/src/styles/index.css`; that is the only stylesheet entry point in the repo — edit the `src/app/src/styles/` copies.
+There is no path alias - imports are relative (the dead `@` alias was removed; it resolved to `./src`, not the nested app root). `main.tsx` imports `src/app/src/styles/index.css`; that is the only stylesheet entry point in the repo — edit the `src/app/src/styles/` copies.
 
 ## Architecture
 
@@ -45,7 +49,7 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Content is data-driven.** `src/app/src/app/data/portfolio.ts` is the single source of truth for all page content — `profile`, `stats`, `experience`, `education`, `coursework`, `skillSets`, `projects`, `organizations`, and derived exports (`featuredBoardProjects`, and `updateFeed`, which is flattened from `organizations[].builds` where `showInUpdates`, sorted by `sortKey`). It also exports helpers `getOrganizationById` / `getProjectBySlug`. Editing content means editing this file, not the components. `lib/board-assets.ts` only handles the BOM — `loadInteractiveBom()` selects the IBOM/BOM per `project.viewerAsset`. **3D geometry never passes through the React app**: `board-viewer-shell.html` fetches its own board inside the viewer iframe (see Board geometry below).
 
-**Styling.** Tailwind CSS v4 CSS-first via `@tailwindcss/vite` — **there is no `tailwind.config.*`** (a `postcss.config.mjs` exists at root, but Tailwind config is CSS-first). The CSS entry `src/app/src/styles/index.css` imports `default_theme.css` then `globals.css`:
+**Styling.** Tailwind CSS v4 CSS-first via `@tailwindcss/vite` — **there is no `tailwind.config.*`** and no PostCSS config (the empty `postcss.config.mjs` was deleted; Vite auto-detects any root `postcss.config.*`, so don't reintroduce one). The CSS entry `src/app/src/styles/index.css` imports `default_theme.css` then `globals.css`:
 - `src/app/src/styles/default_theme.css` holds the `@theme inline` block (colors, radii, `--font-display` / `--font-mono`).
 - `src/app/src/styles/globals.css` holds the `:root` + `.dark` semantic tokens used directly in components as arbitrary values — `--surface-1..4`, `--text-strong/body/soft/muted`, `--outline-soft/strong`, `--shadow-card/soft/strong/button`, `--chip-*`, `--toggle-*`.
 
