@@ -46,6 +46,25 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Gates the deploy on the production bundle, not a rebuild of it: this
+      # runs against the exact dist/ uploaded below, and deploy needs: build.
+      # The dev-server e2e run lives in e2e.yml and does not gate anything.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E against the production bundle
+        run: pnpm e2e
+        env:
+          E2E_TARGET: preview
+
+      - name: Upload e2e report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-deploy
+          path: playwright-report/
+          retention-days: 7
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
