@@ -50,11 +50,14 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Informational only: exercises the actual production bundle (vite build +
-  # vite preview) rather than the dev server, since the build runs through the
-  # rollup -> @rollup/wasm-node alias workaround and nothing else in CI opens
-  # it in a browser. Does not gate deploys (pages.yml is separate/untouched).
+  # Exercises the actual production bundle (vite build + vite preview) rather
+  # than the dev server, since the build runs through the rollup ->
+  # @rollup/wasm-node alias workaround. On pushes to main this same run happens
+  # inside pages.yml's build job, where it gates the deploy - so skip it here on
+  # push to avoid paying for it twice, and keep it for pull requests, which are
+  # the place a bundle-only break should surface before merge.
   e2e-preview:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
