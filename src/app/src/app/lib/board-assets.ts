@@ -27,7 +27,15 @@ async function fetchText(url: string) {
   return response.text();
 }
 
+/** Pure URL resolution, split out from the fetch so it can be tested without a
+ *  network. `bomUrl` is a per-project override; `bomUrlByAsset` must still cover
+ *  every `viewerAsset` in use, or dropping an override silently serves another
+ *  board's parts list - `noUncheckedIndexedAccess` is off, so the map lookup
+ *  types as `string` and the compiler cannot see the hole. */
+export function resolveBomUrl(project: ProjectRecord) {
+  return project.bomUrl ?? bomUrlByAsset[project.viewerAsset ?? "power"] ?? bomUrlByAsset.power;
+}
+
 export async function loadInteractiveBom(project: ProjectRecord) {
-  const url = project.bomUrl ?? bomUrlByAsset[project.viewerAsset ?? "power"] ?? bomUrlByAsset.power;
-  return fetchText(url);
+  return fetchText(resolveBomUrl(project));
 }
