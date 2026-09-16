@@ -49,8 +49,22 @@ jobs:
       # Gates the deploy on the production bundle, not a rebuild of it: this
       # runs against the exact dist/ uploaded below, and deploy needs: build.
       # The dev-server e2e run lives in e2e.yml and does not gate anything.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # On a cache hit the browser binaries are already on disk, but the OS
+      # packages they link against are not cached, so they still need installing.
       - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Chromium system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
 
       - name: E2E against the production bundle
         run: pnpm e2e
