@@ -44,6 +44,7 @@ export function Layout() {
   };
 
   const portfolioContent = (
+    // Gap must stay >= CircuitTrace's MIN_GAP_DEPTH (70px, lib/circuit-geometry.ts) or every IC block silently vanishes.
     <div className="space-y-16 lg:space-y-24">
       <section ref={registerSection("home")} data-section="home" className={sectionClass}>
         <Home

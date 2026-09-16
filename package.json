@@ -9,6 +9,7 @@
     "build:logos": "python3 tools/build-logo-light-variants.py",
     "dev": "vite",
     "e2e": "playwright test",
+    "e2e:preview": "pnpm build && E2E_TARGET=preview playwright test",
     "postinstall": "node tools/patch-rollup-native.mjs",
     "preview": "vite preview",
     "test": "vitest run",
