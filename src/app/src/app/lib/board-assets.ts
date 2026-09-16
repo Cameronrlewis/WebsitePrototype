@@ -14,6 +14,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 const bomUrlByAsset: Record<string, string> = {
   power: "/portfolio/assets/bom/power/IBOM.html",
   control: "/portfolio/assets/bom/control/IBOM.html",
+  brick: "/portfolio/assets/bom/brick-buck/IBOM.html",
 };
 
 async function fetchText(url: string) {

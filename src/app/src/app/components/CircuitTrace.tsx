@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import {
   BODY_HALF,
   buildTrace,
+  CENTERPIECE_SPECS,
   computeGaps,
   MIN_GAP_DEPTH,
   NET_TAG_HALF_H,
@@ -554,6 +555,8 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
       }
       lastMeasureRef.current = signature;
 
+      const traceGeometry = buildTrace(width, height, gaps);
+
       // Warn (dev only) when a gap is too shallow to host an IC block, since
       // that failure is otherwise silent (see CircuitTrace coupling notes).
       // Gated on every section actually having a measured height so this
@@ -569,9 +572,28 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
               `Check the section spacing in Layout.tsx (space-y-16 lg:space-y-24).`,
           );
         }
+
+        // Warn (dev only) when no gap has enough horizontal room for the buck
+        // block, since planCenterpiece (circuit-geometry.ts) then silently
+        // returns null and the "buck" queue head is never consumed — every
+        // downstream power-rail stage (ldo, mcu, fpga, timer555) collapses
+        // with zero console output, in dev AND prod (see CircuitTrace
+        // coupling notes). The buck block is always the queue head, so its
+        // absence from the built geometry after a usable gap exists proves
+        // every gap fell short of CENTERPIECE_SPECS.buck.minAvail.
+        const hasUsableGap = gaps.some((g) => g.bottom - g.top >= MIN_GAP_DEPTH);
+        const hasBuckBlock = traceGeometry.components.some((c) => c.type === "buck");
+        if (hasUsableGap && !hasBuckBlock) {
+          console.warn(
+            `[CircuitTrace] No section gap has >= ${CENTERPIECE_SPECS.buck.minAvail}px of ` +
+              `horizontal room, so the buck converter block (and every downstream rail stage: ` +
+              `ldo, mcu, fpga, timer555) will not render. Check <main>'s width and the ` +
+              `lg:pl-12 lg:pr-12 gutters in Layout.tsx.`,
+          );
+        }
       }
 
-      setGeometry(buildTrace(width, height, gaps));
+      setGeometry(traceGeometry);
     };
 
     // Force a rebuild on mount and whenever the view (pageKey) changes.

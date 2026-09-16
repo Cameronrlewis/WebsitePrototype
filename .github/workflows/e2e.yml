@@ -49,3 +49,47 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Informational only: exercises the actual production bundle (vite build +
+  # vite preview) rather than the dev server, since the build runs through the
+  # rollup -> @rollup/wasm-node alias workaround and nothing else in CI opens
+  # it in a browser. Does not gate deploys (pages.yml is separate/untouched).
+  e2e-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run e2e against production preview
+        run: pnpm e2e
+        env:
+          E2E_TARGET: preview
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-preview
+          path: playwright-report/
+          retention-days: 7

@@ -1,14 +1,35 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const nativePath = path.resolve(
-  "node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/native.js",
+const pnpmDir = path.resolve("node_modules/.pnpm");
+
+// Find every installed version of `pkgPrefix` under node_modules/.pnpm and
+// resolve `subPath` inside it. Version-pinning the .pnpm directory name is
+// fragile (pnpm.overrides or a routine dependency bump moves it), so this
+// globs by prefix instead of hardcoding a version.
+function findInstalls(pkgPrefix, subPath) {
+  let entries;
+  try {
+    entries = readdirSync(pnpmDir);
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.startsWith(pkgPrefix))
+    .map((entry) => path.join(pnpmDir, entry, subPath))
+    .filter((full) => existsSync(full));
+}
+
+const nativePaths = findInstalls(
+  "rollup@",
+  "node_modules/rollup/dist/native.js",
 );
-const lightningCssPath = path.resolve(
-  "node_modules/.pnpm/lightningcss@1.30.1/node_modules/lightningcss/node/index.js",
+const lightningCssPaths = findInstalls(
+  "lightningcss@",
+  "node_modules/lightningcss/node/index.js",
 );
 
-if (existsSync(nativePath)) {
+for (const nativePath of nativePaths) {
   const current = readFileSync(nativePath, "utf8");
   const marker = "codex wasm fallback";
 
@@ -140,7 +161,7 @@ module.exports.xxhashBase16 = xxhashBase16;
   }
 }
 
-if (existsSync(lightningCssPath)) {
+for (const lightningCssPath of lightningCssPaths) {
   const currentLightning = readFileSync(lightningCssPath, "utf8");
   const lightningMarker = "codex workspace fallback";
 
