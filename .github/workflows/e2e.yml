@@ -100,7 +100,9 @@ jobs:
         run: |
           set -euo pipefail
           site=https://cameron-lewis.com
-          built=$(ls -1 dist/assets/index-*.js | head -1 | xargs basename)
+          # Read the entry chunk from index.html, exactly as the live check does.
+          # Globbing dist/assets/ can match more than one index-*.js chunk.
+          built=$(grep -o 'index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
           live=$(curl -fsS "$site/" | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
           echo "built: $built"
           echo "live:  $live"
