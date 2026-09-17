@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+  # Weekly health check: both e2e suites plus the live-site check below.
+  # 13:00 UTC is 09:00 Toronto in summer and 08:00 in winter.
+  schedule:
+    - cron: "0 13 * * 1"
 
 permissions:
   contents: read
@@ -88,6 +92,22 @@ jobs:
         run: pnpm e2e
         env:
           E2E_TARGET: preview
+
+      # Scheduled runs only: they build main, which should be exactly what Pages
+      # is serving. On a pull request the branch build differs from live by design.
+      - name: Live site serves this build
+        if: github.event_name == 'schedule'
+        run: |
+          set -euo pipefail
+          site=https://cameron-lewis.com
+          built=$(basename dist/assets/index-*.js)
+          live=$(curl -fsS "$site/" | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
+          echo "built: $built"
+          echo "live:  $live"
+          [ "$built" = "$live" ] || { echo "::error::Live site is not serving main's build"; exit 1; }
+          for path in / /portfolio/assets/bom/brick-buck/IBOM.html /portfolio/assets/bom/power/IBOM.html /portfolio/assets/bom/control/IBOM.html; do
+            curl -fsS -o /dev/null "$site$path" && echo "200 $path"
+          done
 
       - name: Upload report
         if: failure()
