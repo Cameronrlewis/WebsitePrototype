@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           site=https://cameron-lewis.com
-          built=$(basename dist/assets/index-*.js)
+          built=$(ls -1 dist/assets/index-*.js | head -1 | xargs basename)
           live=$(curl -fsS "$site/" | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
           echo "built: $built"
           echo "live:  $live"
