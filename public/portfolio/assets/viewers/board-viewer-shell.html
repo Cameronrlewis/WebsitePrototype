@@ -204,9 +204,8 @@
         let mountWidth = 0;
         let mountHeight = 0;
 
-        // The timeline is duplicated from src/app/src/app/lib/tour-timeline.ts
-        // because this file has no module loader. e2e/board-spin.spec.ts runs
-        // the same fixture table through both copies so they cannot drift.
+        // This shell owns the only copy of the timeline; there is no
+        // separate module. e2e/board-spin.spec.ts pins this copy directly.
         window.__tourPhase = tourPhase;
         window.__tourTiming = TOUR_TIMING;
 
@@ -289,9 +288,9 @@
         }
 
         /**
-         * Mirror of src/app/src/app/lib/tour-timeline.ts, which is the tested
-         * copy. This file is a plain script with no module loader, so the
-         * arithmetic is duplicated on purpose; change both together.
+         * The only copy of the tour timing arithmetic. This file is a plain
+         * script with no module loader, so it lives here directly; the
+         * fixture table in e2e/board-spin.spec.ts pins it.
          */
         function easeInOut(t) {
           const x = Math.min(1, Math.max(0, t));

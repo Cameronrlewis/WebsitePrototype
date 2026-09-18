@@ -251,13 +251,12 @@ test("tour stops land on the board where the BOM says they do", async ({ page })
   expect(probe.world.z).toBeCloseTo(-10.591, 1);
 });
 
-test("the shell's copy of the tour timeline matches the tested module", async ({ page }) => {
+test("the shell's tour timeline matches the pinned fixture table", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);
 
-  // The shell mirrors src/app/src/app/lib/tour-timeline.ts by hand. These are
-  // the same cases tests/tour-timeline.test.ts runs against the module, so the
-  // two copies cannot drift apart silently.
+  // The shell owns the only copy of this arithmetic; this test pins it
+  // directly against the fixture table below.
   const timing = await page.evaluate(() => (window as unknown as { __tourTiming?: unknown }).__tourTiming);
   expect(timing).toEqual({ orbitMs: 12000, travelMs: 1500, holdMs: 3000 });
 
