@@ -19,7 +19,7 @@ import { FORCE_SKELETONS, ResumeViewerSkeleton, SkeletonPreviewBadge } from "./S
 import { Skills } from "./Skills";
 import { Updates } from "./Updates";
 
-// Loaded on demand so pdfjs-dist stays out of the main bundle.
+// Loaded on demand: the viewer and its page raster are only needed once opened.
 const ResumeViewer = lazy(() =>
   import("./ResumeViewer").then((module) => ({ default: module.ResumeViewer })),
 );
