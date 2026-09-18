@@ -265,14 +265,23 @@
         /** The camera pose that frames one stop head on. */
         function stopPose(stop) {
           const world = boardLocalToWorld(stop.x, stop.y);
+          // Look in from the part's own side of the board rather than a fixed
+          // heading, or a tall part elsewhere on the board (e.g. the J15 Molex)
+          // can sit between the camera and the target and block it. A part
+          // sitting right at the board centre has no meaningful outward
+          // direction, so fall back to the orbit's own start heading there.
+          const outward = Math.hypot(world.x, world.z);
+          const theta = outward < 1 ? -0.5 : Math.atan2(world.z, world.x);
           return {
             tx: world.x,
             ty: world.y,
             tz: world.z,
-            // Enough distance to hold the part plus a margin in frame.
-            r: Math.max(18, stop.span * 2.6),
-            phi: 0.85,
-            theta: -0.5,
+            // Enough distance to hold the part plus a margin in frame. Floor
+            // of 20 verified against the 7.45mm level-shift transistor pair;
+            // the 1.5x scale keeps the 13.45mm MCU at roughly the same 20mm.
+            r: Math.max(20, stop.span * 1.5),
+            phi: 0.55,
+            theta: theta,
           };
         }
 
