@@ -21,7 +21,9 @@ test("board viewer hands off to the BOM and still returns to the project modal",
   await page.goto("/#/projects/aux-control-board");
 
   await page.getByRole("button", { name: "Explore 3D Board" }).click();
-  await expect(page.locator("iframe")).toBeVisible();
+  // Scope to the modal's viewer: the home page also carries the cinematic
+  // showcase iframe, so a bare "iframe" locator matches two elements.
+  await expect(page.locator('iframe[title$="3D board viewer"]')).toBeVisible();
 
   // Toolbar handoff: board viewer -> BOM viewer, via transferViewer.
   await page.getByRole("button", { name: "Interactive BOM" }).click();

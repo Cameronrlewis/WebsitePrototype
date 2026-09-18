@@ -11,7 +11,9 @@ test("project modal reappears after closing the 3D board viewer", async ({ page 
   await page.getByRole("button", { name: "Explore 3D Board" }).click();
 
   // The board viewer should now be visible and the project modal replaced.
-  const viewer = page.locator("iframe");
+  // Scope to the modal's viewer: the home page also carries the cinematic
+  // showcase iframe, so a bare "iframe" locator matches two elements.
+  const viewer = page.locator('iframe[title$="3D board viewer"]');
   await expect(viewer).toBeVisible();
 
   // Close the viewer (Radix dialog close button, accessible name "Close").

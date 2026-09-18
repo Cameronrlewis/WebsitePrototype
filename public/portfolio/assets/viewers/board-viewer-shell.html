@@ -118,6 +118,7 @@
         const params = new URLSearchParams(window.location.search);
         const assetParam = params.get("asset");
         const asset = assetParam === "control" || assetParam === "brick" ? assetParam : "power";
+        const cinematic = params.get("mode") === "cinematic";
         const mount = document.getElementById("viewer");
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
@@ -133,6 +134,12 @@
         let wireframe = false;
         let drag = null;
         let touch = null;
+        let playing = false;
+        let orbitFrame = 0;
+        let orbitElapsed = 0;
+        let orbitLast = 0;
+        let renderPending = 0;
+        const ORBIT_DURATION_MS = 12000;
 
         function showError(message) {
           errorMessageEl.textContent = message;
@@ -146,6 +153,7 @@
             state.tz + state.r * Math.sin(state.phi) * Math.sin(state.theta),
           );
           camera.lookAt(state.tx, state.ty, state.tz);
+          requestRender();
         }
 
         function resize() {
@@ -173,6 +181,92 @@
           state.ty = 0;
           state.tz = 0;
           updateCamera();
+        }
+
+        /**
+         * The cinematic camera path, and the only copy of it. One full
+         * revolution, diving low and close through the midpoint: `dive` is 0 at
+         * both ends and 1 in the middle. e2e/board-spin.spec.ts pins these exact
+         * constants, so a change here fails there on purpose.
+         */
+        function spinPose(progress) {
+          const t = Math.min(1, Math.max(0, progress));
+          const dive = Math.sin(Math.PI * t);
+          return {
+            theta: -0.5 + t * Math.PI * 2,
+            phi: 1.25 - dive * 0.7,
+            radiusScale: 1.35 - dive * 0.35,
+          };
+        }
+
+        function applySpin(progress) {
+          const pose = spinPose(progress);
+          state.theta = pose.theta;
+          state.phi = pose.phi;
+          state.r = maxDimension * pose.radiusScale;
+          state.tx = 0;
+          state.ty = 0;
+          state.tz = 0;
+          updateCamera();
+        }
+
+        function renderFrame() {
+          resize();
+          renderer.render(scene, camera);
+        }
+
+        /**
+         * Neither mode runs a permanent loop: the board is a static scene that
+         * only needs a frame when something actually moved. Invalidations are
+         * coalesced into one rAF so a burst of mousemove events paints once.
+         * While the orbit is playing it is already drawing every frame.
+         */
+        function requestRender() {
+          if (renderPending || playing) {
+            return;
+          }
+
+          renderPending = requestAnimationFrame(function () {
+            renderPending = 0;
+            renderFrame();
+          });
+        }
+
+        /**
+         * Interactive mode redraws forever because a drag can move the camera
+         * at any moment. Cinematic mode draws only while its orbit is playing,
+         * so a showcase that has scrolled out of view costs nothing at all.
+         */
+        function orbitLoop(now) {
+          if (!playing) {
+            return;
+          }
+
+          orbitElapsed += now - orbitLast;
+          orbitLast = now;
+          applySpin((orbitElapsed % ORBIT_DURATION_MS) / ORBIT_DURATION_MS);
+          renderFrame();
+          orbitFrame = requestAnimationFrame(orbitLoop);
+        }
+
+        // Resuming picks the orbit up where it paused rather than snapping back
+        // to the start, so a board that scrolls away and returns looks continuous.
+        function playOrbit() {
+          if (playing || !cinematic) {
+            return;
+          }
+
+          playing = true;
+          orbitLast = performance.now();
+          orbitFrame = requestAnimationFrame(orbitLoop);
+        }
+
+        function pauseOrbit() {
+          playing = false;
+          if (orbitFrame) {
+            cancelAnimationFrame(orbitFrame);
+            orbitFrame = 0;
+          }
         }
 
         function toggleWireframe() {
@@ -464,17 +558,23 @@
             tz: 0,
           };
           state = Object.assign({}, defaults);
+          window.__boardViewerState = state;
+          // Lets e2e assert the play/pause state machine directly. Frame rate
+          // is not a contract: a software renderer may deliver very few frames.
+          window.__boardViewerOrbit = function () {
+            return { playing: playing, elapsed: orbitElapsed };
+          };
           updateCamera();
           resize();
-          bindControls(renderer.domElement);
-
-          function animate() {
-            requestAnimationFrame(animate);
-            resize();
-            renderer.render(scene, camera);
+          if (cinematic) {
+            hint.style.display = "none";
+            renderer.domElement.style.cursor = "default";
+            applySpin(0);
+            renderFrame();
+          } else {
+            bindControls(renderer.domElement);
+            renderFrame();
           }
-
-          animate();
 
           notifyHost("viewer-ready");
         }
@@ -504,10 +604,37 @@
             topView();
           } else if (event.data.type === "wireframe") {
             toggleWireframe();
+            requestRender();
+          } else if (event.data.type === "spin") {
+            if (cinematic && typeof event.data.progress === "number" && Number.isFinite(event.data.progress)) {
+              pauseOrbit();
+              applySpin(event.data.progress);
+              renderFrame();
+            }
+          } else if (event.data.type === "play") {
+            playOrbit();
+          } else if (event.data.type === "pause") {
+            pauseOrbit();
           }
         });
 
-        window.addEventListener("resize", resize);
+        window.addEventListener("resize", function () {
+          if (renderer) {
+            requestRender();
+          }
+        });
+
+        // The permanent render loop used to re-fit the canvas every frame, which
+        // also covered the container changing size without a window resize: the
+        // modal animating open, or the page settling. Watch the mount directly
+        // instead, or the canvas renders at a stale size.
+        if (typeof ResizeObserver === "function") {
+          new ResizeObserver(function () {
+            if (renderer) {
+              requestRender();
+            }
+          }).observe(mount);
+        }
 
         Promise.resolve(buildScene()).catch(function (error) {
           showError(error instanceof Error ? error.message : "Unknown viewer error.");

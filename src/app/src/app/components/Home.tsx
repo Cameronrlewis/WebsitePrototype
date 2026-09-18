@@ -20,6 +20,7 @@ import {
 } from "../data/portfolio";
 import type { PageId, ProjectRecord } from "../data/portfolio";
 import { MonogramText } from "./MonogramText";
+import { BoardShowcase } from "./BoardShowcase";
 import { OrganizationAvatar } from "./OrganizationAvatar";
 import { SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
@@ -262,6 +263,13 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
           </div>
         </div>
       </motion.section>
+
+      {featuredBoardProjects[0] ? (
+        <BoardShowcase
+          asset={featuredBoardProjects[0].viewerAsset ?? "power"}
+          title={featuredBoardProjects[0].title}
+        />
+      ) : null}
 
       <motion.section
         initial={{ opacity: 0, y: 18 }}
