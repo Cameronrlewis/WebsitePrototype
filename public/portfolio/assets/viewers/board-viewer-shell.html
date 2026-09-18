@@ -81,6 +81,10 @@
         opacity: 1;
       }
 
+      .stop-label.below {
+        transform: translate(-50%, 18px);
+      }
+
       .stop-label b {
         display: block;
         font-size: 13px;
@@ -198,10 +202,17 @@
         let orbitElapsed = 0;
         let orbitLast = 0;
         let renderPending = 0;
-        const ORBIT_DURATION_MS = 12000;
         let tourStops = [];
         let tourPhaseNow = { kind: "orbit", progress: 0 };
         const TOUR_TIMING = { orbitMs: 12000, travelMs: 1500, holdMs: 3000 };
+        let mountWidth = 0;
+        let mountHeight = 0;
+
+        // The timeline is duplicated from src/app/src/app/lib/tour-timeline.ts
+        // because this file has no module loader. e2e/board-spin.spec.ts runs
+        // the same fixture table through both copies so they cannot drift.
+        window.__tourPhase = tourPhase;
+        window.__tourTiming = TOUR_TIMING;
 
         function showError(message) {
           errorMessageEl.textContent = message;
@@ -225,6 +236,8 @@
             return;
           }
 
+          mountWidth = width;
+          mountHeight = height;
           renderer.setSize(width, height);
           camera.aspect = width / height;
           camera.updateProjectionMatrix();
@@ -366,7 +379,11 @@
           state.tz = a.tz + (b.tz - a.tz) * k;
           state.r = a.r + (b.r - a.r) * k;
           state.phi = a.phi + (b.phi - a.phi) * k;
-          state.theta = a.theta + (b.theta - a.theta) * k;
+          // atan2 returns [-pi, pi] while the orbit's heading runs past 2pi, so
+          // the raw difference can send the camera the long way round. Wrap it
+          // into [-pi, pi] and the camera always takes the short arc.
+          const dTheta = Math.atan2(Math.sin(b.theta - a.theta), Math.cos(b.theta - a.theta));
+          state.theta = a.theta + dTheta * k;
           updateCamera();
         }
 
@@ -419,6 +436,15 @@
           stopLabel.style.top = screen.y + "px";
           stopDot.classList.add("visible");
           stopLabel.classList.add("visible");
+
+          // Anchored above the dot by default, but that covers the part when
+          // it sits in the upper half of the frame, so drop the card below the
+          // dot there instead.
+          if (screen.y < mountHeight / 2) {
+            stopLabel.classList.add("below");
+          } else {
+            stopLabel.classList.remove("below");
+          }
         }
 
         window.__boardTour = function () {
@@ -444,8 +470,8 @@
         function worldToScreen(point) {
           const projected = point.clone().project(camera);
           return {
-            x: (projected.x * 0.5 + 0.5) * mount.clientWidth,
-            y: (-projected.y * 0.5 + 0.5) * mount.clientHeight,
+            x: (projected.x * 0.5 + 0.5) * mountWidth,
+            y: (-projected.y * 0.5 + 0.5) * mountHeight,
           };
         }
 
@@ -808,34 +834,33 @@
             renderer.domElement.style.cursor = "default";
             applySpin(0);
 
-            if (probeStop) {
-              fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
-                .then(function (response) { return response.json(); })
-                .then(function (tour) {
-                  const stop = tour.stops.filter(function (s) { return s.id === probeStop; })[0];
-                  if (!stop) {
-                    return;
-                  }
-
-                  const world = boardLocalToWorld(stop.x, stop.y);
-                  // Straight down on the stop, close enough to identify the part.
-                  state.tx = world.x;
-                  state.ty = world.y;
-                  state.tz = world.z;
-                  state.phi = 0.05;
-                  state.r = 26;
-                  updateCamera();
-                  window.__boardProbe = function () {
-                    return { id: stop.id, world: { x: world.x, y: world.y, z: world.z }, screen: worldToScreen(world) };
-                  };
-                });
-            }
-
             fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
               .then(function (response) { return response.ok ? response.json() : null; })
               .then(function (tour) {
                 if (tour && tour.stops) {
                   tourStops = tour.stops;
+                  // If the fetch resolves after the first orbit has already run
+                  // past, the elapsed time can exceed the single-orbit cycle
+                  // used before stops existed. Fold it back into range so the
+                  // camera does not jump straight into a travel or hold leg.
+                  orbitElapsed %= TOUR_TIMING.orbitMs;
+
+                  if (probeStop) {
+                    const stop = tour.stops.filter(function (s) { return s.id === probeStop; })[0];
+                    if (stop) {
+                      const world = boardLocalToWorld(stop.x, stop.y);
+                      // Straight down on the stop, close enough to identify the part.
+                      state.tx = world.x;
+                      state.ty = world.y;
+                      state.tz = world.z;
+                      state.phi = 0.05;
+                      state.r = 26;
+                      updateCamera();
+                      window.__boardProbe = function () {
+                        return { id: stop.id, world: { x: world.x, y: world.y, z: world.z }, screen: worldToScreen(world) };
+                      };
+                    }
+                  }
                 }
               })
               .catch(function () {

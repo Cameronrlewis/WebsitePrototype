@@ -233,7 +233,7 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
 });
 
 test("tour stops land on the board where the BOM says they do", async ({ page }) => {
-  await page.goto(`${SHELL}?asset=control&mode=cinematic&probe=mcu`);
+  await page.goto(`${SHELL}?asset=control&mode=cinematic&probe=level-shift`);
   await waitForScene(page);
 
   const probe = await page
@@ -242,15 +242,39 @@ test("tour stops land on the board where the BOM says they do", async ({ page })
     })
     .then((handle) => handle.jsonValue() as Promise<{ id: string; world: { x: number; y: number; z: number } }>);
 
-  expect(probe.id).toBe("mcu");
+  expect(probe.id).toBe("level-shift");
 
-  // The STM32 sits near the middle of the control board, so its world position
-  // must be close to the recentred origin. A sign error in the y mapping would
-  // put it about 20mm away, and a failed join would put it at the origin
-  // exactly, so assert a band rather than a point.
-  const planar = Math.hypot(probe.world.x, probe.world.z);
-  expect(planar).toBeGreaterThan(1);
-  expect(planar).toBeLessThan(18);
+  // A y-sign error would put this at x = +25.455 instead of -25.455, so assert
+  // the signed component. Magnitude alone cannot catch it: hypot is invariant
+  // under the negation that a FLIP_Y error produces.
+  expect(probe.world.x).toBeCloseTo(-25.455, 1);
+  expect(probe.world.z).toBeCloseTo(-10.591, 1);
+});
+
+test("the shell's copy of the tour timeline matches the tested module", async ({ page }) => {
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  // The shell mirrors src/app/src/app/lib/tour-timeline.ts by hand. These are
+  // the same cases tests/tour-timeline.test.ts runs against the module, so the
+  // two copies cannot drift apart silently.
+  const timing = await page.evaluate(() => (window as unknown as { __tourTiming?: unknown }).__tourTiming);
+  expect(timing).toEqual({ orbitMs: 12000, travelMs: 1500, holdMs: 3000 });
+
+  const phases = await page.evaluate(() => {
+    const fn = (window as unknown as { __tourPhase?: (e: number, n: number, t: unknown) => unknown }).__tourPhase!;
+    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
+    return [0, 6000, 12750, 15000, 17250, 35250].map((ms) => fn(ms, 5, t));
+  });
+
+  expect(phases).toEqual([
+    { kind: "orbit", progress: 0 },
+    { kind: "orbit", progress: 0.5 },
+    { kind: "travel", from: -1, to: 0, progress: 0.5 },
+    { kind: "hold", stop: 0, progress: 0.5 },
+    { kind: "travel", from: 0, to: 1, progress: 0.5 },
+    { kind: "travel", from: 4, to: -1, progress: 0.5 },
+  ]);
 });
 
 test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
