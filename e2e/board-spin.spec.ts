@@ -115,10 +115,16 @@ test("the cinematic shell is inert, holds its curve, and obeys play and pause", 
   expect(middle.phi).toBeCloseTo(0.55, 5);
   expect(end.phi).toBeCloseTo(1.25, 5);
 
-  // radiusScale is 1.35 at the ends and 1.0 at the midpoint. maxDimension is
-  // not exposed, so pin the ratio, which depends only on those two constants.
+  // radiusScale is 1.35 at the ends and 1.0 at the midpoint, with a breathing
+  // term of sin(4*pi*t)*0.08 on top. That term is 0 at t = 0, 0.5 and 1, so
+  // these three sample points still see the base curve exactly.
   expect(start.r / middle.r).toBeCloseTo(1.35 / 1.0, 4);
   expect(end.r).toBeCloseTo(start.r, 4);
+
+  // But it must actually breathe in between, or the term was dropped.
+  await post(page, { type: "spin", progress: 0.125 });
+  const quarter = (await readCameraState(page))!;
+  expect(quarter.r / start.r).toBeLessThan((1.35 - 0.08) / 1.35 + 0.001);
 
   // phi must stay inside the shell's own polar clamp or the camera flips.
   for (const pose of [start, middle, end]) {
