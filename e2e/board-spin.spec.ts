@@ -253,6 +253,47 @@ test("tour stops land on the board where the BOM says they do", async ({ page })
   expect(planar).toBeLessThan(18);
 });
 
+test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=control&mode=cinematic`);
+  await waitForScene(page);
+
+  const readTour = () =>
+    page.evaluate(
+      () => (window as unknown as { __boardTour?: () => { phase: string; stop: number; label: string | null } }).__boardTour?.(),
+    );
+
+  // Nothing runs until play, so the tour starts in its orbit phase.
+  expect((await readTour())?.phase).toBe("orbit");
+
+  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
+
+  // The first stop is the STM32, and its label must appear while the camera
+  // holds on it. The orbit leg is 12s, so allow for it plus the travel.
+  await expect.poll(async () => (await readTour())?.label, { timeout: 45_000 }).toBe("STM32G474");
+  await expect(page.locator("#stop-label")).toHaveClass(/visible/);
+  await expect(page.locator("#stop-title")).toHaveText("STM32G474");
+
+  // Pausing must clear the label rather than leave it stranded.
+  await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));
+  await expect(page.locator("#stop-label")).not.toHaveClass(/visible/);
+});
+
+test("a board with no tour file just orbits", async ({ page }) => {
+  // Only the control board has a tour. The power board must not error.
+  const failures: string[] = [];
+  page.on("pageerror", (error) => failures.push(error.message));
+
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  const tour = await page.evaluate(
+    () => (window as unknown as { __boardTour?: () => { phase: string; stop: number } }).__boardTour?.(),
+  );
+  expect(tour?.phase).toBe("orbit");
+  expect(tour?.stop).toBe(-1);
+  expect(failures).toEqual([]);
+});
+
 // The last two load no WebGL scene at all, which is why they stay separate:
 // they assert what happens BEFORE the iframe is ever mounted.
 

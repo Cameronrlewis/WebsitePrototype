@@ -61,6 +61,58 @@
         font: inherit;
       }
 
+      .stop-label {
+        position: fixed;
+        z-index: 3;
+        max-width: 19rem;
+        padding: 10px 14px;
+        border-radius: 14px;
+        background: rgba(15, 18, 32, 0.86);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        color: rgba(255, 255, 255, 0.92);
+        opacity: 0;
+        transition: opacity 260ms ease;
+        pointer-events: none;
+        transform: translate(-50%, calc(-100% - 18px));
+      }
+
+      .stop-label.visible {
+        opacity: 1;
+      }
+
+      .stop-label b {
+        display: block;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+
+      .stop-label span {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      .stop-dot {
+        position: fixed;
+        z-index: 2;
+        width: 10px;
+        height: 10px;
+        margin: -5px 0 0 -5px;
+        border-radius: 999px;
+        background: #ff6b35;
+        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
+        opacity: 0;
+        transition: opacity 260ms ease;
+        pointer-events: none;
+      }
+
+      .stop-dot.visible {
+        opacity: 1;
+      }
+
       .error {
         position: fixed;
         inset: 0;
@@ -105,6 +157,8 @@
       <span><kbd>Scroll</kbd> Zoom</span>
       <span><kbd>Right drag</kbd> Pan</span>
     </div>
+    <div class="stop-dot" id="stop-dot"></div>
+    <div class="stop-label" id="stop-label"><b id="stop-title"></b><span id="stop-blurb"></span></div>
     <div class="error" id="error">
       <div class="error-card">
         <h1>3D viewer could not be initialized</h1>
@@ -124,6 +178,10 @@
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
         const errorMessageEl = document.getElementById("error-message");
+        const stopDot = document.getElementById("stop-dot");
+        const stopLabel = document.getElementById("stop-label");
+        const stopTitle = document.getElementById("stop-title");
+        const stopBlurb = document.getElementById("stop-blurb");
 
         let renderer;
         let scene;
@@ -333,9 +391,35 @@
           renderStopLabel(phase);
         }
 
-        // Task 4 replaces this stub with the real label renderer. It exists now
-        // so applyTour is callable before the overlay is built.
-        function renderStopLabel() {}
+        /**
+         * The label is anchored to the part itself, so it has to be reprojected
+         * every frame while the camera is moving. It fades in only during the
+         * hold, which is when the camera is still enough to read it.
+         */
+        function renderStopLabel(phase) {
+          const holding = phase.kind === "hold";
+          const index = holding ? phase.stop : -1;
+          const stop = index >= 0 ? tourStops[index] : null;
+
+          if (!stop) {
+            stopDot.classList.remove("visible");
+            stopLabel.classList.remove("visible");
+            return;
+          }
+
+          if (stopTitle.textContent !== stop.label) {
+            stopTitle.textContent = stop.label;
+            stopBlurb.textContent = stop.blurb;
+          }
+
+          const screen = worldToScreen(boardLocalToWorld(stop.x, stop.y));
+          stopDot.style.left = screen.x + "px";
+          stopDot.style.top = screen.y + "px";
+          stopLabel.style.left = screen.x + "px";
+          stopLabel.style.top = screen.y + "px";
+          stopDot.classList.add("visible");
+          stopLabel.classList.add("visible");
+        }
 
         window.__boardTour = function () {
           const phase = tourPhaseNow;
@@ -417,6 +501,9 @@
             cancelAnimationFrame(orbitFrame);
             orbitFrame = 0;
           }
+
+          stopDot.classList.remove("visible");
+          stopLabel.classList.remove("visible");
         }
 
         function toggleWireframe() {
