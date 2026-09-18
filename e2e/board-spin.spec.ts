@@ -41,10 +41,42 @@ function post(target: Page | Frame, message: Record<string, unknown>) {
   return target.evaluate((value) => window.postMessage(value, window.location.origin), message);
 }
 
+/**
+ * Waits for the scene, and fails fast with the real reason when it cannot
+ * build. The shell surfaces a failure in its error card and never sets
+ * __boardViewerState, so polling for state alone burns the whole timeout and
+ * reports nothing useful. That is exactly what happens on a runner with no
+ * working WebGL, where the shell correctly reports
+ * "Error creating WebGL context." and this used to look like a mystery hang.
+ */
 async function waitForScene(target: Page | Frame) {
-  await expect
-    .poll(async () => Boolean(await readCameraState(target)), { timeout: 60_000 })
-    .toBe(true);
+  const readFailure = () =>
+    target.evaluate(() => {
+      const card = document.getElementById("error");
+      if (!card || !card.classList.contains("visible")) {
+        return null;
+      }
+
+      return document.getElementById("error-message")?.textContent?.trim() || "unknown viewer error";
+    });
+
+  // expect.poll would keep retrying a failed viewer until the timeout, so this
+  // loops by hand in order to throw the moment the error card appears.
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const failure = await readFailure();
+    if (failure) {
+      throw new Error(`Board viewer failed to initialise: ${failure}`);
+    }
+
+    if (await readCameraState(target)) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error("Board viewer never became ready within 60s, and reported no error.");
 }
 
 function cinematicFrame(page: Page) {
