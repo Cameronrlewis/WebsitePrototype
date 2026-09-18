@@ -226,6 +226,27 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
   await context.close();
 });
 
+test("tour stops land on the board where the BOM says they do", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=control&mode=cinematic&probe=mcu`);
+  await waitForScene(page);
+
+  const probe = await page
+    .waitForFunction(() => (window as unknown as { __boardProbe?: () => unknown }).__boardProbe?.(), null, {
+      timeout: 30_000,
+    })
+    .then((handle) => handle.jsonValue() as Promise<{ id: string; world: { x: number; y: number; z: number } }>);
+
+  expect(probe.id).toBe("mcu");
+
+  // The STM32 sits near the middle of the control board, so its world position
+  // must be close to the recentred origin. A sign error in the y mapping would
+  // put it about 20mm away, and a failed join would put it at the origin
+  // exactly, so assert a band rather than a point.
+  const planar = Math.hypot(probe.world.x, probe.world.z);
+  expect(planar).toBeGreaterThan(1);
+  expect(planar).toBeLessThan(18);
+});
+
 // The last two load no WebGL scene at all, which is why they stay separate:
 // they assert what happens BEFORE the iframe is ever mounted.
 

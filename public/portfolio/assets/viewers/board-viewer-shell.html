@@ -119,6 +119,7 @@
         const assetParam = params.get("asset");
         const asset = assetParam === "control" || assetParam === "brick" ? assetParam : "power";
         const cinematic = params.get("mode") === "cinematic";
+        const probeStop = params.get("probe");
         const mount = document.getElementById("viewer");
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
@@ -213,6 +214,24 @@
         function renderFrame() {
           resize();
           renderer.render(scene, camera);
+        }
+
+        /**
+         * Board-local millimetres to world space. The group carries a -90 degree
+         * x rotation, sometimes a z rotation, and a recentring offset, so let
+         * Three apply the matrix rather than reimplementing it here.
+         */
+        function boardLocalToWorld(x, y) {
+          return boardGroup.localToWorld(new THREE.Vector3(x, y, 0));
+        }
+
+        /** Projects a world point to canvas pixels, for label placement. */
+        function worldToScreen(point) {
+          const projected = point.clone().project(camera);
+          return {
+            x: (projected.x * 0.5 + 0.5) * mount.clientWidth,
+            y: (-projected.y * 0.5 + 0.5) * mount.clientHeight,
+          };
         }
 
         /**
@@ -570,6 +589,30 @@
             hint.style.display = "none";
             renderer.domElement.style.cursor = "default";
             applySpin(0);
+
+            if (probeStop) {
+              fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
+                .then(function (response) { return response.json(); })
+                .then(function (tour) {
+                  const stop = tour.stops.filter(function (s) { return s.id === probeStop; })[0];
+                  if (!stop) {
+                    return;
+                  }
+
+                  const world = boardLocalToWorld(stop.x, stop.y);
+                  // Straight down on the stop, close enough to identify the part.
+                  state.tx = world.x;
+                  state.ty = world.y;
+                  state.tz = world.z;
+                  state.phi = 0.05;
+                  state.r = 26;
+                  updateCamera();
+                  window.__boardProbe = function () {
+                    return { id: stop.id, world: { x: world.x, y: world.y, z: world.z }, screen: worldToScreen(world) };
+                  };
+                });
+            }
+
             renderFrame();
           } else {
             bindControls(renderer.domElement);
