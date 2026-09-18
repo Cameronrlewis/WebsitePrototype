@@ -61,4 +61,14 @@ describe("résumé assets", () => {
     expect(existsSync(previewPath)).toBe(true);
     expect(webpSize(previewPath)).toEqual({ width: 1700, height: 2200 });
   });
+
+  // ResumeViewer renders a static raster specifically so pdfjs-dist can stay
+  // removed (a 362.3 KB lazy chunk); nothing else would notice its return,
+  // since a re-added pdfjs gets inlined into the hash-named viewer chunk
+  // rather than producing a pdfjs-named network request the e2e spec filters.
+  it("does not reintroduce pdfjs-dist", () => {
+    const pkg = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+    expect(pkg.dependencies).not.toHaveProperty("pdfjs-dist");
+    expect(pkg.devDependencies).not.toHaveProperty("pdfjs-dist");
+  });
 });

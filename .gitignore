@@ -9,6 +9,7 @@ node-local
 .env.*
 !.env.example
 .claude/
+__pycache__/
 
 # generated artifacts
 graphify-out/

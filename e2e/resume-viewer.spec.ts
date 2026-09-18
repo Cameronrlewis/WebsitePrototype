@@ -53,3 +53,20 @@ test("resume viewer loads no PDF.js worker", async ({ page }) => {
 
   expect(pdfjsRequests).toEqual([]);
 });
+
+test("resume viewer shows a fallback with a download link when the preview image fails to load", async ({ page }) => {
+  await page.route(/resume-preview-page-1\.webp/, (route) => route.abort());
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Resume" }).first().click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal).toBeVisible();
+  await expect(modal.getByText("The resume preview could not be loaded.")).toBeVisible();
+
+  const fallbackDownload = modal.getByRole("link", { name: "Download resume" });
+  await expect(fallbackDownload).toHaveAttribute(
+    "href",
+    /\/portfolio\/assets\/documents\/resume\/cameron-lewis-resume\.pdf$/,
+  );
+});

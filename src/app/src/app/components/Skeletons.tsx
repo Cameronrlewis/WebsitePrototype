@@ -375,7 +375,6 @@ export function ResumeViewerSkeleton({ onDismiss }: { onDismiss?: () => void } =
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--outline-soft)] px-6 py-4 pr-18 sm:pr-20">
           <div className="min-w-0 space-y-2">
             <Skeleton className="rounded-full h-5 w-56" />
-            <Skeleton className="rounded-full h-3.5 w-72" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {[104, 116].map((width, index) => (
@@ -385,7 +384,7 @@ export function ResumeViewerSkeleton({ onDismiss }: { onDismiss?: () => void } =
         </div>
 
         <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden bg-[var(--surface-4)] p-6">
-          <DocumentPageSkeleton className="max-w-2xl" />
+          <DocumentPageSkeleton className="max-w-5xl" />
         </div>
       </div>
     </div>

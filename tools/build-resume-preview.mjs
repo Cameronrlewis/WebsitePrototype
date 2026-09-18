@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// Regenerates the résumé preview raster from a PDF.
+// Installs a freshly compiled résumé PDF and regenerates its preview raster.
 //
-// Guard first, render second: ResumeViewer renders ONLY page 1 as a static
+// Guard first, install second: ResumeViewer renders ONLY page 1 as a static
 // image, so a two-page résumé would silently lose a page on the site. This
-// refuses to build in that case and tells you what to do about it.
+// refuses to run in that case and tells you what to do about it. Only after
+// the page-1 raster has rendered does it copy the source PDF into public/,
+// which is the only way that file is meant to reach the repo.
 //
 // Usage: node tools/build-resume-preview.mjs /path/to/cameron-lewis-resume.pdf
 
@@ -14,6 +16,7 @@ import path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const ORIGINAL = path.join(repoRoot, "assets-src/media-originals/resume-preview-page-1.png");
+const INSTALLED_PDF = path.join(repoRoot, "public/portfolio/assets/documents/resume/cameron-lewis-resume.pdf");
 const DPI = 200; // 8.5x11in @ 200dpi = exactly 1700x2200, matching the shipped asset
 
 const pdfPath = process.argv[2];
@@ -68,3 +71,12 @@ img.resize((round(w*scale), round(h*scale)), Image.LANCZOS).save(
 print('wrote', out)
 `;
 execFileSync("python3", ["-c", py], { cwd: repoRoot, stdio: "inherit" });
+
+// Install the source PDF only after the preview above has rendered successfully,
+// so a failed render never leaves a new PDF committed against a stale raster.
+if (path.resolve(pdfPath) === INSTALLED_PDF) {
+  console.log(`${path.relative(repoRoot, INSTALLED_PDF)} is already the source; skipping copy`);
+} else {
+  copyFileSync(pdfPath, INSTALLED_PDF);
+  console.log(`wrote ${path.relative(repoRoot, INSTALLED_PDF)}`);
+}
