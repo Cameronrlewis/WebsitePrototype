@@ -268,7 +268,6 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         <BoardShowcase
           asset={featuredBoardProjects[0].viewerAsset ?? "power"}
           title={featuredBoardProjects[0].title}
-          caption="Loops while on screen and pauses when it scrolls away. Open any board card for the full interactive viewer."
         />
       ) : null}
 

@@ -5,7 +5,6 @@ import { BoardViewerSkeleton, FORCE_SKELETONS } from "./Skeletons";
 interface BoardShowcaseProps {
   asset: "power" | "control" | "brick";
   title: string;
-  caption: string;
 }
 
 /**
@@ -19,7 +18,7 @@ interface BoardShowcaseProps {
  * renders frames between `play` and `pause`, so once the block scrolls away the
  * second WebGL context costs nothing until it comes back.
  */
-export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
+export function BoardShowcase({ asset, title }: BoardShowcaseProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -152,7 +151,6 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(12,12,20,0.94)] via-[rgba(12,12,20,0.6)] to-transparent px-6 pb-5 pt-14">
         <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-white/45">In motion</p>
         <p className="mt-1 font-display text-lg text-white">{title}</p>
-        <p className="mt-1 max-w-xl text-sm text-white/60">{caption}</p>
       </div>
     </div>
   );
