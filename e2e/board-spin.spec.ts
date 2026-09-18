@@ -290,6 +290,39 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
 
   await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
 
+  // Pin the short-arc camera blend (blendPose in board-viewer-shell.html):
+  // without wrapping the heading delta into [-pi, pi], the first travel leg
+  // (elapsed 12000-13500ms, orbit end into stop 0) sweeps nearly a full
+  // revolution instead of the short way round. Poll frequently and
+  // accumulate the absolute per-sample delta rather than just diffing start
+  // and end, so a real ~6 rad sweep cannot hide between two samples. This
+  // rides on the same play() call and page load as the label assertion
+  // below, so it costs no extra scene.
+  const sweptAngle = await page.evaluate(() => {
+    return new Promise<number>((resolve) => {
+      const getTour = (window as unknown as { __boardTour: () => { phase: string } }).__boardTour;
+      const getState = () => (window as unknown as { __boardViewerState: { theta: number } }).__boardViewerState;
+      let total = 0;
+      let previous: number | null = null;
+      let sawTravel = false;
+      const timer = setInterval(() => {
+        const phase = getTour().phase;
+        if (phase === "travel") {
+          sawTravel = true;
+          const theta = getState().theta;
+          if (previous !== null) {
+            total += Math.abs(theta - previous);
+          }
+          previous = theta;
+        } else if (sawTravel) {
+          clearInterval(timer);
+          resolve(total);
+        }
+      }, 20);
+    });
+  });
+  expect(sweptAngle).toBeLessThan(Math.PI);
+
   // The first stop is the STM32, and its label must appear while the camera
   // holds on it. The orbit leg is 12s, so allow for it plus the travel.
   await expect.poll(async () => (await readTour())?.label, { timeout: 45_000 }).toBe("STM32G474");
