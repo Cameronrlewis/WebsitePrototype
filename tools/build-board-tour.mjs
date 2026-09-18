@@ -57,17 +57,17 @@ async function build(asset) {
   const stops = source.stops.map((stop) => {
     const { pos, span } = stopCenter(stop.refs, footprints);
     const local = toBoardLocal(pos, edges, FLIP_Y);
-    return { id: stop.id, label: stop.label, blurb: stop.blurb, refs: stop.refs, x: local.x, y: local.y, span };
+    return { id: stop.id, label: stop.label, blurb: stop.blurb, x: local.x, y: local.y, span };
   });
 
   const outDir = path.join(root, "public/portfolio/assets/viewers/tours");
   await mkdir(outDir, { recursive: true });
   const outPath = path.join(outDir, `${asset}.tour.json`);
-  await writeFile(outPath, `${JSON.stringify({ asset, flipY: FLIP_Y, stops }, null, 2)}\n`, "utf8");
+  await writeFile(outPath, `${JSON.stringify({ asset, stops }, null, 2)}\n`, "utf8");
 
   console.log(`wrote ${path.relative(root, outPath)}: ${stops.length} stops`);
   for (const stop of stops) {
-    console.log(`  ${stop.id.padEnd(12)} ${stop.refs.join("+").padEnd(8)} x=${stop.x} y=${stop.y} span=${stop.span}`);
+    console.log(`  ${stop.id.padEnd(12)} x=${stop.x} y=${stop.y} span=${stop.span}`);
   }
 }
 
