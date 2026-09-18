@@ -34,7 +34,6 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
             <div className="min-w-0">
               <DialogTitle className="text-xl text-[var(--text-strong)]">Cameron Lewis - Resume</DialogTitle>
               <DialogDescription className="sr-only">Preview of the resume, with links to download or open the PDF.</DialogDescription>
-              <p className="mt-1 text-sm text-[var(--text-soft)]">One page. Open the PDF for selectable text.</p>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">
               <Button
