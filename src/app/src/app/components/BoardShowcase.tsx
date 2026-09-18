@@ -13,11 +13,11 @@ interface BoardShowcaseProps {
  * a looping clip would. It reuses the modal viewer's iframe shell in
  * `mode=cinematic`, so no geometry, renderer, or dependency is duplicated.
  *
- * Two things are gated on visibility rather than left running. The geometry
- * payload is between 1MB and 4MB, so the iframe is not mounted until the block
- * is close to the viewport. And the shell only renders frames between `play`
- * and `pause`, so once the block scrolls away the second WebGL context costs
- * nothing until it comes back.
+ * Two things are gated rather than left running. The geometry payload runs from
+ * roughly 1MB to 4MB depending on the board, so the iframe is not mounted until
+ * the block is near the viewport and the browser is idle. And the shell only
+ * renders frames between `play` and `pause`, so once the block scrolls away the
+ * second WebGL context costs nothing until it comes back.
  */
 export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -38,9 +38,9 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
     }
 
     // The block sits high on the page, so it is usually already on screen at
-    // first paint. Mounting straight away would put a multi-megabyte geometry
-    // fetch in front of the hero, so the mount waits for the browser to go
-    // idle. Visibility tracking is not deferred: only the fetch is.
+    // first paint. Mounting straight away would put the geometry fetch in front
+    // of the hero, so the mount waits for the browser to go idle. Visibility
+    // tracking is not deferred: only the fetch is.
     let idle = 0;
     const mountWhenIdle = () => {
       if (idle) {
@@ -63,7 +63,16 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
     );
 
     observer.observe(wrapper);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (idle) {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(idle);
+        } else {
+          window.clearTimeout(idle);
+        }
+      }
+    };
   }, []);
 
   // Same handshake the modal viewer uses: hold the skeleton until the shell has

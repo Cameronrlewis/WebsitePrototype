@@ -213,6 +213,14 @@
           renderer.render(scene, camera);
         }
 
+        // Nothing else will redraw a cinematic canvas whose orbit is paused, so
+        // any command that moves the camera has to paint its own result.
+        function redrawIfIdle() {
+          if (cinematic && !playing) {
+            renderFrame();
+          }
+        }
+
         /**
          * Interactive mode redraws forever because a drag can move the camera
          * at any moment. Cinematic mode draws only while its orbit is playing,
@@ -581,10 +589,13 @@
 
           if (event.data.type === "reset") {
             resetView();
+            redrawIfIdle();
           } else if (event.data.type === "top") {
             topView();
+            redrawIfIdle();
           } else if (event.data.type === "wireframe") {
             toggleWireframe();
+            redrawIfIdle();
           } else if (event.data.type === "spin") {
             if (cinematic && typeof event.data.progress === "number" && Number.isFinite(event.data.progress)) {
               pauseOrbit();

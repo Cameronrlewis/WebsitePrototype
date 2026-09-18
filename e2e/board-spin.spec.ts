@@ -206,25 +206,18 @@ test("a short viewport does not fetch geometry until the block is scrolled to", 
   await expect.poll(() => requested, { timeout: 30_000 }).toBe(1);
 });
 
-test("a tall viewport paints the hero before fetching the geometry", async ({ page }) => {
+test("a tall viewport defers the mount past load so the hero paints first", async ({ page }) => {
   // Here the block IS on screen at first paint, so the only thing standing
-  // between the hero and a multi-megabyte fetch is the idle gate. Use a passive
-  // request listener: doing page work inside a route handler deadlocks, because
-  // the page is blocked on the very request being handled.
+  // between the hero and the geometry fetch is the idle gate. Assert the gate
+  // directly: the iframe must not be in the DOM yet when load fires. Checking
+  // only that the fetch lands after the hero would pass without any gate at
+  // all, purely from React effect ordering.
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  let geometryAt = 0;
-  page.on("request", (request) => {
-    if (!geometryAt && request.url().includes(".pcbgeo")) {
-      geometryAt = Date.now();
-    }
-  });
-
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "load" });
   await expect(page.locator("h1").first()).toBeVisible();
-  const heroAt = Date.now();
+  expect(await page.locator("[data-board-showcase] iframe").count()).toBe(0);
 
-  // It still loads promptly once the browser goes idle, just not before.
-  await expect.poll(() => geometryAt, { timeout: 30_000 }).toBeGreaterThan(0);
-  expect(geometryAt).toBeGreaterThanOrEqual(heroAt);
+  // It still mounts promptly once the browser goes idle, just not before.
+  await expect(page.locator("[data-board-showcase] iframe")).toHaveCount(1, { timeout: 30_000 });
 });
