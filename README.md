@@ -88,7 +88,7 @@ tools/
   build-brick-geometry.mjs      Brick Buck board geometry source build
   build-favicon-ico.mjs         Packs PNG icons into favicon.ico
   build-logo-light-variants.py  Generates light-theme logo variants
-  build-resume-preview.mjs      Renders resume page 1 to the preview raster
+  build-resume-preview.mjs      Installs a resume PDF and renders its page-1 preview raster
   debug-vrml.mjs                VRML inspection helper
   flatten-vrml.mjs              VRML flattening helper
   optimize-media.py             Downscales and re-encodes project media

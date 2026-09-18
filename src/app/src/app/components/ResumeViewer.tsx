@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, ExternalLink } from "lucide-react";
 
 import { documents } from "../data/portfolio";
@@ -17,14 +17,6 @@ interface ResumeViewerProps {
 // which is what keeps this approach honest if the résumé ever grows.
 export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
   const [loadError, setLoadError] = useState(false);
-
-  // Layout.tsx unmounts this component when the viewer closes, but it also
-  // supports open=false, so reset the error state on close either way.
-  useEffect(() => {
-    if (!open) {
-      setLoadError(false);
-    }
-  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,7 +73,7 @@ export function ResumeViewer({ open, onOpenChange }: ResumeViewerProps) {
                   width={1700}
                   height={2200}
                   decoding="async"
-                  className="h-auto w-full max-w-3xl rounded-[1rem] bg-white shadow-[var(--shadow-strong)]"
+                  className="h-auto w-full max-w-5xl rounded-[1rem] bg-white shadow-[var(--shadow-strong)]"
                   onError={() => setLoadError(true)}
                 />
               </div>
