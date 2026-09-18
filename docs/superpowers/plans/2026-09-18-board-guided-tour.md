@@ -45,7 +45,8 @@ These were measured against the real files. Use them; do not re-derive them.
 - `control.pcbgeo` decodes to a bounding box of x `-31 .. 32.284`, y `-37.25 .. 37.25`, z `-4.3 .. 13.6` in millimetres. The y half-span of 37.25 matches the IBOM's y half-span of 37.275 to within 0.025mm, and the x minimum of -31 matches -31.025. The x maximum is larger because a connector overhangs the board outline.
 - Therefore a footprint at IBOM `(px, py)` sits at board-local `(px - 104.0, ±(py - 88.25), 0)`. **The sign of the y term is unverified** and Task 2 determines it empirically rather than assuming.
 - The shell builds `boardGroup` with `rotation.x = -Math.PI / 2`, plus `rotation.z = -Math.PI / 2` when the asset is `control`, and then recentres it with `boardGroup.position.sub(center)`. Do not reimplement that transform: call `boardGroup.localToWorld(...)` and let Three apply it.
-- Relevant control board parts, confirmed from the IBOM: `U4` STM32G474RETx (LQFP-64) at `102.4, 78.3`; `U2` TLV76733DRVR at `128.2, 80.0`; `U5` SN65HVD230 at `92.2, 89.5`; `Q3`/`Q4` 2N7002 at `94.1, 115.7` and `94.1, 111.7`; `U3` CP2104 at `114.6, 104.4`.
+- Relevant control board parts, confirmed from the IBOM: `U4` STM32G474RETx (LQFP-64); `U2` TLV76733DRVR; `U5` SN65HVD230; `Q3`/`Q4` 2N7002; `U3` CP2104.
+- **Positions in this document are rounded for reading and are not the live values.** The IBOM stores full precision, for example `U4` is at `[102.41, 78.325]` with size `[13.45, 13.45]`, not `102.4, 78.3, 13.4`. Never assert a generated coordinate against a rounded figure quoted in prose; read it from the BOM.
 
 ---
 
@@ -152,6 +153,8 @@ describe("toBoardLocal", () => {
 });
 
 describe("stopCenter", () => {
+  // Synthetic fixtures with rounded numbers. These exercise the arithmetic and
+  // are deliberately NOT the live BOM values, which carry more precision.
   const footprints = [
     { ref: "Q3", bbox: { pos: [94.1, 115.7], size: [3.9, 3.5] } },
     { ref: "Q4", bbox: { pos: [94.1, 111.7], size: [3.9, 3.5] } },
@@ -375,7 +378,7 @@ In `package.json`, add to `"scripts"`, keeping alphabetical order alongside the 
 Run: `npx pnpm@10.17.1 build:tour control`
 Expected: `wrote public/portfolio/assets/viewers/tours/control.tour.json: 5 stops`, and a line per stop.
 
-Confirm against the established facts above: `mcu` must print `x=-1.6 y=9.95 span=13.4`. If it does not, the join is wrong; do not continue.
+Confirm against the live BOM: `mcu` must print `x=-1.59 y=9.925 span=13.45`. These come from `U4` at `[102.41, 78.325]`, size `[13.45, 13.45]`, against an outline centre of `(104, 88.25)`. If it does not match, the join is wrong; do not continue.
 
 - [ ] **Step 11: Commit**
 
