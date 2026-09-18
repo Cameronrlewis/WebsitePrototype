@@ -8,9 +8,15 @@ import {
 import { OrganizationAvatar } from "./OrganizationAvatar";
 import { SkeletonImage } from "./Skeletons";
 import { useTheme } from "./ThemeProvider";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
+
+// The two hero badges are the only badges in the app, and both override every
+// colour anyway, so they carry their shared shape here instead of through a
+// variant component.
+const badgeClass =
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium";
+
 interface ProjectModalProps {
   project: ProjectRecord | null;
   open: boolean;
@@ -85,11 +91,11 @@ export function ProjectModal({
                 <div className="absolute inset-0 bg-gradient-to-t from-[#11131e]/55 via-transparent to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge className="border-primary/10 bg-primary text-primary-foreground">{project.category}</Badge>
+                    <span className={`${badgeClass} border-primary/10 bg-primary text-primary-foreground`}>{project.category}</span>
                     {project.status ? (
-                      <Badge className="border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-body)]">
+                      <span className={`${badgeClass} border-[color:var(--outline-soft)] bg-[var(--surface-1)] text-[var(--text-body)]`}>
                         {project.status === "in-progress" ? "In Progress" : "Completed"}
-                      </Badge>
+                      </span>
                     ) : null}
                   </div>
                 </div>
