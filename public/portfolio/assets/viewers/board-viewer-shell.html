@@ -553,6 +553,11 @@
           };
           state = Object.assign({}, defaults);
           window.__boardViewerState = state;
+          // Lets e2e assert the play/pause state machine directly. Frame rate
+          // is not a contract: a software renderer may deliver very few frames.
+          window.__boardViewerOrbit = function () {
+            return { playing: playing, elapsed: orbitElapsed };
+          };
           updateCamera();
           resize();
           if (cinematic) {
