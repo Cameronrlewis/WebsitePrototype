@@ -81,10 +81,6 @@
         opacity: 1;
       }
 
-      .stop-label.below {
-        transform: translate(-50%, 18px);
-      }
-
       .stop-label b {
         display: block;
         font-size: 13px;
@@ -436,15 +432,6 @@
           stopLabel.style.top = screen.y + "px";
           stopDot.classList.add("visible");
           stopLabel.classList.add("visible");
-
-          // Anchored above the dot by default, but that covers the part when
-          // it sits in the upper half of the frame, so drop the card below the
-          // dot there instead.
-          if (screen.y < mountHeight / 2) {
-            stopLabel.classList.add("below");
-          } else {
-            stopLabel.classList.remove("below");
-          }
         }
 
         window.__boardTour = function () {
