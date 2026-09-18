@@ -61,3 +61,72 @@ test("the interactive viewer still accepts drag when the mode parameter is absen
 
   expect(after?.theta).not.toBeCloseTo(before!.theta, 3);
 });
+
+const GEOMETRY = "**/portfolio/assets/viewers/geometry/*.pcbgeo";
+
+test("the showcase does not fetch geometry until it is near the viewport", async ({ page }) => {
+  let requested = 0;
+  await page.route(GEOMETRY, async (route) => {
+    requested += 1;
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await expect(page.locator("main")).toBeVisible();
+  // Give the page room to settle before asserting the negative.
+  await page.waitForTimeout(1500);
+  expect(requested).toBe(0);
+
+  await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
+  await expect.poll(() => requested, { timeout: 30_000 }).toBe(1);
+});
+
+test("scrolling the showcase past the viewport turns the board", async ({ page }) => {
+  await page.goto("/");
+
+  const showcase = page.locator("[data-board-showcase='power']");
+  await showcase.scrollIntoViewIfNeeded();
+
+  const viewer = page.frameLocator("[data-board-showcase] iframe");
+  await expect(viewer.locator("#viewer canvas")).toBeAttached({ timeout: 30_000 });
+
+  const frame = page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
+  expect(frame).toBeTruthy();
+
+  const readTheta = async () =>
+    (await frame!.evaluate(() => (window as unknown as { __boardViewerState?: { theta: number } }).__boardViewerState?.theta)) ?? Number.NaN;
+
+  await expect.poll(async () => Number.isFinite(await readTheta()), { timeout: 30_000 }).toBe(true);
+  const before = await readTheta();
+
+  // The portfolio scrolls inside <main>, and page.mouse.wheel dispatches at the
+  // current mouse position, which defaults to (0, 0) over the Sidebar (which
+  // does not scroll). Move over the scrollable content first.
+  await page.mouse.move(700, 400);
+  await page.mouse.wheel(0, 2400);
+  await expect.poll(async () => Math.abs((await readTheta()) - before), { timeout: 10_000 }).toBeGreaterThan(0.2);
+});
+
+test("reduced motion holds the board on a single pose", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await context.newPage();
+  await page.goto("/");
+
+  await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
+  const viewer = page.frameLocator("[data-board-showcase] iframe");
+  await expect(viewer.locator("#viewer canvas")).toBeAttached({ timeout: 30_000 });
+
+  const frame = page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
+  const readTheta = async () =>
+    (await frame!.evaluate(() => (window as unknown as { __boardViewerState?: { theta: number } }).__boardViewerState?.theta)) ?? Number.NaN;
+
+  await expect.poll(async () => Number.isFinite(await readTheta()), { timeout: 30_000 }).toBe(true);
+  const before = await readTheta();
+
+  await page.mouse.move(700, 400);
+  await page.mouse.wheel(0, 2400);
+  await page.waitForTimeout(800);
+  expect(await readTheta()).toBeCloseTo(before, 5);
+
+  await context.close();
+});
