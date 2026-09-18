@@ -134,6 +134,11 @@
         let wireframe = false;
         let drag = null;
         let touch = null;
+        let playing = false;
+        let orbitFrame = 0;
+        let orbitElapsed = 0;
+        let orbitLast = 0;
+        const ORBIT_DURATION_MS = 12000;
 
         function showError(message) {
           errorMessageEl.textContent = message;
@@ -177,9 +182,10 @@
         }
 
         /**
-         * Mirror of src/app/src/app/lib/board-spin.ts. This file is a plain
-         * script with no module loader, so the curve is duplicated on purpose;
-         * change both together.
+         * The cinematic camera path, and the only copy of it. One full
+         * revolution, diving low and close through the midpoint: `dive` is 0 at
+         * both ends and 1 in the middle. e2e/board-spin.spec.ts pins these exact
+         * constants, so a change here fails there on purpose.
          */
         function spinPose(progress) {
           const t = Math.min(1, Math.max(0, progress));
@@ -187,7 +193,7 @@
           return {
             theta: -0.5 + t * Math.PI * 2,
             phi: 1.25 - dive * 0.7,
-            radiusScale: 1.7 - dive * 0.45,
+            radiusScale: 1.35 - dive * 0.35,
           };
         }
 
@@ -200,6 +206,53 @@
           state.ty = 0;
           state.tz = 0;
           updateCamera();
+        }
+
+        function renderFrame() {
+          resize();
+          renderer.render(scene, camera);
+        }
+
+        /**
+         * Interactive mode redraws forever because a drag can move the camera
+         * at any moment. Cinematic mode draws only while its orbit is playing,
+         * so a showcase that has scrolled out of view costs nothing at all.
+         */
+        function interactiveLoop() {
+          requestAnimationFrame(interactiveLoop);
+          renderFrame();
+        }
+
+        function orbitLoop(now) {
+          if (!playing) {
+            return;
+          }
+
+          orbitElapsed += now - orbitLast;
+          orbitLast = now;
+          applySpin((orbitElapsed % ORBIT_DURATION_MS) / ORBIT_DURATION_MS);
+          renderFrame();
+          orbitFrame = requestAnimationFrame(orbitLoop);
+        }
+
+        // Resuming picks the orbit up where it paused rather than snapping back
+        // to the start, so a board that scrolls away and returns looks continuous.
+        function playOrbit() {
+          if (playing || !cinematic) {
+            return;
+          }
+
+          playing = true;
+          orbitLast = performance.now();
+          orbitFrame = requestAnimationFrame(orbitLoop);
+        }
+
+        function pauseOrbit() {
+          playing = false;
+          if (orbitFrame) {
+            cancelAnimationFrame(orbitFrame);
+            orbitFrame = 0;
+          }
         }
 
         function toggleWireframe() {
@@ -498,17 +551,11 @@
             hint.style.display = "none";
             renderer.domElement.style.cursor = "default";
             applySpin(0);
+            renderFrame();
           } else {
             bindControls(renderer.domElement);
+            interactiveLoop();
           }
-
-          function animate() {
-            requestAnimationFrame(animate);
-            resize();
-            renderer.render(scene, camera);
-          }
-
-          animate();
 
           notifyHost("viewer-ready");
         }
@@ -540,12 +587,29 @@
             toggleWireframe();
           } else if (event.data.type === "spin") {
             if (cinematic && typeof event.data.progress === "number" && Number.isFinite(event.data.progress)) {
+              pauseOrbit();
               applySpin(event.data.progress);
+              renderFrame();
             }
+          } else if (event.data.type === "play") {
+            playOrbit();
+          } else if (event.data.type === "pause") {
+            pauseOrbit();
           }
         });
 
-        window.addEventListener("resize", resize);
+        window.addEventListener("resize", function () {
+          if (!renderer) {
+            return;
+          }
+
+          // While the orbit is paused nothing else will redraw this canvas.
+          if (cinematic && !playing) {
+            renderFrame();
+          } else {
+            resize();
+          }
+        });
 
         Promise.resolve(buildScene()).catch(function (error) {
           showError(error instanceof Error ? error.message : "Unknown viewer error.");

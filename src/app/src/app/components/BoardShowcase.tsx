@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-import { scrollProgress } from "../lib/board-spin";
 import { BoardViewerSkeleton, FORCE_SKELETONS } from "./Skeletons";
 
 interface BoardShowcaseProps {
@@ -9,39 +8,58 @@ interface BoardShowcaseProps {
   caption: string;
 }
 
-// The block only has to travel far enough for the orbit to read as deliberate.
-// Progress is measured against the wrapper, so this height is the whole curve.
-const BLOCK_HEIGHT = "h-[26rem] md:h-[34rem]";
-
 /**
- * A non-interactive board that turns once as it crosses the viewport. It reuses
- * the modal viewer's iframe shell in `mode=cinematic`, so no geometry, renderer,
- * or dependency is duplicated. The geometry payload is between 1MB and 4MB, so
- * the iframe is not mounted at all until the block is close to the viewport.
+ * A non-interactive board that orbits on a loop while it is on screen, the way
+ * a looping clip would. It reuses the modal viewer's iframe shell in
+ * `mode=cinematic`, so no geometry, renderer, or dependency is duplicated.
+ *
+ * Two things are gated on visibility rather than left running. The geometry
+ * payload is between 1MB and 4MB, so the iframe is not mounted until the block
+ * is close to the viewport. And the shell only renders frames between `play`
+ * and `pause`, so once the block scrolls away the second WebGL context costs
+ * nothing until it comes back.
  */
 export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [mounted, setMounted] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
+  const [visible, setVisible] = useState(false);
 
-  // Mount once, near the viewport, and never unmount: remounting would refetch
-  // the geometry every time the block scrolls away.
+  // One observer drives both jobs: the first intersection mounts the iframe
+  // (and is never undone, since remounting would refetch the geometry), and
+  // every later crossing plays or pauses the orbit.
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper || typeof IntersectionObserver !== "function") {
       setMounted(true);
+      setVisible(true);
       return;
     }
 
+    // The block sits high on the page, so it is usually already on screen at
+    // first paint. Mounting straight away would put a multi-megabyte geometry
+    // fetch in front of the hero, so the mount waits for the browser to go
+    // idle. Visibility tracking is not deferred: only the fetch is.
+    let idle = 0;
+    const mountWhenIdle = () => {
+      if (idle) {
+        return;
+      }
+
+      const request = window.requestIdleCallback;
+      idle = typeof request === "function" ? request(() => setMounted(true), { timeout: 2500 }) : window.setTimeout(() => setMounted(true), 600);
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setMounted(true);
-          observer.disconnect();
+        const isVisible = entries.some((entry) => entry.isIntersecting);
+        setVisible(isVisible);
+        if (isVisible) {
+          mountWhenIdle();
         }
       },
-      { rootMargin: "300px 0px" },
+      { rootMargin: "200px 0px" },
     );
 
     observer.observe(wrapper);
@@ -75,49 +93,30 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
       return;
     }
 
-    const send = (progress: number) => {
-      iframeRef.current?.contentWindow?.postMessage({ type: "spin", progress }, window.location.origin);
+    const send = (message: { type: string; progress?: number }) => {
+      iframeRef.current?.contentWindow?.postMessage(message, window.location.origin);
     };
 
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    if (reduced) {
-      // One fixed mid-orbit pose, and no listener at all.
-      send(0.5);
-      return;
-    }
+    const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const wrapper = wrapperRef.current;
-      if (!wrapper) {
+    const apply = () => {
+      if (motionQuery?.matches) {
+        // One fixed mid-orbit pose, and the orbit never starts.
+        send({ type: "pause" });
+        send({ type: "spin", progress: 0.5 });
         return;
       }
 
-      const rect = wrapper.getBoundingClientRect();
-      send(scrollProgress(rect.top, rect.height, window.innerHeight));
+      send({ type: visible ? "play" : "pause" });
     };
 
-    const schedule = () => {
-      if (!frame) {
-        frame = window.requestAnimationFrame(update);
-      }
-    };
-
-    update();
-    // The portfolio scrolls inside <main>, not the window, so listen in the
-    // capture phase to catch the scroll wherever it happens.
-    window.addEventListener("scroll", schedule, { capture: true, passive: true });
-    window.addEventListener("resize", schedule);
-
+    apply();
+    motionQuery?.addEventListener("change", apply);
     return () => {
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
-      window.removeEventListener("scroll", schedule, { capture: true });
-      window.removeEventListener("resize", schedule);
+      motionQuery?.removeEventListener("change", apply);
+      send({ type: "pause" });
     };
-  }, [sceneReady]);
+  }, [sceneReady, visible]);
 
   const showBoard = sceneReady && !FORCE_SKELETONS;
 
@@ -125,11 +124,12 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
     <div
       ref={wrapperRef}
       data-board-showcase={asset}
-      className={`relative w-full overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[#0c0c14] shadow-[var(--shadow-card)] ${BLOCK_HEIGHT}`}
+      className="relative h-[22rem] w-full overflow-hidden rounded-2xl border border-[color:var(--outline-soft)] bg-[#0c0c14] shadow-[var(--shadow-card)] md:h-[28rem]"
     >
       {mounted ? (
         <iframe
           ref={iframeRef}
+          aria-hidden="true"
           title={`${title} rotating board render`}
           src={`/portfolio/assets/viewers/board-viewer-shell.html?asset=${asset}&mode=cinematic`}
           sandbox="allow-scripts allow-same-origin"
@@ -140,7 +140,7 @@ export function BoardShowcase({ asset, title, caption }: BoardShowcaseProps) {
 
       {showBoard ? null : <BoardViewerSkeleton label="Loading board render" />}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(12,12,20,0.92)] to-transparent px-6 pb-6 pt-16">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(12,12,20,0.94)] via-[rgba(12,12,20,0.6)] to-transparent px-6 pb-5 pt-14">
         <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-white/45">In motion</p>
         <p className="mt-1 font-display text-lg text-white">{title}</p>
         <p className="mt-1 max-w-xl text-sm text-white/60">{caption}</p>
