@@ -789,7 +789,7 @@ export const organizations: OrganizationRecord[] = [
   },
 ];
 
-export const organizationsById = Object.fromEntries(
+const organizationsById = Object.fromEntries(
   organizations.map((organization) => [organization.id, organization]),
 ) as Record<string, OrganizationRecord>;
 
@@ -802,7 +802,6 @@ export function getProjectBySlug(projectSlug: string) {
 }
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
-export const featuredProject = featuredBoardProjects[0] ?? projects[0];
 
 export interface UpdateFeedEntry {
   orgId: string;
@@ -867,6 +866,4 @@ export const updateFeed: UpdateFeedEntry[] = organizations
     })),
   )
   .sort((a, b) => b.sortKey - a.sortKey);
-
-export const latestUpdate = updateFeed[0] ?? null;
 
