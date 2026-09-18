@@ -55,7 +55,7 @@ export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 const LINE_WIDTHS = ["100%", "94%", "82%", "97%", "68%", "88%"];
 
 /** Stacked text rails with uneven lengths so they scan as prose, not bars. */
-export function SkeletonLines({
+function SkeletonLines({
   lines = 3,
   className,
   lineClassName,
@@ -107,7 +107,7 @@ function CornerBrackets({ className }: { className?: string }) {
  * Placeholder for a project card's image well. Absolutely positioned - drop it
  * inside the existing fixed-height well so the card height never changes.
  */
-export function ImageWellSkeleton({ className }: { className?: string }) {
+function ImageWellSkeleton({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn("skeleton absolute inset-0 rounded-none", className)}>
       <CornerBrackets />
@@ -284,7 +284,7 @@ export function BoardViewerSkeleton({ label = "Loading board geometry" }: { labe
  * Document page placeholder - a sheet with a heading block and body rails.
  * Used for report pages, the interactive BOM, and the resume canvas.
  */
-export function DocumentPageSkeleton({
+function DocumentPageSkeleton({
   className,
   aspect = "aspect-[1/1.294]",
 }: {

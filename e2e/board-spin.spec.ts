@@ -9,9 +9,10 @@ import { test, expect, type Frame, type Page } from "@playwright/test";
  * So these tests are deliberately few and dense: each loads a scene once and
  * asserts everything it can against it, rather than splitting into many small
  * tests that each pay the load cost again. Serial keeps one context live at a
- * time, and the budget is raised to match the software renderer.
+ * time, and the budget is raised to match the software renderer: waitForScene
+ * alone may spend 60s of it before a test has asserted anything.
  */
-test.describe.configure({ mode: "serial", timeout: 90_000 });
+test.describe.configure({ mode: "serial", timeout: 150_000 });
 
 const SHELL = "/portfolio/assets/viewers/board-viewer-shell.html";
 const CINEMATIC = `${SHELL}?asset=power&mode=cinematic`;
@@ -115,10 +116,16 @@ test("the cinematic shell is inert, holds its curve, and obeys play and pause", 
   expect(middle.phi).toBeCloseTo(0.55, 5);
   expect(end.phi).toBeCloseTo(1.25, 5);
 
-  // radiusScale is 1.35 at the ends and 1.0 at the midpoint. maxDimension is
-  // not exposed, so pin the ratio, which depends only on those two constants.
+  // radiusScale is 1.35 at the ends and 1.0 at the midpoint, with a breathing
+  // term of sin(4*pi*t)*0.08 on top. That term is 0 at t = 0, 0.5 and 1, so
+  // these three sample points still see the base curve exactly.
   expect(start.r / middle.r).toBeCloseTo(1.35 / 1.0, 4);
   expect(end.r).toBeCloseTo(start.r, 4);
+
+  // But it must actually breathe in between, or the term was dropped.
+  await post(page, { type: "spin", progress: 0.125 });
+  const quarter = (await readCameraState(page))!;
+  expect(quarter.r / start.r).toBeLessThan((1.35 - 0.08) / 1.35 + 0.001);
 
   // phi must stay inside the shell's own polar clamp or the camera flips.
   for (const pose of [start, middle, end]) {
@@ -224,6 +231,165 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
   expect((await readOrbit(frame!))?.playing).toBe(false);
 
   await context.close();
+});
+
+test("tour stops land on the board where the BOM says they do", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=control&mode=cinematic&probe=level-shift`);
+  await waitForScene(page);
+
+  const probe = await page
+    .waitForFunction(() => (window as unknown as { __boardProbe?: () => unknown }).__boardProbe?.(), null, {
+      timeout: 30_000,
+    })
+    .then((handle) => handle.jsonValue() as Promise<{ id: string; world: { x: number; y: number; z: number } }>);
+
+  expect(probe.id).toBe("level-shift");
+
+  // A y-sign error would put this at x = +25.455 instead of -25.455, so assert
+  // the signed component. Magnitude alone cannot catch it: hypot is invariant
+  // under the negation that a FLIP_Y error produces.
+  expect(probe.world.x).toBeCloseTo(-25.455, 1);
+  expect(probe.world.z).toBeCloseTo(-10.591, 1);
+});
+
+test("the shell's tour timeline matches the pinned fixture table", async ({ page }) => {
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  // The shell owns the only copy of this arithmetic; this test pins it
+  // directly against the fixture table below.
+  const timing = await page.evaluate(() => (window as unknown as { __tourTiming?: unknown }).__tourTiming);
+  expect(timing).toEqual({ orbitMs: 12000, travelMs: 1500, holdMs: 3000 });
+
+  const phases = await page.evaluate(() => {
+    const fn = (window as unknown as { __tourPhase?: (e: number, n: number, t: unknown) => unknown }).__tourPhase!;
+    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
+    return [0, 6000, 12750, 15000, 17250, 35250].map((ms) => fn(ms, 5, t));
+  });
+
+  expect(phases).toEqual([
+    { kind: "orbit", progress: 0 },
+    { kind: "orbit", progress: 0.5 },
+    { kind: "travel", from: -1, to: 0, progress: 0.5 },
+    { kind: "hold", stop: 0, progress: 0.5 },
+    { kind: "travel", from: 0, to: 1, progress: 0.5 },
+    { kind: "travel", from: 4, to: -1, progress: 0.5 },
+  ]);
+});
+
+test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=control&mode=cinematic`);
+  await waitForScene(page);
+
+  const readTour = () =>
+    page.evaluate(
+      () => (window as unknown as { __boardTour?: () => { phase: string; stop: number; label: string | null } }).__boardTour?.(),
+    );
+
+  // Nothing runs until play, so the tour starts in its orbit phase.
+  expect((await readTour())?.phase).toBe("orbit");
+
+  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
+
+  // One in-page pass covers both claims below, on the same play() call and
+  // page load, so neither costs an extra scene. It loops inside the page
+  // because a runner slow enough to stall CDP is exactly the runner that
+  // makes wall-clock sampling from the test side unreliable.
+  //
+  // Claim 1 pins the short-arc camera blend (blendPose in
+  // board-viewer-shell.html): without wrapping the heading delta into
+  // [-pi, pi], the orbit-into-first-stop leg sweeps nearly a full revolution
+  // the long way round. Measure it as the largest heading offset from the
+  // orbit's end pose seen anywhere in that leg, which stays under pi on the
+  // short arc by definition. An offset is a property of a single sample, so
+  // unlike accumulating per-sample deltas it survives dropped samples --
+  // that accumulation read the jump across a 3s hold into the next leg as
+  // part of one sweep and failed on CI at 5.05 rad.
+  //
+  // Claim 2 is the STM32 label. The hold lasts 3000ms, so the tour state and
+  // the DOM it drives must be read in the same tick: polling for the label
+  // and then asserting the class separately let the hold expire in between.
+  //
+  // Both are pinned to the FIRST leg and FIRST stop of a cycle. If a starved
+  // frame budget skips the travel leg outright, the run is discarded and the
+  // next 36s cycle is tried rather than asserting on a leg never observed.
+  const ORBIT_END_THETA = -0.5 + Math.PI * 2;
+
+  interface TourProbe {
+    maxOffset: number;
+    label: string | null;
+    visible: boolean;
+    title: string | null;
+  }
+
+  const probe = await page.evaluate(async (orbitEnd: number) => {
+    const getTour = (window as unknown as {
+      __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
+    }).__boardTour;
+    const getTheta = () => (window as unknown as { __boardViewerState: { theta: number } }).__boardViewerState.theta;
+
+    return new Promise<TourProbe>((resolve, reject) => {
+      let maxOffset = 0;
+      let sawLeg = false;
+      const deadline = Date.now() + 70_000;
+
+      const timer = setInterval(() => {
+        const tour = getTour();
+
+        if (tour.phase === "travel" && tour.from === -1) {
+          sawLeg = true;
+          maxOffset = Math.max(maxOffset, Math.abs(getTheta() - orbitEnd));
+        } else if (tour.phase === "hold" && tour.stop === 0) {
+          if (!sawLeg) {
+            return; // Leg was skipped; wait for the next cycle to come round.
+          }
+
+          clearInterval(timer);
+          resolve({
+            maxOffset,
+            label: tour.label,
+            visible: document.getElementById("stop-label")!.classList.contains("visible"),
+            title: document.getElementById("stop-title")!.textContent,
+          });
+        } else if (tour.phase === "orbit") {
+          sawLeg = false;
+          maxOffset = 0;
+        }
+
+        if (Date.now() > deadline) {
+          clearInterval(timer);
+          reject(new Error("tour never completed an observed first leg and hold within 70s"));
+        }
+      }, 20);
+    });
+  }, ORBIT_END_THETA);
+
+  expect(probe.maxOffset).toBeLessThanOrEqual(Math.PI);
+  expect({ label: probe.label, visible: probe.visible, title: probe.title }).toEqual({
+    label: "STM32G474",
+    visible: true,
+    title: "STM32G474",
+  });
+
+  // Pausing must clear the label rather than leave it stranded.
+  await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));
+  await expect(page.locator("#stop-label")).not.toHaveClass(/visible/);
+});
+
+test("a board with no tour file just orbits", async ({ page }) => {
+  // Only the control board has a tour. The power board must not error.
+  const failures: string[] = [];
+  page.on("pageerror", (error) => failures.push(error.message));
+
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  const tour = await page.evaluate(
+    () => (window as unknown as { __boardTour?: () => { phase: string; stop: number } }).__boardTour?.(),
+  );
+  expect(tour?.phase).toBe("orbit");
+  expect(tour?.stop).toBe(-1);
+  expect(failures).toEqual([]);
 });
 
 // The last two load no WebGL scene at all, which is why they stay separate:

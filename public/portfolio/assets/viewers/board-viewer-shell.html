@@ -61,6 +61,58 @@
         font: inherit;
       }
 
+      .stop-label {
+        position: fixed;
+        z-index: 3;
+        max-width: 19rem;
+        padding: 10px 14px;
+        border-radius: 14px;
+        background: rgba(15, 18, 32, 0.86);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        color: rgba(255, 255, 255, 0.92);
+        opacity: 0;
+        transition: opacity 260ms ease;
+        pointer-events: none;
+        transform: translate(-50%, calc(-100% - 18px));
+      }
+
+      .stop-label.visible {
+        opacity: 1;
+      }
+
+      .stop-label b {
+        display: block;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+
+      .stop-label span {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      .stop-dot {
+        position: fixed;
+        z-index: 2;
+        width: 10px;
+        height: 10px;
+        margin: -5px 0 0 -5px;
+        border-radius: 999px;
+        background: #ff6b35;
+        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
+        opacity: 0;
+        transition: opacity 260ms ease;
+        pointer-events: none;
+      }
+
+      .stop-dot.visible {
+        opacity: 1;
+      }
+
       .error {
         position: fixed;
         inset: 0;
@@ -105,6 +157,8 @@
       <span><kbd>Scroll</kbd> Zoom</span>
       <span><kbd>Right drag</kbd> Pan</span>
     </div>
+    <div class="stop-dot" id="stop-dot"></div>
+    <div class="stop-label" id="stop-label"><b id="stop-title"></b><span id="stop-blurb"></span></div>
     <div class="error" id="error">
       <div class="error-card">
         <h1>3D viewer could not be initialized</h1>
@@ -119,10 +173,15 @@
         const assetParam = params.get("asset");
         const asset = assetParam === "control" || assetParam === "brick" ? assetParam : "power";
         const cinematic = params.get("mode") === "cinematic";
+        const probeStop = params.get("probe");
         const mount = document.getElementById("viewer");
         const hint = document.getElementById("hint");
         const errorEl = document.getElementById("error");
         const errorMessageEl = document.getElementById("error-message");
+        const stopDot = document.getElementById("stop-dot");
+        const stopLabel = document.getElementById("stop-label");
+        const stopTitle = document.getElementById("stop-title");
+        const stopBlurb = document.getElementById("stop-blurb");
 
         let renderer;
         let scene;
@@ -139,7 +198,11 @@
         let orbitElapsed = 0;
         let orbitLast = 0;
         let renderPending = 0;
-        const ORBIT_DURATION_MS = 12000;
+        let tourStops = [];
+        let tourPhaseNow = { kind: "orbit", progress: 0 };
+        const TOUR_TIMING = { orbitMs: 12000, travelMs: 1500, holdMs: 3000 };
+        let mountWidth = 0;
+        let mountHeight = 0;
 
         function showError(message) {
           errorMessageEl.textContent = message;
@@ -163,6 +226,8 @@
             return;
           }
 
+          mountWidth = width;
+          mountHeight = height;
           renderer.setSize(width, height);
           camera.aspect = width / height;
           camera.updateProjectionMatrix();
@@ -195,7 +260,9 @@
           return {
             theta: -0.5 + t * Math.PI * 2,
             phi: 1.25 - dive * 0.7,
-            radiusScale: 1.35 - dive * 0.35,
+            // Two breaths per revolution: dive gives the single dip toward the
+            // midpoint, breathe adds the in and out on top of it.
+            radiusScale: 1.35 - dive * 0.35 - Math.sin(t * Math.PI * 4) * 0.08,
           };
         }
 
@@ -213,6 +280,186 @@
         function renderFrame() {
           resize();
           renderer.render(scene, camera);
+        }
+
+        /**
+         * The only copy of the tour timing arithmetic. This file is a plain
+         * script with no module loader, so it lives here directly; the
+         * fixture table in e2e/board-spin.spec.ts pins it.
+         */
+        function easeInOut(t) {
+          const x = Math.min(1, Math.max(0, t));
+          return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+        }
+
+        function tourPhase(elapsedMs, stopCount, timing) {
+          if (stopCount <= 0) {
+            return { kind: "orbit", progress: (Math.max(0, elapsedMs) % timing.orbitMs) / timing.orbitMs };
+          }
+
+          const cycleMs = timing.orbitMs + stopCount * (timing.travelMs + timing.holdMs) + timing.travelMs;
+          let t = Math.max(0, elapsedMs) % cycleMs;
+
+          if (t < timing.orbitMs) {
+            return { kind: "orbit", progress: t / timing.orbitMs };
+          }
+
+          t -= timing.orbitMs;
+
+          for (let index = 0; index < stopCount; index += 1) {
+            if (t < timing.travelMs) {
+              return { kind: "travel", from: index - 1, to: index, progress: t / timing.travelMs };
+            }
+
+            t -= timing.travelMs;
+
+            if (t < timing.holdMs) {
+              return { kind: "hold", stop: index, progress: t / timing.holdMs };
+            }
+
+            t -= timing.holdMs;
+          }
+
+          return { kind: "travel", from: stopCount - 1, to: -1, progress: t / timing.travelMs };
+        }
+
+        /** The camera pose that frames one stop head on. */
+        function stopPose(stop) {
+          const world = boardLocalToWorld(stop.x, stop.y);
+          // Look in from the part's own side of the board rather than a fixed
+          // heading, or a tall part elsewhere on the board (e.g. the J15 Molex)
+          // can sit between the camera and the target and block it. A part
+          // sitting right at the board centre has no meaningful outward
+          // direction, so fall back to the orbit's own start heading there.
+          const outward = Math.hypot(world.x, world.z);
+          const theta = outward < 1 ? -0.5 : Math.atan2(world.z, world.x);
+          return {
+            tx: world.x,
+            ty: world.y,
+            tz: world.z,
+            // Enough distance to hold the part plus a margin in frame. Floor
+            // of 20 verified against the 7.45mm level-shift transistor pair;
+            // the 1.5x scale keeps the 13.45mm MCU at roughly the same 20mm.
+            r: Math.max(20, stop.span * 1.5),
+            phi: 0.55,
+            theta: theta,
+          };
+        }
+
+        /** The orbit's own pose, as a target the tour can blend against. */
+        function orbitPose(progress) {
+          const pose = spinPose(progress);
+          return { tx: 0, ty: 0, tz: 0, r: maxDimension * pose.radiusScale, phi: pose.phi, theta: pose.theta };
+        }
+
+        function applyPose(pose) {
+          state.tx = pose.tx;
+          state.ty = pose.ty;
+          state.tz = pose.tz;
+          state.r = pose.r;
+          state.phi = pose.phi;
+          state.theta = pose.theta;
+          updateCamera();
+        }
+
+        function blendPose(a, b, amount) {
+          const k = easeInOut(amount);
+          state.tx = a.tx + (b.tx - a.tx) * k;
+          state.ty = a.ty + (b.ty - a.ty) * k;
+          state.tz = a.tz + (b.tz - a.tz) * k;
+          state.r = a.r + (b.r - a.r) * k;
+          state.phi = a.phi + (b.phi - a.phi) * k;
+          // atan2 returns [-pi, pi] while the orbit's heading runs past 2pi, so
+          // the raw difference can send the camera the long way round. Wrap it
+          // into [-pi, pi] and the camera always takes the short arc.
+          const dTheta = Math.atan2(Math.sin(b.theta - a.theta), Math.cos(b.theta - a.theta));
+          state.theta = a.theta + dTheta * k;
+          updateCamera();
+        }
+
+        function poseFor(index, progress) {
+          return index < 0 ? orbitPose(progress) : stopPose(tourStops[index]);
+        }
+
+        function applyTour(elapsedMs) {
+          const phase = tourPhase(elapsedMs, tourStops.length, TOUR_TIMING);
+          tourPhaseNow = phase;
+
+          if (phase.kind === "orbit") {
+            applySpin(phase.progress);
+          } else if (phase.kind === "hold") {
+            applyPose(stopPose(tourStops[phase.stop]));
+          } else {
+            // Travelling in or out of the orbit uses the orbit's end heading so
+            // the camera leaves and rejoins the spin without a jump.
+            blendPose(poseFor(phase.from, 1), poseFor(phase.to, 0), phase.progress);
+          }
+
+          renderStopLabel(phase);
+        }
+
+        /**
+         * The label is anchored to the part itself, so it has to be reprojected
+         * every frame while the camera is moving. It fades in only during the
+         * hold, which is when the camera is still enough to read it.
+         */
+        function renderStopLabel(phase) {
+          const holding = phase.kind === "hold";
+          const index = holding ? phase.stop : -1;
+          const stop = index >= 0 ? tourStops[index] : null;
+
+          if (!stop) {
+            stopDot.classList.remove("visible");
+            stopLabel.classList.remove("visible");
+            return;
+          }
+
+          if (stopTitle.textContent !== stop.label) {
+            stopTitle.textContent = stop.label;
+            stopBlurb.textContent = stop.blurb;
+          }
+
+          const screen = worldToScreen(boardLocalToWorld(stop.x, stop.y));
+          stopDot.style.left = screen.x + "px";
+          stopDot.style.top = screen.y + "px";
+          stopLabel.style.left = screen.x + "px";
+          stopLabel.style.top = screen.y + "px";
+          stopDot.classList.add("visible");
+          stopLabel.classList.add("visible");
+        }
+
+        window.__boardTour = function () {
+          const phase = tourPhaseNow;
+          const index = phase.kind === "hold" ? phase.stop : -1;
+          return {
+            phase: phase.kind,
+            stop: index,
+            // Which leg a travel phase is, so a test sampling the camera can
+            // tell one leg from the next instead of treating every travel
+            // alike. e2e/board-spin.spec.ts needs this to pin the short-arc
+            // blend on the orbit-to-first-stop leg specifically.
+            from: phase.kind === "travel" ? phase.from : null,
+            to: phase.kind === "travel" ? phase.to : null,
+            label: index >= 0 && tourStops[index] ? tourStops[index].label : null,
+          };
+        };
+
+        /**
+         * Board-local millimetres to world space. The group carries a -90 degree
+         * x rotation, sometimes a z rotation, and a recentring offset, so let
+         * Three apply the matrix rather than reimplementing it here.
+         */
+        function boardLocalToWorld(x, y) {
+          return boardGroup.localToWorld(new THREE.Vector3(x, y, 0));
+        }
+
+        /** Projects a world point to canvas pixels, for label placement. */
+        function worldToScreen(point) {
+          const projected = point.clone().project(camera);
+          return {
+            x: (projected.x * 0.5 + 0.5) * mountWidth,
+            y: (-projected.y * 0.5 + 0.5) * mountHeight,
+          };
         }
 
         /**
@@ -244,7 +491,7 @@
 
           orbitElapsed += now - orbitLast;
           orbitLast = now;
-          applySpin((orbitElapsed % ORBIT_DURATION_MS) / ORBIT_DURATION_MS);
+          applyTour(orbitElapsed);
           renderFrame();
           orbitFrame = requestAnimationFrame(orbitLoop);
         }
@@ -267,6 +514,9 @@
             cancelAnimationFrame(orbitFrame);
             orbitFrame = 0;
           }
+
+          stopDot.classList.remove("visible");
+          stopLabel.classList.remove("visible");
         }
 
         function toggleWireframe() {
@@ -570,6 +820,47 @@
             hint.style.display = "none";
             renderer.domElement.style.cursor = "default";
             applySpin(0);
+
+            // This shell owns the only copy of the timeline; there is no
+            // separate module. e2e/board-spin.spec.ts pins this copy
+            // directly. Cinematic only, so the interactive modal does not
+            // carry these.
+            window.__tourPhase = tourPhase;
+            window.__tourTiming = TOUR_TIMING;
+
+            fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
+              .then(function (response) { return response.ok ? response.json() : null; })
+              .then(function (tour) {
+                if (tour && tour.stops) {
+                  tourStops = tour.stops;
+                  // If the fetch resolves after the first orbit has already run
+                  // past, the elapsed time can exceed the single-orbit cycle
+                  // used before stops existed. Fold it back into range so the
+                  // camera does not jump straight into a travel or hold leg.
+                  orbitElapsed %= TOUR_TIMING.orbitMs;
+
+                  if (probeStop) {
+                    const stop = tour.stops.filter(function (s) { return s.id === probeStop; })[0];
+                    if (stop) {
+                      const world = boardLocalToWorld(stop.x, stop.y);
+                      // Straight down on the stop, close enough to identify the part.
+                      state.tx = world.x;
+                      state.ty = world.y;
+                      state.tz = world.z;
+                      state.phi = 0.05;
+                      state.r = 26;
+                      updateCamera();
+                      window.__boardProbe = function () {
+                        return { id: stop.id, world: { x: world.x, y: world.y, z: world.z }, screen: worldToScreen(world) };
+                      };
+                    }
+                  }
+                }
+              })
+              .catch(function () {
+                // No tour for this board. The plain orbit is the fallback.
+              });
+
             renderFrame();
           } else {
             bindControls(renderer.domElement);

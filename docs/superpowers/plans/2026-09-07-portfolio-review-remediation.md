@@ -352,7 +352,7 @@ Leave the `ProjectRecord` fields `viewerMode` and `viewerModelUrl` in `portfolio
 
 - [ ] **Step 6: Move `three` from dependencies to devDependencies**
 
-`three@0.174.0` is in `package.json` `dependencies` but is imported by zero files under `src/` — the viewer used the CDN copy. It is **not** unused overall: `tools/build-brick-geometry.mjs:4-6` and `tools/debug-vrml.mjs:3` import it, so deleting it would break `pnpm build:geometry` and the `rebuild-board-geometry` workflow.
+`three@0.174.0` is in `package.json` `dependencies` but is imported by zero files under `src/` — the viewer used the CDN copy. It is **not** unused overall: `tools/build-brick-geometry.mjs:4-6` and `tools/debug-vrml.mjs:3` import it, so deleting it would break `pnpm build:geometry` and the `rebuild-board-geometry` workflow (no longer true as of this branch: `tools/build-brick-geometry.mjs` was deleted in commit 1fe4ee0, and `three` is gone from the dependency tree).
 
 Move the line out of `dependencies` and into `devDependencies`, keeping the version:
 

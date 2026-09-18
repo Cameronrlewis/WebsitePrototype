@@ -8,6 +8,7 @@
     "build:geometry": "node --max-old-space-size=6144 tools/build-board-geometry-bin.mjs",
     "build:logos": "python3 tools/build-logo-light-variants.py",
     "build:resume-preview": "node tools/build-resume-preview.mjs",
+    "build:tour": "node tools/build-board-tour.mjs",
     "dev": "vite",
     "e2e": "playwright test",
     "e2e:preview": "pnpm build && E2E_TARGET=preview playwright test",
@@ -19,7 +20,6 @@
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.6",
     "@radix-ui/react-slot": "1.1.2",
-    "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
@@ -39,7 +39,6 @@
     "jsdom": "^30.0.1",
     "lightningcss-darwin-arm64": "1.30.1",
     "tailwindcss": "4.1.12",
-    "three": "0.174.0",
     "typescript": "5.7.3",
     "vite": "6.3.5",
     "vitest": "2.1.8"
