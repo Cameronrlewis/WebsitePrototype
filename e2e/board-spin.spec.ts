@@ -141,6 +141,26 @@ test("the interactive viewer still accepts drag when the mode parameter is absen
   expect(after?.theta).not.toBeCloseTo(before!.theta, 3);
 });
 
+// Neither mode runs a permanent render loop any more, so the failure mode is a
+// camera that moves while the canvas keeps showing the old frame. Asserting
+// camera state cannot catch that; only pixels can.
+test("the interactive viewer repaints the canvas after a drag", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=power`);
+  await waitForScene(page);
+  await page.waitForTimeout(500);
+
+  const canvas = page.locator("canvas");
+  const before = await canvas.screenshot();
+
+  await page.mouse.move(400, 300);
+  await page.mouse.down();
+  await page.mouse.move(650, 360, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+
+  expect((await canvas.screenshot()).equals(before)).toBe(false);
+});
+
 const GEOMETRY = "**/portfolio/assets/viewers/geometry/*.pcbgeo";
 
 function cinematicFrame(page: Page) {

@@ -138,6 +138,7 @@
         let orbitFrame = 0;
         let orbitElapsed = 0;
         let orbitLast = 0;
+        let renderPending = 0;
         const ORBIT_DURATION_MS = 12000;
 
         function showError(message) {
@@ -152,6 +153,7 @@
             state.tz + state.r * Math.sin(state.phi) * Math.sin(state.theta),
           );
           camera.lookAt(state.tx, state.ty, state.tz);
+          requestRender();
         }
 
         function resize() {
@@ -213,12 +215,21 @@
           renderer.render(scene, camera);
         }
 
-        // Nothing else will redraw a cinematic canvas whose orbit is paused, so
-        // any command that moves the camera has to paint its own result.
-        function redrawIfIdle() {
-          if (cinematic && !playing) {
-            renderFrame();
+        /**
+         * Neither mode runs a permanent loop: the board is a static scene that
+         * only needs a frame when something actually moved. Invalidations are
+         * coalesced into one rAF so a burst of mousemove events paints once.
+         * While the orbit is playing it is already drawing every frame.
+         */
+        function requestRender() {
+          if (renderPending || playing) {
+            return;
           }
+
+          renderPending = requestAnimationFrame(function () {
+            renderPending = 0;
+            renderFrame();
+          });
         }
 
         /**
@@ -226,11 +237,6 @@
          * at any moment. Cinematic mode draws only while its orbit is playing,
          * so a showcase that has scrolled out of view costs nothing at all.
          */
-        function interactiveLoop() {
-          requestAnimationFrame(interactiveLoop);
-          renderFrame();
-        }
-
         function orbitLoop(now) {
           if (!playing) {
             return;
@@ -567,7 +573,7 @@
             renderFrame();
           } else {
             bindControls(renderer.domElement);
-            interactiveLoop();
+            renderFrame();
           }
 
           notifyHost("viewer-ready");
@@ -594,13 +600,11 @@
 
           if (event.data.type === "reset") {
             resetView();
-            redrawIfIdle();
           } else if (event.data.type === "top") {
             topView();
-            redrawIfIdle();
           } else if (event.data.type === "wireframe") {
             toggleWireframe();
-            redrawIfIdle();
+            requestRender();
           } else if (event.data.type === "spin") {
             if (cinematic && typeof event.data.progress === "number" && Number.isFinite(event.data.progress)) {
               pauseOrbit();
@@ -615,17 +619,22 @@
         });
 
         window.addEventListener("resize", function () {
-          if (!renderer) {
-            return;
-          }
-
-          // While the orbit is paused nothing else will redraw this canvas.
-          if (cinematic && !playing) {
-            renderFrame();
-          } else {
-            resize();
+          if (renderer) {
+            requestRender();
           }
         });
+
+        // The permanent render loop used to re-fit the canvas every frame, which
+        // also covered the container changing size without a window resize: the
+        // modal animating open, or the page settling. Watch the mount directly
+        // instead, or the canvas renders at a stale size.
+        if (typeof ResizeObserver === "function") {
+          new ResizeObserver(function () {
+            if (renderer) {
+              requestRender();
+            }
+          }).observe(mount);
+        }
 
         Promise.resolve(buildScene()).catch(function (error) {
           showError(error instanceof Error ? error.message : "Unknown viewer error.");
