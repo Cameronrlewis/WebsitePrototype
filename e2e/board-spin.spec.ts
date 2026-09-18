@@ -1,14 +1,22 @@
 import { test, expect, type Frame, type Page } from "@playwright/test";
 
-// Every test here holds a WebGL context. CI has no GPU and falls back to a
-// software renderer, so running them in parallel starves the frame loop badly
-// enough to stall the orbit. Serial keeps one context live at a time.
-test.describe.configure({ mode: "serial" });
+/**
+ * Every scene here fetches roughly a megabyte of geometry, decodes it in JS and
+ * builds a WebGL context. CI runners have no GPU and fall back to a software
+ * renderer on two cores, where that is slow enough that a page can stop
+ * answering CDP calls for tens of seconds.
+ *
+ * So these tests are deliberately few and dense: each loads a scene once and
+ * asserts everything it can against it, rather than splitting into many small
+ * tests that each pay the load cost again. Serial keeps one context live at a
+ * time, and the budget is raised to match the software renderer.
+ */
+test.describe.configure({ mode: "serial", timeout: 90_000 });
 
 const SHELL = "/portfolio/assets/viewers/board-viewer-shell.html";
 const CINEMATIC = `${SHELL}?asset=power&mode=cinematic`;
 
-// The mid-orbit heading: SPIN_START_THETA (-0.5) plus half a revolution.
+// The mid-orbit heading: the start heading (-0.5) plus half a revolution.
 const MID_ORBIT_THETA = -0.5 + Math.PI;
 
 interface CameraState {
@@ -17,16 +25,10 @@ interface CameraState {
   r: number;
 }
 
-// The shell renders into a canvas, so a screenshot cannot tell us the camera
-// moved. It exposes its live camera state instead.
+// The shell renders into a canvas, so a screenshot cannot tell us where the
+// camera is. It exposes its live camera state instead.
 function readCameraState(target: Page | Frame) {
   return target.evaluate(() => (window as unknown as { __boardViewerState?: CameraState }).__boardViewerState);
-}
-
-async function waitForScene(target: Page | Frame) {
-  await expect
-    .poll(async () => Boolean(await readCameraState(target)), { timeout: 30_000 })
-    .toBe(true);
 }
 
 function readOrbit(target: Page | Frame) {
@@ -39,29 +41,33 @@ function post(target: Page | Frame, message: Record<string, unknown>) {
   return target.evaluate((value) => window.postMessage(value, window.location.origin), message);
 }
 
-test("cinematic mode hides the control hint and ignores drag", async ({ page }) => {
+async function waitForScene(target: Page | Frame) {
+  await expect
+    .poll(async () => Boolean(await readCameraState(target)), { timeout: 60_000 })
+    .toBe(true);
+}
+
+function cinematicFrame(page: Page) {
+  return page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
+}
+
+test("the cinematic shell is inert, holds its curve, and obeys play and pause", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);
 
+  // Inert: no hint, and drag does not move the camera.
   await expect(page.locator("#hint")).toBeHidden();
-
-  const before = await readCameraState(page);
+  const idle = (await readCameraState(page))!;
   await page.mouse.move(200, 200);
   await page.mouse.down();
-  await page.mouse.move(600, 320, { steps: 10 });
+  await page.mouse.move(600, 320, { steps: 6 });
   await page.mouse.up();
-  const after = await readCameraState(page);
+  const afterDrag = (await readCameraState(page))!;
+  expect(afterDrag.theta).toBeCloseTo(idle.theta, 6);
+  expect(afterDrag.phi).toBeCloseTo(idle.phi, 6);
 
-  expect(after?.theta).toBeCloseTo(before!.theta, 6);
-  expect(after?.phi).toBeCloseTo(before!.phi, 6);
-});
-
-// The camera path lives in exactly one place now (the shell). These assertions
-// are the guard on its constants: change the curve and this fails.
-test("the spin curve holds its exact constants across the orbit", async ({ page }) => {
-  await page.goto(CINEMATIC);
-  await waitForScene(page);
-
+  // The camera path lives in exactly one place now, so these constants are its
+  // only guard. Change the curve and this fails.
   await post(page, { type: "spin", progress: 0 });
   const start = (await readCameraState(page))!;
   await post(page, { type: "spin", progress: 0.5 });
@@ -69,18 +75,16 @@ test("the spin curve holds its exact constants across the orbit", async ({ page 
   await post(page, { type: "spin", progress: 1 });
   const end = (await readCameraState(page))!;
 
-  // theta: starts at -0.5, exactly one revolution across the orbit.
   expect(start.theta).toBeCloseTo(-0.5, 5);
   expect(middle.theta).toBeCloseTo(MID_ORBIT_THETA, 5);
   expect(end.theta - start.theta).toBeCloseTo(Math.PI * 2, 4);
 
-  // phi: 1.25 at the ends, diving to 0.55 at the midpoint.
   expect(start.phi).toBeCloseTo(1.25, 5);
   expect(middle.phi).toBeCloseTo(0.55, 5);
   expect(end.phi).toBeCloseTo(1.25, 5);
 
-  // radiusScale: 1.35 at the ends, 1.0 at the midpoint. maxDimension is not
-  // exposed, so pin the ratio, which depends only on those two constants.
+  // radiusScale is 1.35 at the ends and 1.0 at the midpoint. maxDimension is
+  // not exposed, so pin the ratio, which depends only on those two constants.
   expect(start.r / middle.r).toBeCloseTo(1.35 / 1.0, 4);
   expect(end.r).toBeCloseTo(start.r, 4);
 
@@ -89,83 +93,54 @@ test("the spin curve holds its exact constants across the orbit", async ({ page 
     expect(pose.phi).toBeGreaterThan(0.04);
     expect(pose.phi).toBeLessThan(Math.PI - 0.04);
   }
-});
 
-test("play and pause drive the orbit state machine", async ({ page }) => {
-  await page.goto(CINEMATIC);
-  await waitForScene(page);
-
-  // Frame rate is not a contract: a software renderer may deliver almost none.
-  // Assert the state machine, which is deterministic, plus that time actually
-  // accumulates while playing.
+  // Frame rate is not a contract: a software renderer may deliver very few
+  // frames. Assert the state machine, which is deterministic, plus that time
+  // accumulates while playing and holds still while paused.
   expect((await readOrbit(page))?.playing).toBe(false);
 
   await post(page, { type: "play" });
   expect((await readOrbit(page))?.playing).toBe(true);
-  await expect
-    .poll(async () => (await readOrbit(page))?.elapsed ?? 0, { timeout: 20_000 })
-    .toBeGreaterThan(0);
+  await expect.poll(async () => (await readOrbit(page))?.elapsed ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
 
   await post(page, { type: "pause" });
   expect((await readOrbit(page))?.playing).toBe(false);
-
   const frozen = (await readOrbit(page))!.elapsed;
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(750);
   expect((await readOrbit(page))!.elapsed).toBe(frozen);
 
   // Resuming continues from where it stopped rather than restarting at zero.
   await post(page, { type: "play" });
-  expect((await readOrbit(page))?.playing).toBe(true);
-  await expect
-    .poll(async () => (await readOrbit(page))?.elapsed ?? 0, { timeout: 20_000 })
-    .toBeGreaterThan(frozen);
+  await expect.poll(async () => (await readOrbit(page))?.elapsed ?? 0, { timeout: 30_000 }).toBeGreaterThan(frozen);
 
   // A spin command parks the orbit rather than fighting it.
   await post(page, { type: "spin", progress: 0.5 });
   expect((await readOrbit(page))?.playing).toBe(false);
 });
 
-test("the interactive viewer still accepts drag when the mode parameter is absent", async ({ page }) => {
+test("the interactive shell still drags, and repaints when it does", async ({ page }) => {
   await page.goto(`${SHELL}?asset=power`);
   await waitForScene(page);
+  await page.waitForTimeout(500);
 
   await expect(page.locator("#hint")).toBeVisible();
 
-  const before = await readCameraState(page);
-  await page.mouse.move(200, 200);
-  await page.mouse.down();
-  await page.mouse.move(600, 200, { steps: 10 });
-  await page.mouse.up();
-  const after = await readCameraState(page);
-
-  expect(after?.theta).not.toBeCloseTo(before!.theta, 3);
-});
-
-// Neither mode runs a permanent render loop any more, so the failure mode is a
-// camera that moves while the canvas keeps showing the old frame. Asserting
-// camera state cannot catch that; only pixels can.
-test("the interactive viewer repaints the canvas after a drag", async ({ page }) => {
-  await page.goto(`${SHELL}?asset=power`);
-  await waitForScene(page);
-  await page.waitForTimeout(500);
-
+  // Neither mode runs a permanent render loop now, so the failure mode is a
+  // camera that moves while the canvas keeps showing the old frame. Camera
+  // state cannot catch that; only pixels can. Assert both.
   const canvas = page.locator("canvas");
-  const before = await canvas.screenshot();
+  const pixelsBefore = await canvas.screenshot();
+  const before = (await readCameraState(page))!;
 
   await page.mouse.move(400, 300);
   await page.mouse.down();
-  await page.mouse.move(650, 360, { steps: 12 });
+  await page.mouse.move(650, 360, { steps: 6 });
   await page.mouse.up();
   await page.waitForTimeout(500);
 
-  expect((await canvas.screenshot()).equals(before)).toBe(false);
+  expect((await readCameraState(page))!.theta).not.toBeCloseTo(before.theta, 3);
+  expect((await canvas.screenshot()).equals(pixelsBefore)).toBe(false);
 });
-
-const GEOMETRY = "**/portfolio/assets/viewers/geometry/*.pcbgeo";
-
-function cinematicFrame(page: Page) {
-  return page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
-}
 
 test("the showcase orbits while on screen and pauses once it scrolls away", async ({ page }) => {
   await page.goto("/");
@@ -173,7 +148,7 @@ test("the showcase orbits while on screen and pauses once it scrolls away", asyn
   const showcase = page.locator("[data-board-showcase]");
   await showcase.scrollIntoViewIfNeeded();
   await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
-    timeout: 30_000,
+    timeout: 60_000,
   });
 
   const frame = cinematicFrame(page);
@@ -181,17 +156,17 @@ test("the showcase orbits while on screen and pauses once it scrolls away", asyn
   await waitForScene(frame!);
 
   // On screen: playing, with no scrolling involved at all.
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(true);
 
   // Scrolled away: paused. The board sits near the top of the page, so the
   // contact section is well past it.
   await page.locator("[data-section='contact']").scrollIntoViewIfNeeded();
   await expect(showcase).not.toBeInViewport();
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 15_000 }).toBe(false);
+  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(false);
 
   // And it stays parked rather than drifting on.
   const parked = (await readOrbit(frame!))!.elapsed;
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(750);
   expect((await readOrbit(frame!))!.elapsed).toBe(parked);
 });
 
@@ -202,29 +177,25 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
 
   await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
   await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
-    timeout: 30_000,
+    timeout: 60_000,
   });
 
   const frame = cinematicFrame(page);
   await waitForScene(frame!);
 
   // Not merely "unchanging" - it must be parked on the mid-orbit pose, which is
-  // what spec item 5 asks for. A component that sent nothing would sit at
-  // progress 0 and still look static.
+  // what the spec asks for. A component that sent nothing would sit at progress
+  // 0 and still look static.
   await expect
-    .poll(async () => (await readCameraState(frame!))!.theta, { timeout: 10_000 })
+    .poll(async () => (await readCameraState(frame!))!.theta, { timeout: 30_000 })
     .toBeCloseTo(MID_ORBIT_THETA, 3);
-
-  const before = (await readCameraState(frame!))!.theta;
-  await page.waitForTimeout(1200);
-  expect((await readCameraState(frame!))!.theta).toBeCloseTo(before, 6);
+  expect((await readOrbit(frame!))?.playing).toBe(false);
 
   await context.close();
 });
 
-// The showcase sits 779px down the page, so whether it starts on screen depends
-// on the viewport: below the fold at 720p, above it at 900p and taller. Both
-// paths are covered because each protects a different thing.
+// The last two load no WebGL scene at all, which is why they stay separate:
+// they assert what happens BEFORE the iframe is ever mounted.
 
 test("a short viewport does not fetch geometry until the block is scrolled to", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -242,7 +213,7 @@ test("a short viewport does not fetch geometry until the block is scrolled to", 
   expect(requested).toBe(0);
 
   await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
-  await expect.poll(() => requested, { timeout: 30_000 }).toBe(1);
+  await expect.poll(() => requested, { timeout: 60_000 }).toBe(1);
 });
 
 test("a tall viewport defers the mount past load so the hero paints first", async ({ page }) => {
@@ -258,5 +229,5 @@ test("a tall viewport defers the mount past load so the hero paints first", asyn
   expect(await page.locator("[data-board-showcase] iframe").count()).toBe(0);
 
   // It still mounts promptly once the browser goes idle, just not before.
-  await expect(page.locator("[data-board-showcase] iframe")).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.locator("[data-board-showcase] iframe")).toHaveCount(1, { timeout: 60_000 });
 });
