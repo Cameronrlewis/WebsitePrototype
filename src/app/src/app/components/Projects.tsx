@@ -7,6 +7,7 @@ import {
   projects,
 } from "../data/portfolio";
 import type { ProjectRecord } from "../data/portfolio";
+import { BoardShowcase } from "./BoardShowcase";
 import { OrganizationAvatar } from "./OrganizationAvatar";
 import { SectionHeader } from "./SectionHeader";
 import { FORCE_CARD_SKELETONS, ProjectCardSkeleton, SkeletonImage } from "./Skeletons";
@@ -222,6 +223,14 @@ export function Projects({
           );
         })}
       </div>
+
+      {/* Power board is the smallest geometry payload of the three; swap the
+          asset here if another board should carry the showcase. */}
+      <BoardShowcase
+        asset="power"
+        title="Aux Power Board"
+        caption="The same geometry the interactive viewer loads, on a fixed camera path. Open any board card for the full viewer."
+      />
     </div>
   );
 }
