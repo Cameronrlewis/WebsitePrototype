@@ -204,11 +204,6 @@
         let mountWidth = 0;
         let mountHeight = 0;
 
-        // This shell owns the only copy of the timeline; there is no
-        // separate module. e2e/board-spin.spec.ts pins this copy directly.
-        window.__tourPhase = tourPhase;
-        window.__tourTiming = TOUR_TIMING;
-
         function showError(message) {
           errorMessageEl.textContent = message;
           errorEl.classList.add("visible");
@@ -819,6 +814,13 @@
             hint.style.display = "none";
             renderer.domElement.style.cursor = "default";
             applySpin(0);
+
+            // This shell owns the only copy of the timeline; there is no
+            // separate module. e2e/board-spin.spec.ts pins this copy
+            // directly. Cinematic only, so the interactive modal does not
+            // carry these.
+            window.__tourPhase = tourPhase;
+            window.__tourTiming = TOUR_TIMING;
 
             fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
               .then(function (response) { return response.ok ? response.json() : null; })

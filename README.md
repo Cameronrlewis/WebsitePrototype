@@ -84,13 +84,17 @@ public/portfolio/
   assets/bom/             Interactive BOM HTML assets
 
 tools/
+  board-tour-geometry.mjs       Pure coordinate helpers used by that build
   build-board-geometry-bin.mjs  Regenerates .pcbgeo viewer geometry
+  build-board-tour.mjs          Builds the guided tour stop data from the interactive BOM
   build-favicon-ico.mjs         Packs PNG icons into favicon.ico
   build-logo-light-variants.py  Generates light-theme logo variants
   build-resume-preview.mjs      Installs a resume PDF and renders its page-1 preview raster
   optimize-media.py             Downscales and re-encodes project media
   patch-rollup-native.mjs       Rollup native-binary workaround
 ```
+
+The brick board's geometry was generated from the `.wrl` files under `assets-src/board-geometry/brick-buck/` by `tools/build-brick-geometry.mjs`, a tool removed in commit 1fe4ee0. It can be recovered with `git show 1fe4ee0^:tools/build-brick-geometry.mjs`.
 
 ## Content Updates
 
