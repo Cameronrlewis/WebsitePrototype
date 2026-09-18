@@ -291,67 +291,85 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
 
   await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
 
-  // Pin the short-arc camera blend (blendPose in board-viewer-shell.html):
-  // without wrapping the heading delta into [-pi, pi], the first travel leg
-  // (elapsed 12000-13500ms, orbit end into stop 0) sweeps nearly a full
-  // revolution instead of the short way round. Poll frequently and
-  // accumulate the absolute per-sample delta rather than just diffing start
-  // and end, so a real ~6 rad sweep cannot hide between two samples. This
-  // rides on the same play() call and page load as the label assertion
-  // below, so it costs no extra scene.
-  const sweptAngle = await page.evaluate(() => {
-    return new Promise<number>((resolve) => {
-      const getTour = (window as unknown as { __boardTour: () => { phase: string } }).__boardTour;
-      const getState = () => (window as unknown as { __boardViewerState: { theta: number } }).__boardViewerState;
-      let total = 0;
-      let previous: number | null = null;
-      let sawTravel = false;
-      const timer = setInterval(() => {
-        const phase = getTour().phase;
-        if (phase === "travel") {
-          sawTravel = true;
-          const theta = getState().theta;
-          if (previous !== null) {
-            total += Math.abs(theta - previous);
-          }
-          previous = theta;
-        } else if (sawTravel) {
-          clearInterval(timer);
-          resolve(total);
-        }
-      }, 20);
-    });
-  });
-  expect(sweptAngle).toBeLessThan(Math.PI);
+  // One in-page pass covers both claims below, on the same play() call and
+  // page load, so neither costs an extra scene. It loops inside the page
+  // because a runner slow enough to stall CDP is exactly the runner that
+  // makes wall-clock sampling from the test side unreliable.
+  //
+  // Claim 1 pins the short-arc camera blend (blendPose in
+  // board-viewer-shell.html): without wrapping the heading delta into
+  // [-pi, pi], the orbit-into-first-stop leg sweeps nearly a full revolution
+  // the long way round. Measure it as the largest heading offset from the
+  // orbit's end pose seen anywhere in that leg, which stays under pi on the
+  // short arc by definition. An offset is a property of a single sample, so
+  // unlike accumulating per-sample deltas it survives dropped samples --
+  // that accumulation read the jump across a 3s hold into the next leg as
+  // part of one sweep and failed on CI at 5.05 rad.
+  //
+  // Claim 2 is the STM32 label. The hold lasts 3000ms, so the tour state and
+  // the DOM it drives must be read in the same tick: polling for the label
+  // and then asserting the class separately let the hold expire in between.
+  //
+  // Both are pinned to the FIRST leg and FIRST stop of a cycle. If a starved
+  // frame budget skips the travel leg outright, the run is discarded and the
+  // next 36s cycle is tried rather than asserting on a leg never observed.
+  const ORBIT_END_THETA = -0.5 + Math.PI * 2;
 
-  // The first stop is the STM32, and its label must appear while the camera
-  // holds on it. The hold is only 3s long, so the tour state and the DOM it
-  // drives have to be sampled in ONE in-page read: a poll that returns the
-  // label, followed by a separate assertion on the class, can have the hold
-  // expire in the gap between them, which is exactly how this failed on CI.
-  // Looping inside the page also survives a starved runner that cannot answer
-  // CDP calls quickly, and outlasts one full 36s cycle so a hold whose frames
-  // were skipped entirely gets a second chance.
-  const held = await page.evaluate(() => {
-    return new Promise<{ label: string | null; visible: boolean; title: string | null }>((resolve, reject) => {
-      const tour = (window as unknown as { __boardTour: () => { phase: string; label: string | null } }).__boardTour;
-      const deadline = Date.now() + 45_000;
+  interface TourProbe {
+    maxOffset: number;
+    label: string | null;
+    visible: boolean;
+    title: string | null;
+  }
+
+  const probe = await page.evaluate(async (orbitEnd: number) => {
+    const getTour = (window as unknown as {
+      __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
+    }).__boardTour;
+    const getTheta = () => (window as unknown as { __boardViewerState: { theta: number } }).__boardViewerState.theta;
+
+    return new Promise<TourProbe>((resolve, reject) => {
+      let maxOffset = 0;
+      let sawLeg = false;
+      const deadline = Date.now() + 70_000;
+
       const timer = setInterval(() => {
-        if (tour().phase === "hold") {
+        const tour = getTour();
+
+        if (tour.phase === "travel" && tour.from === -1) {
+          sawLeg = true;
+          maxOffset = Math.max(maxOffset, Math.abs(getTheta() - orbitEnd));
+        } else if (tour.phase === "hold" && tour.stop === 0) {
+          if (!sawLeg) {
+            return; // Leg was skipped; wait for the next cycle to come round.
+          }
+
           clearInterval(timer);
           resolve({
-            label: tour().label,
+            maxOffset,
+            label: tour.label,
             visible: document.getElementById("stop-label")!.classList.contains("visible"),
             title: document.getElementById("stop-title")!.textContent,
           });
-        } else if (Date.now() > deadline) {
+        } else if (tour.phase === "orbit") {
+          sawLeg = false;
+          maxOffset = 0;
+        }
+
+        if (Date.now() > deadline) {
           clearInterval(timer);
-          reject(new Error("tour never reached a hold phase within 45s"));
+          reject(new Error("tour never completed an observed first leg and hold within 70s"));
         }
       }, 20);
     });
+  }, ORBIT_END_THETA);
+
+  expect(probe.maxOffset).toBeLessThanOrEqual(Math.PI);
+  expect({ label: probe.label, visible: probe.visible, title: probe.title }).toEqual({
+    label: "STM32G474",
+    visible: true,
+    title: "STM32G474",
   });
-  expect(held).toEqual({ label: "STM32G474", visible: true, title: "STM32G474" });
 
   // Pausing must clear the label rather than leave it stranded.
   await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));

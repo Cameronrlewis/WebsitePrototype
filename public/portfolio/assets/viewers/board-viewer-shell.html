@@ -434,6 +434,12 @@
           return {
             phase: phase.kind,
             stop: index,
+            // Which leg a travel phase is, so a test sampling the camera can
+            // tell one leg from the next instead of treating every travel
+            // alike. e2e/board-spin.spec.ts needs this to pin the short-arc
+            // blend on the orbit-to-first-stop leg specifically.
+            from: phase.kind === "travel" ? phase.from : null,
+            to: phase.kind === "travel" ? phase.to : null,
             label: index >= 0 && tourStops[index] ? tourStops[index].label : null,
           };
         };
