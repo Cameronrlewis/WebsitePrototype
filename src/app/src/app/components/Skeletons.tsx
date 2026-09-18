@@ -378,7 +378,7 @@ export function ResumeViewerSkeleton({ onDismiss }: { onDismiss?: () => void } =
             <Skeleton className="rounded-full h-3.5 w-72" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {[40, 64, 40].map((width, index) => (
+            {[104, 116].map((width, index) => (
               <Skeleton key={index} className="h-9 rounded-[1rem]" style={{ width }} />
             ))}
           </div>
