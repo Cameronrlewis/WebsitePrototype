@@ -9,9 +9,10 @@ import { test, expect, type Frame, type Page } from "@playwright/test";
  * So these tests are deliberately few and dense: each loads a scene once and
  * asserts everything it can against it, rather than splitting into many small
  * tests that each pay the load cost again. Serial keeps one context live at a
- * time, and the budget is raised to match the software renderer.
+ * time, and the budget is raised to match the software renderer: waitForScene
+ * alone may spend 60s of it before a test has asserted anything.
  */
-test.describe.configure({ mode: "serial", timeout: 90_000 });
+test.describe.configure({ mode: "serial", timeout: 150_000 });
 
 const SHELL = "/portfolio/assets/viewers/board-viewer-shell.html";
 const CINEMATIC = `${SHELL}?asset=power&mode=cinematic`;
@@ -324,10 +325,33 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
   expect(sweptAngle).toBeLessThan(Math.PI);
 
   // The first stop is the STM32, and its label must appear while the camera
-  // holds on it. The orbit leg is 12s, so allow for it plus the travel.
-  await expect.poll(async () => (await readTour())?.label, { timeout: 45_000 }).toBe("STM32G474");
-  await expect(page.locator("#stop-label")).toHaveClass(/visible/);
-  await expect(page.locator("#stop-title")).toHaveText("STM32G474");
+  // holds on it. The hold is only 3s long, so the tour state and the DOM it
+  // drives have to be sampled in ONE in-page read: a poll that returns the
+  // label, followed by a separate assertion on the class, can have the hold
+  // expire in the gap between them, which is exactly how this failed on CI.
+  // Looping inside the page also survives a starved runner that cannot answer
+  // CDP calls quickly, and outlasts one full 36s cycle so a hold whose frames
+  // were skipped entirely gets a second chance.
+  const held = await page.evaluate(() => {
+    return new Promise<{ label: string | null; visible: boolean; title: string | null }>((resolve, reject) => {
+      const tour = (window as unknown as { __boardTour: () => { phase: string; label: string | null } }).__boardTour;
+      const deadline = Date.now() + 45_000;
+      const timer = setInterval(() => {
+        if (tour().phase === "hold") {
+          clearInterval(timer);
+          resolve({
+            label: tour().label,
+            visible: document.getElementById("stop-label")!.classList.contains("visible"),
+            title: document.getElementById("stop-title")!.textContent,
+          });
+        } else if (Date.now() > deadline) {
+          clearInterval(timer);
+          reject(new Error("tour never reached a hold phase within 45s"));
+        }
+      }, 20);
+    });
+  });
+  expect(held).toEqual({ label: "STM32G474", visible: true, title: "STM32G474" });
 
   // Pausing must clear the label rather than leave it stranded.
   await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));
