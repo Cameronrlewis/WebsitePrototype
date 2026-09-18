@@ -1,0 +1,62 @@
+{
+  "asset": "control",
+  "flipY": true,
+  "stops": [
+    {
+      "id": "mcu",
+      "label": "STM32G474",
+      "blurb": "The microcontroller. 170MHz Cortex-M4 with the timers and comparators the motor control loop runs on.",
+      "refs": [
+        "U4"
+      ],
+      "x": -1.59,
+      "y": 9.925,
+      "span": 13.45
+    },
+    {
+      "id": "ldo",
+      "label": "5V to 3V3 LDO",
+      "blurb": "TLV76733 regulator. Drops the 5V input rail to the 3V3 the logic runs on.",
+      "refs": [
+        "U2"
+      ],
+      "x": 24.16,
+      "y": 8.275,
+      "span": 3.512
+    },
+    {
+      "id": "can",
+      "label": "CAN transceiver",
+      "blurb": "SN65HVD230. Turns the controller's CAN signals into the differential pair the vehicle bus carries.",
+      "refs": [
+        "U5"
+      ],
+      "x": -11.84,
+      "y": -1.25,
+      "span": 7.45
+    },
+    {
+      "id": "level-shift",
+      "label": "Level shifter",
+      "blurb": "A 2N7002 pair. Translates between the 3V3 logic and 5V peripherals in both directions.",
+      "refs": [
+        "Q3",
+        "Q4"
+      ],
+      "x": -9.949,
+      "y": -25.455,
+      "span": 7.45
+    },
+    {
+      "id": "usb-uart",
+      "label": "USB to UART",
+      "blurb": "CP2104 bridge. Exposes the debug console over the USB port without a separate programmer.",
+      "refs": [
+        "U3"
+      ],
+      "x": 10.554,
+      "y": -16.163,
+      "span": 5.625
+    }
+  ]
+}
