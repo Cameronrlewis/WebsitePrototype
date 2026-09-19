@@ -1,0 +1,29 @@
+{
+  "asset": "brick",
+  "stops": [
+    {
+      "id": "brick-converter",
+      "label": "48V to 12V brick",
+      "blurb": "A premade Mornsun KUB4812 brick module. It replaces the custom 48V to 12V stage, so this backup board never had to re-solve the high voltage conversion.",
+      "refs": ["KUB4812_QB-10A2"]
+    },
+    {
+      "id": "buck-5v",
+      "label": "12V to 5V buck",
+      "blurb": "A TPS54824 synchronous buck regulator with its output inductor alongside. This is the one power stage kept custom, sized around the low voltage loads on the kart.",
+      "refs": ["U2"]
+    },
+    {
+      "id": "protection",
+      "label": "Circuit protection",
+      "blurb": "A blade fuse holder on the 48V to 12V branch. Six of them split the board into separately fused branches, so a fault in one subsystem clears locally instead of dropping the whole kart.",
+      "refs": ["F6"]
+    },
+    {
+      "id": "distribution",
+      "label": "Battery input",
+      "blurb": "The Mini-Fit Sr connector marked BATTERY. All pack current enters the board here before it is split between the brick converters, the 5V buck and the fused subsystem outputs.",
+      "refs": ["J11"]
+    }
+  ]
+}

@@ -264,6 +264,49 @@ test("tour stops land on the board where the BOM says they do", async ({ page })
   expect(probe.world.z).toBeCloseTo(-10.591, 1);
 });
 
+test("the brick board has a tour whose stops land on the board", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=brick&mode=cinematic&probe=brick-converter`);
+  await waitForScene(page);
+
+  const probe = await page
+    .waitForFunction(() => (window as unknown as { __boardProbe?: () => unknown }).__boardProbe?.(), null, {
+      timeout: 30_000,
+    })
+    .then((handle) => handle.jsonValue() as Promise<{ id: string; world: { x: number; y: number; z: number } }>);
+
+  expect(probe.id).toBe("brick-converter");
+
+  // Signed, not hypot: a y-sign error in the IBOM-to-model conversion mirrors
+  // the stop across the board and leaves the distance from the origin intact.
+  // These are the coordinates the Mornsun brick was confirmed to sit at by
+  // rendering the stop straight down and looking at the part under it.
+  expect(probe.world.x).toBeCloseTo(54.8, 1);
+  expect(probe.world.z).toBeCloseTo(0.9, 1);
+
+  // Every stop must be inside the board outline. brick.pcbgeo spans roughly
+  // -79.4..78.6 in x and -79.7..79.0 in y, so a stop outside 80mm of the
+  // origin in the board plane is off the board, whatever the label says.
+  const tour = await page.evaluate(async () => {
+    const response = await fetch("/portfolio/assets/viewers/tours/brick.tour.json");
+    return (await response.json()) as {
+      stops: Array<{ id: string; label: string; blurb: string; x: number; y: number; span: number }>;
+    };
+  });
+
+  expect(tour.stops).toHaveLength(4);
+  for (const stop of tour.stops) {
+    expect(typeof stop.id).toBe("string");
+    expect(stop.label.length).toBeGreaterThan(0);
+    expect(stop.blurb.length).toBeGreaterThan(0);
+    // Cameron bans em-dashes in portfolio copy, and these strings are on screen.
+    expect(stop.label).not.toContain("\u2014");
+    expect(stop.blurb).not.toContain("\u2014");
+    expect(Math.abs(stop.x)).toBeLessThan(80);
+    expect(Math.abs(stop.y)).toBeLessThan(80);
+    expect(stop.span).toBeGreaterThan(0);
+  }
+});
+
 test("the shell's tour timeline matches the pinned fixture table", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);

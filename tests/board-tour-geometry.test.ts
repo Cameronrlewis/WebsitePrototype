@@ -40,6 +40,17 @@ describe("stopCenter", () => {
     expect(stopCenter(["Q3", "Q4"], footprints)).toEqual({ pos: [94.1, 113.7], span: 7.5 });
   });
 
+  it("follows relpos and angle instead of assuming the origin is the centre", () => {
+    // J11 on the brick board, verbatim from its IBOM. Its origin sits well
+    // outside its own bounding box, so `pos` alone aims 13mm off the part.
+    const j11 = {
+      ref: "J11",
+      bbox: { pos: [66.75, 42.005], relpos: [-3.075, -8.255], size: [31.16, 26.51], angle: 90 },
+    };
+
+    expect(stopCenter(["J11"], [j11])).toEqual({ pos: [71.75, 29.5], span: 31.16 });
+  });
+
   it("throws on a ref that is not on the board, rather than silently skipping it", () => {
     expect(() => stopCenter(["U99"], footprints)).toThrow(/U99/);
   });

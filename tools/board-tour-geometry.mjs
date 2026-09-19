@@ -16,6 +16,32 @@ export function toBoardLocal(pos, edgesBbox, flipY) {
   return { x: round(pos[0] - cx), y: round(flipY ? -y : y) };
 }
 
+/**
+ * The four page-space corners of one footprint's bounding box.
+ *
+ * IBOM draws the box as `translate(pos); rotate(-angle); translate(relpos);
+ * rect(0, 0, ...size)`, so `pos` is the footprint's placement origin, not the
+ * box. On a footprint whose origin sits at its own centre `relpos` is exactly
+ * `-size / 2` and the box centre lands back on `pos`, which is why treating
+ * `pos` as the centre worked for the control board. It does not hold in
+ * general: on the brick board J11 is 13mm and K1 9mm away from their own `pos`.
+ */
+function corners(bbox) {
+  const [px, py] = bbox.pos;
+  const [rx, ry] = bbox.relpos ?? [-bbox.size[0] / 2, -bbox.size[1] / 2];
+  const [w, h] = bbox.size;
+  const a = (-(bbox.angle ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+
+  return [
+    [0, 0],
+    [w, 0],
+    [0, h],
+    [w, h],
+  ].map(([x, y]) => [px + (rx + x) * cos - (ry + y) * sin, py + (rx + x) * sin + (ry + y) * cos]);
+}
+
 /** Centre and size of one stop, which may cover several footprints. */
 export function stopCenter(refs, footprints) {
   const byRef = new Map(footprints.map((f) => [f.ref, f]));
@@ -30,12 +56,12 @@ export function stopCenter(refs, footprints) {
       throw new Error(`Tour references ${ref}, which is not on this board.`);
     }
 
-    const [px, py] = fp.bbox.pos;
-    const [w, h] = fp.bbox.size;
-    minx = Math.min(minx, px - w / 2);
-    maxx = Math.max(maxx, px + w / 2);
-    miny = Math.min(miny, py - h / 2);
-    maxy = Math.max(maxy, py + h / 2);
+    for (const [x, y] of corners(fp.bbox)) {
+      minx = Math.min(minx, x);
+      maxx = Math.max(maxx, x);
+      miny = Math.min(miny, y);
+      maxy = Math.max(maxy, y);
+    }
   }
 
   return {
