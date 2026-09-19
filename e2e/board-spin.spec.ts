@@ -327,6 +327,46 @@ test("the shell announces each completed tour cycle to its host", async ({ page 
   expect(announced).toBe("tour-cycle");
 });
 
+test("a slow tour fetch does not post a premature tour-cycle before it settles", async ({ page }) => {
+  // The bug this guards: while the fetch is in flight, tourStops is still
+  // empty, so the shell would compute the bare 12s orbit as the whole cycle
+  // and announce a wrap at 12s even though the real, stop-filled timeline
+  // (once the fetch lands) is longer. Delay the response comfortably past
+  // that 12s mark so a regression has time to fire within the watch window.
+  const FETCH_DELAY_MS = 13_500;
+
+  await page.route("**/tours/control.tour.json", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+    await route.continue();
+  });
+
+  await page.goto(`${SHELL}?asset=control&mode=cinematic`);
+  await waitForScene(page);
+
+  // Watch from just after play starts for less than the fetch delay, so the
+  // window closes before the delayed response can land and leaves a clean
+  // reason for either outcome: an early message is the bug, silence for the
+  // whole window is the fix.
+  const outcome = await page.evaluate((watchMs) => {
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => resolve("no-early-message"), watchMs);
+      window.addEventListener("message", function onMessage(event) {
+        if ((event.data as { type?: unknown } | null)?.type !== "tour-cycle") {
+          return;
+        }
+
+        window.removeEventListener("message", onMessage);
+        clearTimeout(timer);
+        resolve("tour-cycle");
+      });
+
+      window.postMessage({ type: "play" }, window.location.origin);
+    });
+  }, FETCH_DELAY_MS - 1000);
+
+  expect(outcome).toBe("no-early-message");
+});
+
 test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
   await page.goto(`${SHELL}?asset=control&mode=cinematic`);
   await waitForScene(page);

@@ -204,6 +204,12 @@
         // a wrap can be announced exactly once. -1 means nothing applied yet,
         // which keeps the very first frame from counting as a completed cycle.
         let lastCycleIndex = -1;
+        // Whether the tour fetch has settled (found stops, found none, or
+        // failed). Until then, tourStops.length is provisionally 0 and
+        // tourCycleMs would report the bare orbit as the whole cycle even for
+        // a board that turns out to have a longer, stop-filled timeline, so a
+        // slow fetch must not let a wrap post early.
+        let tourFetchSettled = false;
         const TOUR_TIMING = { orbitMs: 12000, travelMs: 1500, holdMs: 3000 };
         let mountWidth = 0;
         let mountHeight = 0;
@@ -407,7 +413,7 @@
           // file never leaves the orbit phase and would otherwise never hand over.
           const cycleIndex = Math.floor(Math.max(0, elapsedMs) / tourCycleMs(tourStops.length, TOUR_TIMING));
           if (cycleIndex !== lastCycleIndex) {
-            if (lastCycleIndex >= 0) {
+            if (lastCycleIndex >= 0 && tourFetchSettled) {
               notifyHost("tour-cycle");
             }
 
@@ -894,9 +900,12 @@
                     }
                   }
                 }
+
+                tourFetchSettled = true;
               })
               .catch(function () {
                 // No tour for this board. The plain orbit is the fallback.
+                tourFetchSettled = true;
               });
 
             renderFrame();
