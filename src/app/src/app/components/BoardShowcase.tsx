@@ -13,17 +13,21 @@ interface BoardShowcaseProps {
 }
 
 /**
- * A non-interactive board that orbits on a loop while it is on screen, the way
- * a looping clip would, handing over to the next board each time one finishes
- * its guided tour. It reuses the modal viewer's iframe shell in
- * `mode=cinematic`, so no geometry, renderer, or dependency is duplicated.
+ * A framed block that cycles through several non-interactive boards, each
+ * orbiting on a loop while it is active, the way a looping clip would, and
+ * handing over to the next board each time one finishes its guided tour. It
+ * reuses the modal viewer's iframe shell in `mode=cinematic`, so no geometry,
+ * renderer, or dependency is duplicated.
  *
  * Three things are gated rather than left running. The geometry payload runs
  * from roughly 1MB to 4MB depending on the board, so the first iframe is not
  * mounted until the block is near the viewport and the browser is idle, and
  * the rest are not mounted until the first one is live. And the shell only
  * renders frames between `play` and `pause`, so a board that is off screen or
- * waiting its turn costs nothing at all.
+ * waiting its turn burns no frames - though it still holds a live WebGL
+ * context, its decoded geometry in GPU memory, and a completed multi-megabyte
+ * download, so this block now carries two permanent WebGL contexts where the
+ * single-board version carried one.
  */
 export function BoardShowcase({ boards }: BoardShowcaseProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -31,6 +35,10 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
   const [leadReady, setLeadReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
+  // Assets whose shell reported viewer-error. advance() skips them so a board
+  // that failed to load its geometry cannot become a dead end for the cycle.
+  const [erroredAssets, setErroredAssets] = useState<ReadonlySet<string>>(() => new Set());
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   // One observer drives both jobs: the first intersection mounts the iframe
   // (and is never undone, since remounting would refetch the geometry), and
@@ -81,9 +89,49 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
     };
   }, []);
 
+  // Reacted to rather than read once: the non-lead boards' mount is gated on
+  // this, and a live change (rare, but the query supports it) should still
+  // take effect without a reload.
+  useEffect(() => {
+    const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!motionQuery) {
+      return;
+    }
+
+    setReducedMotion(motionQuery.matches);
+    const onChange = () => setReducedMotion(motionQuery.matches);
+    motionQuery.addEventListener("change", onChange);
+    return () => motionQuery.removeEventListener("change", onChange);
+  }, []);
+
+  const handleReady = useCallback((asset: string, isLead: boolean, ok: boolean) => {
+    if (!ok) {
+      setErroredAssets((prev) => (prev.has(asset) ? prev : new Set(prev).add(asset)));
+    }
+
+    // A failed lead board must still open the gate for the other boards, or
+    // one failure turns into a blank block instead of a partial cycle.
+    if (isLead) {
+      setLeadReady(true);
+    }
+  }, []);
+
   const advance = useCallback(() => {
-    setActive((index) => (index + 1) % Math.max(1, boards.length));
-  }, [boards.length]);
+    setActive((index) => {
+      const total = boards.length;
+      for (let step = 1; step <= total; step += 1) {
+        const candidate = (index + step) % total;
+        if (!erroredAssets.has(boards[candidate].asset)) {
+          return candidate;
+        }
+      }
+
+      // Every board has errored: stay put rather than loop forever looking
+      // for a healthy one. That reproduces the old single-board behaviour of
+      // showing the shell's own error panel.
+      return index;
+    });
+  }, [boards, erroredAssets]);
 
   const current = boards[active];
   const showBoard = leadReady && !FORCE_SKELETONS;
@@ -97,8 +145,10 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
       {mounted
         ? boards.map((board, index) => {
             // Only the lead board is mounted up front. The rest wait for it to
-            // be live, so the heaviest geometry never competes with the hero.
-            if (index > 0 && !leadReady) {
+            // be live, and under reduced motion the orbit never advances past
+            // the lead board, so they would only ever download geometry that
+            // could never be shown.
+            if (index > 0 && (!leadReady || reducedMotion)) {
               return null;
             }
 
@@ -114,7 +164,7 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
                   asset={board.asset}
                   title={board.title}
                   playing={visible && index === active}
-                  onReady={index === 0 ? () => setLeadReady(true) : () => {}}
+                  onReady={(ok) => handleReady(board.asset, index === 0, ok)}
                   onCycleEnd={advance}
                 />
               </div>
@@ -126,7 +176,7 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(12,12,20,0.94)] via-[rgba(12,12,20,0.6)] to-transparent px-6 pb-5 pt-14">
         <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-white/45">In motion</p>
-        <p className="mt-1 font-display text-lg text-white">{current ? current.title : ""}</p>
+        <p className="mt-1 font-display text-lg text-white">{current.title}</p>
       </div>
     </div>
   );

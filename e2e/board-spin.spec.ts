@@ -96,6 +96,14 @@ function cinematicFrameFor(page: Page, asset: string) {
   return page.frames().find((candidate) => candidate.url().includes(`asset=${asset}&mode=cinematic`));
 }
 
+// The iframe being attached to the DOM does not guarantee its child frame has
+// committed a navigation to its src yet, so page.frames() can still miss it
+// for a moment. Poll rather than read once.
+async function waitForCinematicFrame(page: Page, asset: string) {
+  await expect.poll(() => Boolean(cinematicFrameFor(page, asset)), { timeout: 30_000 }).toBe(true);
+  return cinematicFrameFor(page, asset)!;
+}
+
 test("the cinematic shell is inert, holds its curve, and obeys play and pause", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);
@@ -194,8 +202,9 @@ test("the interactive shell still drags, and repaints when it does", async ({ pa
 });
 
 test("the showcase orbits while on screen, pauses off screen, and hands over to the next board", async ({ page }) => {
-  // Two boards mean two scenes on a software renderer, so this one test gets
-  // the whole describe budget rather than being split up.
+  // Two boards mean two scenes on a software renderer, so this one test asks
+  // for its own 450s (test.describe.configure's 150_000ms timeout is per
+  // test, not a shared file budget) rather than being split up.
   test.slow();
 
   await page.goto("/");
@@ -206,9 +215,8 @@ test("the showcase orbits while on screen, pauses off screen, and hands over to 
     timeout: 60_000,
   });
 
-  const control = cinematicFrameFor(page, "control");
-  expect(control).toBeTruthy();
-  await waitForScene(control!);
+  const control = await waitForCinematicFrame(page, "control");
+  await waitForScene(control);
 
   // On screen: the first board plays, with no scrolling involved at all.
   await expect.poll(async () => (await readOrbit(control!))?.playing, { timeout: 30_000 }).toBe(true);
@@ -231,9 +239,8 @@ test("the showcase orbits while on screen, pauses off screen, and hands over to 
   // Back on screen, and the control tour runs to the end of its cycle: five
   // stops is 36s, so this waits out one whole pass plus slack.
   await showcase.scrollIntoViewIfNeeded();
-  const brick = cinematicFrameFor(page, "brick");
-  expect(brick).toBeTruthy();
-  await waitForScene(brick!);
+  const brick = await waitForCinematicFrame(page, "brick");
+  await waitForScene(brick);
 
   // The handover: the brick board takes over and the control board stops.
   // Polled rather than timed, because a software renderer advances the
@@ -255,8 +262,8 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
     timeout: 60_000,
   });
 
-  const frame = cinematicFrameFor(page, "control");
-  await waitForScene(frame!);
+  const frame = await waitForCinematicFrame(page, "control");
+  await waitForScene(frame);
 
   // Not merely "unchanging" - it must be parked on the mid-orbit pose, which is
   // what the spec asks for. A component that sent nothing would sit at progress
@@ -508,6 +515,50 @@ test("a board with no tour file just orbits", async ({ page }) => {
   expect(tour?.phase).toBe("orbit");
   expect(tour?.stop).toBe(-1);
   expect(failures).toEqual([]);
+});
+
+test("a board that fails to load geometry does not become a dead end for the cycle", async ({ page }) => {
+  // Fail only the brick board's geometry fetch, so its shell can never build
+  // a scene and can never post tour-cycle on its own.
+  await page.route("**/geometry/brick.pcbgeo", (route) => route.abort());
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  const control = await waitForCinematicFrame(page, "control");
+  await waitForScene(control);
+
+  const brick = await waitForCinematicFrame(page, "brick");
+
+  // Confirm the failure actually landed: the brick shell shows its own error
+  // card rather than ever building a scene.
+  await expect
+    .poll(
+      async () =>
+        brick.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // The real trigger for a handover is the control board's own tour wrapping,
+  // which takes a genuine 36s. This file already spends that time once in
+  // "hands over to the next board" above, and doing it again here would add
+  // another ~40s to the deploy-gating e2e:preview run for no new coverage of
+  // the timing itself. So this simulates the boundary the same way the shell
+  // signals it - posting the exact message type, origin, and source window
+  // it posts when its own timeline wraps - which exercises the real
+  // onCycleEnd/advance code path without waiting out the wall-clock timer.
+  await control.evaluate(() => window.parent.postMessage({ type: "tour-cycle" }, window.location.origin));
+  await page.waitForTimeout(500);
+
+  // The broken board must never become the active one: the showcase still
+  // shows, and keeps playing, the control board.
+  await expect(showcase).toContainText("Aux Control Board");
+  expect((await readOrbit(control))?.playing).toBe(true);
 });
 
 // The last two load no WebGL scene at all, which is why they stay separate:

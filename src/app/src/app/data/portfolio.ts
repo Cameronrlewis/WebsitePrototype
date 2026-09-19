@@ -803,6 +803,21 @@ export function getProjectBySlug(projectSlug: string) {
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
 
+export interface ShowcaseBoard {
+  asset: "power" | "control" | "brick";
+  title: string;
+}
+
+// The two boards that have a guided tour, in the order the homepage showcase
+// plays them. Driven by slug rather than by featured order so that featuring
+// another board does not silently change what the homepage animates.
+const SHOWCASE_SLUGS = ["aux-control-board", "brick-buck-board"];
+
+export const showcaseBoards: ShowcaseBoard[] = SHOWCASE_SLUGS.flatMap((slug) => {
+  const project = getProjectBySlug(slug);
+  return project?.viewerAsset ? [{ asset: project.viewerAsset, title: project.title }] : [];
+});
+
 export interface UpdateFeedEntry {
   orgId: string;
   orgName: string;

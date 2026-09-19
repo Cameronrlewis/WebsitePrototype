@@ -4,7 +4,7 @@ interface BoardShowcaseFrameProps {
   asset: "power" | "control" | "brick";
   title: string;
   playing: boolean;
-  onReady: () => void;
+  onReady: (ok: boolean) => void;
   onCycleEnd: () => void;
 }
 
@@ -20,10 +20,15 @@ export function BoardShowcaseFrame({ asset, title, playing, onReady, onCycleEnd 
   // The callbacks come from the container and change identity on every render
   // there. Holding them in refs keeps the message listener from tearing down
   // and re-subscribing, which would drop a tour-cycle landing in the gap.
+  // Assigned in an effect rather than during render, since writing a ref
+  // during render is impure - a discarded concurrent render could leave the
+  // ref pointing at a callback the committed tree never had.
   const readyRef = useRef(onReady);
   const cycleRef = useRef(onCycleEnd);
-  readyRef.current = onReady;
-  cycleRef.current = onCycleEnd;
+  useEffect(() => {
+    readyRef.current = onReady;
+    cycleRef.current = onCycleEnd;
+  }, [onReady, onCycleEnd]);
 
   // Same handshake the modal viewer uses: hold the skeleton until the shell has
   // actually rendered a frame, rather than clearing on the iframe load event.
@@ -36,7 +41,7 @@ export function BoardShowcaseFrame({ asset, title, playing, onReady, onCycleEnd 
       const type = (event.data as { type?: unknown } | null)?.type;
       if (type === "viewer-ready" || type === "viewer-error") {
         setSceneReady(true);
-        readyRef.current();
+        readyRef.current(type === "viewer-ready");
       } else if (type === "tour-cycle") {
         cycleRef.current();
       }
