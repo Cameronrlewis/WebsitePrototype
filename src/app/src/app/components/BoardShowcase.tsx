@@ -35,9 +35,17 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
   const [leadReady, setLeadReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
-  // Assets whose shell reported viewer-error. advance() skips them so a board
-  // that failed to load its geometry cannot become a dead end for the cycle.
-  const [erroredAssets, setErroredAssets] = useState<ReadonlySet<string>>(() => new Set());
+  // Assets whose shell reported viewer-error. Read by advance() to skip a
+  // board that failed to load its geometry, so it cannot become a dead end
+  // for the cycle. A ref, not state: handleReady can call advance() in the
+  // same tick as the error that caused it (see below), and advance() must see
+  // that error immediately rather than the state value from before it - a set
+  // held in state and read by a callback closed over an earlier render would
+  // still be one render behind at that point. It drives no rendering itself.
+  const erroredAssetsRef = useRef<Set<string>>(new Set());
+  // Only this - whether the lead specifically has failed - needs to be state,
+  // since it changes what gets rendered (see the reduced-motion mount gate).
+  const [leadErrored, setLeadErrored] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   // One observer drives both jobs: the first intersection mounts the iframe
@@ -104,24 +112,17 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
     return () => motionQuery.removeEventListener("change", onChange);
   }, []);
 
-  const handleReady = useCallback((asset: string, isLead: boolean, ok: boolean) => {
-    if (!ok) {
-      setErroredAssets((prev) => (prev.has(asset) ? prev : new Set(prev).add(asset)));
-    }
-
-    // A failed lead board must still open the gate for the other boards, or
-    // one failure turns into a blank block instead of a partial cycle.
-    if (isLead) {
-      setLeadReady(true);
-    }
-  }, []);
-
-  const advance = useCallback(() => {
-    setActive((index) => {
+  // Pure: given the currently active index, find the next board that has not
+  // errored, or fall back to the same index if every board has. Shared by the
+  // ordinary handover (advance, below) and by the immediate recovery in
+  // handleReady, so there is exactly one place that decides what "next"
+  // means.
+  const nextHealthyIndex = useCallback(
+    (from: number) => {
       const total = boards.length;
       for (let step = 1; step <= total; step += 1) {
-        const candidate = (index + step) % total;
-        if (!erroredAssets.has(boards[candidate].asset)) {
+        const candidate = (from + step) % total;
+        if (!erroredAssetsRef.current.has(boards[candidate].asset)) {
           return candidate;
         }
       }
@@ -129,9 +130,42 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
       // Every board has errored: stay put rather than loop forever looking
       // for a healthy one. That reproduces the old single-board behaviour of
       // showing the shell's own error panel.
-      return index;
-    });
-  }, [boards, erroredAssets]);
+      return from;
+    },
+    [boards],
+  );
+
+  const advance = useCallback(() => {
+    setActive((index) => nextHealthyIndex(index));
+  }, [nextHealthyIndex]);
+
+  const handleReady = useCallback(
+    (asset: string, index: number, ok: boolean) => {
+      if (!ok) {
+        erroredAssetsRef.current.add(asset);
+      }
+
+      // A failed lead board must still open the gate for the other boards, or
+      // one failure turns into a blank block instead of a partial cycle.
+      if (index === 0) {
+        setLeadReady(true);
+        if (!ok) {
+          setLeadErrored(true);
+        }
+      }
+
+      // A board's own shell is the only thing that can ever post tour-cycle,
+      // and a board that just errored can never build a scene, enter its
+      // orbit loop, or post that message - so if the board that just failed
+      // is the one currently active, nothing else in the system will ever
+      // move the cycle off it. Recover immediately rather than parking on
+      // its error card with a healthy board sitting behind it at opacity-0.
+      if (!ok) {
+        setActive((current) => (current === index ? nextHealthyIndex(current) : current));
+      }
+    },
+    [nextHealthyIndex],
+  );
 
   const current = boards[active];
   const showBoard = leadReady && !FORCE_SKELETONS;
@@ -146,9 +180,10 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
         ? boards.map((board, index) => {
             // Only the lead board is mounted up front. The rest wait for it to
             // be live, and under reduced motion the orbit never advances past
-            // the lead board, so they would only ever download geometry that
-            // could never be shown.
-            if (index > 0 && (!leadReady || reducedMotion)) {
+            // a healthy lead board, so they would only ever download geometry
+            // that could never be shown - unless the lead itself has errored,
+            // in which case one of them is the only fallback there is.
+            if (index > 0 && (!leadReady || (reducedMotion && !leadErrored))) {
               return null;
             }
 
@@ -164,7 +199,7 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
                   asset={board.asset}
                   title={board.title}
                   playing={visible && index === active}
-                  onReady={(ok) => handleReady(board.asset, index === 0, ok)}
+                  onReady={(ok) => handleReady(board.asset, index, ok)}
                   onCycleEnd={advance}
                 />
               </div>

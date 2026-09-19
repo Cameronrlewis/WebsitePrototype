@@ -561,6 +561,42 @@ test("a board that fails to load geometry does not become a dead end for the cyc
   expect((await readOrbit(control))?.playing).toBe(true);
 });
 
+test("a board that fails to load geometry while it is the active one hands over on its own", async ({ page }) => {
+  // Here it is the lead board itself - the one active from the start - that
+  // fails. Nothing else in the system can ever trigger a handover away from
+  // it: its own shell can never finish buildScene, so it can never enter its
+  // orbit loop or post tour-cycle, and no other board's tour-cycle is wired
+  // to it either. The recovery has to happen the moment the failure is known,
+  // not on some later event that will never arrive.
+  await page.route("**/geometry/control.pcbgeo", (route) => route.abort());
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  const control = await waitForCinematicFrame(page, "control");
+
+  // Confirm the failure actually landed on the board that starts active.
+  await expect
+    .poll(
+      async () =>
+        control.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // Assert on the board that ends up actually playing, not merely on the DOM
+  // or the caption text alone - that is the only way to prove the cycle
+  // really moved rather than the fallback iframe simply having mounted.
+  const brick = await waitForCinematicFrame(page, "brick");
+  await waitForScene(brick);
+  await expect.poll(async () => (await readOrbit(brick))?.playing, { timeout: 30_000 }).toBe(true);
+  await expect(showcase).toContainText("Brick Buck Board");
+});
+
 // The last two load no WebGL scene at all, which is why they stay separate:
 // they assert what happens BEFORE the iframe is ever mounted.
 
