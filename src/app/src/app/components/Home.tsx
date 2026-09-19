@@ -78,6 +78,16 @@ const copyItemVariantsReduced = {
 /** Shared-element fill that travels between rail segments. */
 const RAIL_SPRING = { type: "spring", stiffness: 260, damping: 24 } as const;
 
+// The two boards that have a guided tour, in the order the showcase plays
+// them. Driven by slug rather than by featured order so that featuring
+// another board does not silently change what the homepage animates.
+const SHOWCASE_SLUGS = ["aux-control-board", "brick-buck-board"];
+
+const showcaseBoards = SHOWCASE_SLUGS.flatMap((slug) => {
+  const project = featuredBoardProjects.find((candidate) => candidate.slug === slug);
+  return project?.viewerAsset ? [{ asset: project.viewerAsset, title: project.title }] : [];
+});
+
 export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResume, onOpen3D }: HomeProps) {
   const { theme } = useTheme();
   const emailLink = socialLinks.find((l) => l.label === "Email")!;
@@ -264,12 +274,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         </div>
       </motion.section>
 
-      {featuredBoardProjects[0] ? (
-        <BoardShowcase
-          asset={featuredBoardProjects[0].viewerAsset ?? "power"}
-          title={featuredBoardProjects[0].title}
-        />
-      ) : null}
+      {showcaseBoards.length ? <BoardShowcase boards={showcaseBoards} /> : null}
 
       <motion.section
         initial={{ opacity: 0, y: 18 }}

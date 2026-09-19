@@ -92,8 +92,8 @@ async function waitForScene(target: Page | Frame) {
   throw new Error("Board viewer never became ready within 60s, and reported no error.");
 }
 
-function cinematicFrame(page: Page) {
-  return page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
+function cinematicFrameFor(page: Page, asset: string) {
+  return page.frames().find((candidate) => candidate.url().includes(`asset=${asset}&mode=cinematic`));
 }
 
 test("the cinematic shell is inert, holds its curve, and obeys play and pause", async ({ page }) => {
@@ -193,32 +193,56 @@ test("the interactive shell still drags, and repaints when it does", async ({ pa
   expect((await canvas.screenshot()).equals(pixelsBefore)).toBe(false);
 });
 
-test("the showcase orbits while on screen and pauses once it scrolls away", async ({ page }) => {
+test("the showcase orbits while on screen, pauses off screen, and hands over to the next board", async ({ page }) => {
+  // Two boards mean two scenes on a software renderer, so this one test gets
+  // the whole describe budget rather than being split up.
+  test.slow();
+
   await page.goto("/");
 
   const showcase = page.locator("[data-board-showcase]");
   await showcase.scrollIntoViewIfNeeded();
-  await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
+  await expect(page.frameLocator("[data-board-frame='control'] iframe").locator("#viewer canvas")).toBeAttached({
     timeout: 60_000,
   });
 
-  const frame = cinematicFrame(page);
-  expect(frame).toBeTruthy();
-  await waitForScene(frame!);
+  const control = cinematicFrameFor(page, "control");
+  expect(control).toBeTruthy();
+  await waitForScene(control!);
 
-  // On screen: playing, with no scrolling involved at all.
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(true);
+  // On screen: the first board plays, with no scrolling involved at all.
+  await expect.poll(async () => (await readOrbit(control!))?.playing, { timeout: 30_000 }).toBe(true);
+
+  // The second board is mounted only once the first is ready, so its 4MB of
+  // geometry never competes with the first paint.
+  await expect(page.locator("[data-board-frame='brick'] iframe")).toBeAttached({ timeout: 30_000 });
 
   // Scrolled away: paused. The board sits near the top of the page, so the
   // contact section is well past it.
   await page.locator("[data-section='contact']").scrollIntoViewIfNeeded();
   await expect(showcase).not.toBeInViewport();
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(false);
+  await expect.poll(async () => (await readOrbit(control!))?.playing, { timeout: 30_000 }).toBe(false);
 
   // And it stays parked rather than drifting on.
-  const parked = (await readOrbit(frame!))!.elapsed;
+  const parked = (await readOrbit(control!))!.elapsed;
   await page.waitForTimeout(750);
-  expect((await readOrbit(frame!))!.elapsed).toBe(parked);
+  expect((await readOrbit(control!))!.elapsed).toBe(parked);
+
+  // Back on screen, and the control tour runs to the end of its cycle: five
+  // stops is 36s, so this waits out one whole pass plus slack.
+  await showcase.scrollIntoViewIfNeeded();
+  const brick = cinematicFrameFor(page, "brick");
+  expect(brick).toBeTruthy();
+  await waitForScene(brick!);
+
+  // The handover: the brick board takes over and the control board stops.
+  // Polled rather than timed, because a software renderer advances the
+  // timeline in wall-clock time but delivers frames far slower than 60fps.
+  await expect.poll(async () => (await readOrbit(brick!))?.playing, { timeout: 90_000 }).toBe(true);
+  expect((await readOrbit(control!))?.playing).toBe(false);
+
+  // The caption follows the board that is actually on screen.
+  await expect(showcase).toContainText("Brick Buck Board");
 });
 
 test("reduced motion holds the board on the mid-orbit pose", async ({ browser }) => {
@@ -227,11 +251,11 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
   await page.goto("/");
 
   await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
-  await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
+  await expect(page.frameLocator("[data-board-frame='control'] iframe").locator("#viewer canvas")).toBeAttached({
     timeout: 60_000,
   });
 
-  const frame = cinematicFrame(page);
+  const frame = cinematicFrameFor(page, "control");
   await waitForScene(frame!);
 
   // Not merely "unchanging" - it must be parked on the mid-orbit pose, which is
@@ -492,9 +516,13 @@ test("a board with no tour file just orbits", async ({ page }) => {
 test("a short viewport does not fetch geometry until the block is scrolled to", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  // Scoped to the control board's geometry specifically: it is the lead board
+  // and mounts first, but the brick board mounts right behind it once the
+  // control board reports ready, so an unscoped counter would tick past 1 and
+  // this assertion would only pass by catching a transient value.
   let requested = 0;
   page.on("request", (request) => {
-    if (request.url().includes(".pcbgeo")) {
+    if (request.url().includes("control.pcbgeo")) {
       requested += 1;
     }
   });
@@ -516,10 +544,14 @@ test("a tall viewport defers the mount past load so the hero paints first", asyn
   // all, purely from React effect ordering.
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  // Scoped to the control board specifically: once it reports ready the brick
+  // board mounts right behind it, so an unscoped count of every showcase
+  // iframe would tick past 1 and this would only pass by catching a
+  // transient value.
   await page.goto("/", { waitUntil: "load" });
   await expect(page.locator("h1").first()).toBeVisible();
-  expect(await page.locator("[data-board-showcase] iframe").count()).toBe(0);
+  expect(await page.locator("[data-board-frame='control'] iframe").count()).toBe(0);
 
   // It still mounts promptly once the browser goes idle, just not before.
-  await expect(page.locator("[data-board-showcase] iframe")).toHaveCount(1, { timeout: 60_000 });
+  await expect(page.locator("[data-board-frame='control'] iframe")).toHaveCount(1, { timeout: 60_000 });
 });
