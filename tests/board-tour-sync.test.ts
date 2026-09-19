@@ -4,16 +4,22 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The generated tour files are checked in, so they can drift from the sources
- * they are built from: someone edits a blurb in assets-src/board-tours and
- * forgets `pnpm build:tour`, or the generator's geometry changes and only one
- * of the two boards gets regenerated. That second case actually happened.
+ * The tour files under public/ are build artifacts that are checked in, so
+ * they can drift from the assets-src/board-tours sources they come from.
  *
- * This asserts the copy half of "generated matches source" rather than
- * regenerating and diffing, because regenerating means launching Chromium to
- * decompress an Interactive BOM and vitest runs in `environment: "node"`. The
- * coordinate half is covered by e2e/board-spin.spec.ts, which pins one stop
- * per board to the world position its part was seen at.
+ * This guards one class of drift: the copy, the stop ids and the ordering.
+ * That is what someone changes by editing a source and forgetting
+ * `pnpm build:tour`, and it is all readable without a browser, which matters
+ * because vitest runs in `environment: "node"` and the generator has to launch
+ * Chromium to decompress an Interactive BOM.
+ *
+ * It does NOT guard the coordinates. A change in tools/board-tour-geometry.mjs
+ * moves x, y and span while leaving id, label and blurb untouched, so these
+ * assertions would pass straight through it. Two things cover that instead:
+ * the e2e probe tests, which pin one stop per board to the world position its
+ * part was confirmed to sit at, and the "Tour files are up to date" CI step in
+ * .github/workflows/e2e.yml, which regenerates both boards and fails on any
+ * diff at all. If you are adding a coordinate assertion here, prefer that step.
  */
 const root = path.resolve(__dirname, "..");
 const sourceDir = path.join(root, "assets-src/board-tours");
@@ -25,7 +31,19 @@ interface Stop {
   id: string;
   label: string;
   blurb: string;
+  x: number;
+  y: number;
+  span: number;
 }
+
+/**
+ * Half extent in millimetres of each board's .pcbgeo model space, rounded up
+ * from the measured bounds (control x -31.00..32.28 y -37.25..37.25, brick
+ * x -79.40..78.59 y -79.70..78.95). A stop outside this is not on the board,
+ * whatever its label says. An asset with no entry gets a loose sanity bound
+ * rather than no bound.
+ */
+const halfExtent: Record<string, number> = { control: 38, brick: 80 };
 
 const assets = readdirSync(sourceDir)
   .filter((name) => name.endsWith(".json"))
@@ -43,10 +61,26 @@ describe.each(assets)("%s.tour.json", (asset) => {
     );
   });
 
-  it("carries no em-dash in copy that reaches the page", () => {
+  it("gives every stop copy the shell can show", () => {
+    expect(built.stops.length).toBeGreaterThan(0);
+
     for (const stop of built.stops) {
+      expect(typeof stop.id).toBe("string");
+      expect(stop.label.length).toBeGreaterThan(0);
+      expect(stop.blurb.length).toBeGreaterThan(0);
+      // Cameron bans em-dashes in portfolio copy, and these strings are on screen.
       expect(stop.label).not.toContain("—");
       expect(stop.blurb).not.toContain("—");
+    }
+  });
+
+  it("puts every stop on the board, with a span the camera can frame", () => {
+    const bound = halfExtent[asset] ?? 200;
+
+    for (const stop of built.stops) {
+      expect(Math.abs(stop.x)).toBeLessThan(bound);
+      expect(Math.abs(stop.y)).toBeLessThan(bound);
+      expect(stop.span).toBeGreaterThan(0);
     }
   });
 });

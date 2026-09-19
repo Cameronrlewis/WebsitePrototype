@@ -25,12 +25,19 @@ export function toBoardLocal(pos, edgesBbox, flipY) {
  * `-size / 2` and the box centre lands back on `pos`, which is why treating
  * `pos` as the centre worked for the control board. It does not hold in
  * general: on the brick board J11 is 13mm and K1 9mm away from their own `pos`.
+ *
+ * The caller takes the axis-aligned bounds of these corners, which is exact at
+ * 0, +-90 and 180 degrees and inflates `span` for anything in between, since a
+ * tilted rectangle's axis-aligned box is larger than the rectangle. Every
+ * footprint on all three boards is at a multiple of 90, and the error direction
+ * is safe anyway: `span` only widens the camera radius, so a rotated part would
+ * be framed loosely rather than cropped.
  */
 function corners(bbox) {
   const [px, py] = bbox.pos;
-  const [rx, ry] = bbox.relpos ?? [-bbox.size[0] / 2, -bbox.size[1] / 2];
+  const [rx, ry] = bbox.relpos;
   const [w, h] = bbox.size;
-  const a = (-(bbox.angle ?? 0) * Math.PI) / 180;
+  const a = (-bbox.angle * Math.PI) / 180;
   const cos = Math.cos(a);
   const sin = Math.sin(a);
 

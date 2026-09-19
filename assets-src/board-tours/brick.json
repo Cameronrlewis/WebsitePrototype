@@ -22,7 +22,7 @@
     {
       "id": "battery-input",
       "label": "Battery input",
-      "blurb": "The Mini-Fit Sr connector marked BATTERY. All pack current enters the board here before it is split between the brick converters, the 5V buck and the fused subsystem outputs.",
+      "blurb": "The Mini-Fit Sr connector marked BATTERY. All pack current enters the board here before it is split between the brick converters and the fused subsystem outputs.",
       "refs": ["J11"]
     }
   ]

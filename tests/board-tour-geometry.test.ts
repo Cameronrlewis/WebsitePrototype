@@ -25,10 +25,13 @@ describe("toBoardLocal", () => {
 });
 
 describe("stopCenter", () => {
+  // relpos is -size/2 on all three, i.e. each footprint's origin is its own
+  // centre. That is the common case, and the case that let an earlier
+  // stopCenter get away with treating `pos` as the centre outright.
   const footprints = [
-    { ref: "Q3", bbox: { pos: [94.1, 115.7], size: [3.9, 3.5] } },
-    { ref: "Q4", bbox: { pos: [94.1, 111.7], size: [3.9, 3.5] } },
-    { ref: "U4", bbox: { pos: [102.4, 78.3], size: [13.4, 13.4] } },
+    { ref: "Q3", bbox: { pos: [94.1, 115.7], relpos: [-1.95, -1.75], size: [3.9, 3.5], angle: 0 } },
+    { ref: "Q4", bbox: { pos: [94.1, 111.7], relpos: [-1.95, -1.75], size: [3.9, 3.5], angle: 0 } },
+    { ref: "U4", bbox: { pos: [102.4, 78.3], relpos: [-6.7, -6.7], size: [13.4, 13.4], angle: 90 } },
   ];
 
   it("returns a single footprint's own centre and largest dimension", () => {
