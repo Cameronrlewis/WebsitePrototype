@@ -827,6 +827,11 @@
             // carry these.
             window.__tourPhase = tourPhase;
             window.__tourTiming = TOUR_TIMING;
+            // Drives one frame of the tour at an arbitrary elapsed time, so a
+            // test can walk a travel leg without waiting for it to come round
+            // in real time. The play loop calls applyTour(orbitElapsed) every
+            // frame, so anything driven here is overwritten on play.
+            window.__applyTour = applyTour;
 
             fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
               .then(function (response) { return response.ok ? response.json() : null; })
