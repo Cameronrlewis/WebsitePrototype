@@ -413,6 +413,8 @@ This is also the step that confirms the box geometry described above. A stop off
 
 Add this test to `e2e/board-spin.spec.ts`, directly after the existing test named `"tour stops land on the board where the BOM says they do"`. Replace `EXPECTED_X` and `EXPECTED_Z` with the world coordinates the probe reports in Step 6.
 
+Keep it to the probe assertion, which is the only part that needs a rendered scene. Anything that merely reads the tour JSON belongs in `tests/board-tour-sync.test.ts`, which already asserts copy, ids, ordering, board bounds and span for every asset without a browser. A WebGL context and a multi-megabyte geometry load are the most expensive test class in this repo, and `pages.yml` runs the e2e suite on the deploy-gating path, so do not put browser-free assertions here.
+
 ```ts
 test("the brick board's tour aims at the part the BOM puts there", async ({ page }) => {
   await page.goto(`${SHELL}?asset=brick&mode=cinematic&probe=brick-converter`);
@@ -430,26 +432,6 @@ test("the brick board's tour aims at the part the BOM puts there", async ({ page
   // the stop across the board and leaves the distance from the origin intact.
   expect(probe.world.x).toBeCloseTo(EXPECTED_X, 1);
   expect(probe.world.z).toBeCloseTo(EXPECTED_Z, 1);
-
-  // Every stop must be inside the board outline. brick.pcbgeo spans roughly
-  // -79.4..78.6 in x and -79.7..79.0 in y, so a stop outside 80mm of the
-  // origin in the board plane is off the board, whatever the label says.
-  const stops = await page.evaluate(async () => {
-    const response = await fetch("/portfolio/assets/viewers/tours/brick.tour.json");
-    return (await response.json()) as { stops: Array<{ id: string; label: string; blurb: string; x: number; y: number; span: number }> };
-  });
-
-  expect(stops.stops).toHaveLength(4);
-  for (const stop of stops.stops) {
-    expect(typeof stop.id).toBe("string");
-    expect(stop.label.length).toBeGreaterThan(0);
-    expect(stop.blurb.length).toBeGreaterThan(0);
-    expect(stop.label).not.toContain("—");
-    expect(stop.blurb).not.toContain("—");
-    expect(Math.abs(stop.x)).toBeLessThan(80);
-    expect(Math.abs(stop.y)).toBeLessThan(80);
-    expect(stop.span).toBeGreaterThan(0);
-  }
 });
 ```
 
