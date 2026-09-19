@@ -39,8 +39,10 @@ Scope decision recorded here so the executor does not have to guess: **two** boa
 | File | Status | Responsibility |
 |---|---|---|
 | `public/portfolio/assets/viewers/board-viewer-shell.html` | Modify | Owns the tour timeline. Gains `tourCycleMs()`, the `window.__tourCycleMs` test hook, and posts `{ type: "tour-cycle" }` to the parent when the timeline wraps. |
-| `tools/board-tour-coords.mjs` | Create | One-off-per-board authoring tool. Reads an InteractiveHtmlBom `IBOM.html` in headless Chromium, converts footprint positions into the `.pcbgeo` model coordinates a tour stop uses, and prints them. |
-| `public/portfolio/assets/viewers/tours/brick.tour.json` | Create | The Brick Buck Board's tour stops. Same schema as `control.tour.json`. |
+| `assets-src/board-tours/brick.json` | Create | The Brick Buck Board's tour source: stop ids, copy, and the footprint refs each stop frames. Built by the existing `pnpm build:tour`. |
+| `tools/board-tour-geometry.mjs` | Modify | `stopCenter` walks a footprint's real rotated bbox corners rather than assuming its placement origin is its centre. |
+| `public/portfolio/assets/viewers/tours/brick.tour.json` | Generate | The Brick Buck Board's tour stops. Same schema as `control.tour.json`. |
+| `tests/board-tour-sync.test.ts` | Create | Asserts each checked-in tour file still matches the source it was built from. |
 | `src/app/src/app/components/BoardShowcaseFrame.tsx` | Create | One board: the iframe, the ready handshake, and the play/pause postMessage. Driven entirely by props. |
 | `src/app/src/app/components/BoardShowcase.tsx` | Modify | The container: one framed block, the IntersectionObserver, mount gating, the caption, which board is active, and advancing on `tour-cycle`. |
 | `src/app/src/app/components/Home.tsx` | Modify | Passes the ordered board list to `BoardShowcase`. |
@@ -264,8 +266,8 @@ EOM
 ## Task 2: The Brick Buck Board gets its own tour
 
 **Files:**
-- Create: `tools/board-tour-coords.mjs`
-- Create: `public/portfolio/assets/viewers/tours/brick.tour.json`
+- Edit: `assets-src/board-tours/brick.json` (new source entry for the existing tour build)
+- Generated: `public/portfolio/assets/viewers/tours/brick.tour.json`
 - Test: `e2e/board-spin.spec.ts`
 
 **Interfaces:**
@@ -276,109 +278,74 @@ EOM
 
 ### Background the executor needs
 
-The shell converts a stop to a camera pose in `stopPose(stop)`, via `boardLocalToWorld(stop.x, stop.y)`, which is `boardGroup.localToWorld(new THREE.Vector3(x, y, 0))`. `buildScene` recentres the board with `boardGroup.position.sub(center)`, which moves the group, not its local coordinates. So `x` and `y` are raw `.pcbgeo` model coordinates, untouched by recentring and untouched by the group's rotations.
+**There is already a tour build pipeline. Do not write a second one.** `npx pnpm@10.17.1 build:tour <asset>` runs `tools/build-board-tour.mjs`, which:
+
+- reads `assets-src/board-tours/<asset>.json`, the hand-written source: `{ asset, stops: [{ id, label, blurb, refs: [ref, ...] }] }`, where `refs` names one or more footprints by reference designator and a multi-ref stop frames their union;
+- looks the asset up in its own `bomByAsset` map (`power`, `control` and `brick` are all already wired to their `public/portfolio/assets/bom/*/IBOM.html`);
+- loads that IBOM in Playwright's bundled Chromium, because the page stores `pcbdata` LZString-compressed in a script tag and there is no reliable way to parse it off disk;
+- converts through `tools/board-tour-geometry.mjs` (pure, unit tested in `tests/board-tour-geometry.test.ts`, typed by `tools/board-tour-geometry.d.mts`);
+- writes `public/portfolio/assets/viewers/tours/<asset>.tour.json` and prints each stop.
+
+The generated files are checked in, and `tests/board-tour-sync.test.ts` asserts each one still matches the source it was built from, so regenerate rather than hand-editing.
+
+**How a stop becomes a camera pose.** The shell's `stopPose(stop)` calls `boardLocalToWorld(stop.x, stop.y)`, which is `boardGroup.localToWorld(new THREE.Vector3(x, y, 0))`. `buildScene` recentres the board with `boardGroup.position.sub(center)`, which moves the group, not its local coordinates. So `x` and `y` are raw `.pcbgeo` model coordinates, untouched by recentring and untouched by the group's rotations.
 
 The `.pcbgeo` files are written by `tools/build-board-geometry-bin.mjs` straight from the source model with no recentring, and both boards happen to be roughly origin-centred in that space. Measured bounding boxes:
 
 - `control.pcbgeo`: x from -31.00 to 32.28, y from -37.25 to 37.25
 - `brick.pcbgeo`: x from -79.40 to 78.59, y from -79.70 to 78.95
 
-The IBOM file at `public/portfolio/assets/bom/brick-buck/IBOM.html` describes the same physical board in KiCad page coordinates: origin elsewhere, and y increasing downward. Its board outline bbox is `{ minx: 15.575, miny: 14.025, maxx: 173.617317, maxy: 172.37193 }`, so it is the same 158mm square. The conversion is therefore:
+**Page coordinates to model coordinates.** The IBOM describes the same physical board in KiCad page coordinates: origin elsewhere, and y increasing downward. The brick board's outline bbox is `{ minx: 15.575, miny: 14.025, maxx: 173.617317, maxy: 172.37193 }`, the same 158mm square. `toBoardLocal` therefore does:
 
 ```
 x_model =   (x_ibom - (minx + maxx) / 2)
 y_model = - (y_ibom - (miny + maxy) / 2)
 ```
 
-This conversion was validated against the existing `control.tour.json`: running it on the control IBOM reproduces all five existing stops to three decimal places when `x_ibom, y_ibom` is taken as the footprint bbox **corner** (`bbox.pos`), and each stop's `span` matches `Math.max(bbox.size[0], bbox.size[1])` exactly.
-
-**Use the footprint centre (`pos + size / 2`), not the corner, for the new brick stops.** The corner is what the control file happens to contain, and for its 13.45mm MCU that puts the camera target 6.7mm off the part. Step 4 below verifies the choice with a screenshot rather than taking it on trust. `control.tour.json` is deliberately left alone; re-aiming it is a separate change with its own visual review.
-
-- [ ] **Step 1: Write the coordinate extraction tool**
-
-The IBOM embeds its data as `JSON.parse(LZString.decompressFromBase64(...))`, so it has to be read in a browser rather than parsed from the file. Playwright's bundled Chromium is already a dev dependency.
-
-Create `tools/board-tour-coords.mjs`:
+**Where a footprint actually is.** This is the part that is easy to get wrong, so it is worth stating exactly. A footprint's `bbox` has four fields, and the IBOM's own canvas code draws the box like this:
 
 ```js
-/**
- * Prints tour-stop coordinates for a board, in the .pcbgeo model space that
- * public/portfolio/assets/viewers/tours/<asset>.tour.json uses.
- *
- * The InteractiveHtmlBom page stores its data LZ-compressed in a script tag,
- * so it is read by loading the page in headless Chromium rather than parsed
- * out of the file. Positions come out in KiCad page coordinates, which have a
- * different origin and a downward y axis; both are corrected against the
- * board outline bbox, which is the one feature both coordinate systems share.
- *
- * Usage: node tools/board-tour-coords.mjs <path-to-IBOM.html> [refPrefixFilter]
- */
-import { chromium } from "@playwright/test";
-import path from "node:path";
+ctx.translate(...footprint.bbox.pos);
+ctx.rotate(deg2rad(-footprint.bbox.angle));
+ctx.translate(...footprint.bbox.relpos);
+ctx.fillRect(0, 0, ...footprint.bbox.size);
+```
 
-const [, , bomPath, filter] = process.argv;
+So `pos` is the footprint's **placement origin**, not a corner and not the centre. The box occupies `relpos` to `relpos + size` in a frame rotated by `-angle` about `pos`. `stopCenter` reproduces that, mapping all four corners into page space and taking their axis-aligned bounds.
 
-if (!bomPath) {
-  console.error("usage: node tools/board-tour-coords.mjs <path-to-IBOM.html> [refPrefixFilter]");
-  process.exit(1);
-}
+The trap: for a footprint whose origin sits at its own centre, `relpos === -size / 2` exactly, and the box centre lands back on `pos`. That holds for every stop on the control board, which is why an earlier version of `stopCenter` that simply treated `pos` as the centre produced a correct `control.tour.json` and looked right. It does not hold in general. On the brick board 48 of 108 footprints break it, and two of the four candidate stops do: `J11` has `relpos [-3.075, -8.255]` against a `-size / 2` of `[-15.58, -13.255]`, putting its true centre 13mm from `pos`, and `K1` is 9mm out. Most parts also carry `angle` 90 or 180. Do not reintroduce the shortcut, and do not "correct" it by adding `size / 2` to `pos`, which is wrong by half a part in the other direction.
 
-const browser = await chromium.launch();
-const page = await browser.newPage();
-// The IBOM page throws on some of its own optional features when loaded from
-// disk; none of them touch pcbdata, so the errors are not interesting here.
-page.on("pageerror", () => {});
-await page.goto(`file://${path.resolve(bomPath)}`, { waitUntil: "domcontentloaded" });
+Step 4 below verifies all of this by eye rather than taking it on trust.
 
-const rows = await page.evaluate(() => {
-  const data = window.pcbdata;
-  const box = data.edges_bbox;
-  const cx = (box.minx + box.maxx) / 2;
-  const cy = (box.miny + box.maxy) / 2;
+- [ ] **Step 1: Add the brick board's tour source**
 
-  return data.footprints
-    .map((footprint, index) => {
-      const pos = footprint.bbox.pos;
-      const size = footprint.bbox.size;
-      return {
-        index,
-        ref: footprint.ref,
-        layer: footprint.layer,
-        x: Number((pos[0] + size[0] / 2 - cx).toFixed(3)),
-        y: Number((-(pos[1] + size[1] / 2 - cy)).toFixed(3)),
-        span: Number(Math.max(size[0], size[1]).toFixed(3)),
-      };
-    })
-    .sort((a, b) => b.span - a.span);
-});
+Create `assets-src/board-tours/brick.json` alongside the existing `control.json`, which is the model for its shape:
 
-await browser.close();
-
-const shown = filter ? rows.filter((row) => row.ref.startsWith(filter)) : rows;
-console.log("ref\tlayer\tx\ty\tspan");
-for (const row of shown) {
-  console.log(`${row.ref}\t${row.layer}\t${row.x}\t${row.y}\t${row.span}`);
+```json
+{
+  "asset": "brick",
+  "stops": [
+    { "id": "<id>", "label": "<label>", "blurb": "<blurb>", "refs": ["<REF>"] }
+  ]
 }
 ```
 
-- [ ] **Step 2: Run the tool and pick the stops**
+Nothing else needs creating. `bomByAsset` in `tools/build-board-tour.mjs` already maps `brick` to `public/portfolio/assets/bom/brick-buck/IBOM.html`.
 
-Run:
+- [ ] **Step 2: List the footprints and pick the stops**
 
-```bash
-node tools/board-tour-coords.mjs public/portfolio/assets/bom/brick-buck/IBOM.html
-```
+The build tool prints only the stops you asked for, so to survey the board first, dump the same `pcbdata` it reads. A throwaway script is fine here and should not be committed: launch `chromium` from `@playwright/test`, `goto` the IBOM as a `file://` URL with `page.on("pageerror", () => {})` (the page throws on its own optional features when loaded from disk), wait for `window.pcbdata`, then read `edges_bbox`, each footprint's `ref`, `layer` and `bbox`, and the BOM's part fields at `pcbdata.bom.fields` (keyed by footprint index, so map it back through the `footprints` array). Run each candidate through `stopCenter` and `toBoardLocal` to get its model-space centre and span, and sort by span.
 
-Expected: a tab-separated table, largest footprint first, beginning with the two `KUB4812_QB-10A` brick modules at span 59.9.
+Expected: the two `KUB4812_QB-10A` brick modules are the largest footprints at span 59.9.
 
-Now choose **four** stops. Four keeps the brick's cycle at `12000 + 4 * 4500 + 1500 = 31500`ms, so the pair of boards loops in just over a minute rather than well over two. Pick one footprint for each of these four subsystems, using the table plus `public/portfolio/assets/bom/brick-buck/IBOM.html` opened in a browser to confirm each reference designator is the part you think it is:
+Now choose **four** stops. Four keeps the brick's cycle at `12000 + 4 * 4500 + 1500 = 31500`ms, so the pair of boards loops in just over a minute rather than well over two. Pick one footprint for each of these four subsystems. Confirm each reference designator is the part you think it is: the BOM fields give the manufacturer part number and footprint name, and the 3D render carries the board's own silkscreen legends, which name most subsystems outright.
 
-1. **The Mornsun 48V to 12V brick.** One of the two `KUB4812_QB-10A` footprints. Pick whichever the IBOM shows on the front (`F`) layer and nearer the board centre; a stop whose computed centre falls outside the board outline (half-width 79.02mm) is a footprint whose bbox overhangs the edge, so prefer the other one.
+1. **The Mornsun 48V to 12V brick.** One of the two `KUB4812_QB-10A` footprints. Pick whichever is on the front (`F`) layer and nearer the board centre, and check that its footprint extent stays inside the outline (half-width 79.02mm).
 2. **The on-board 12V to 5V buck.** Find the switching regulator IC and its inductor. Use the IC footprint.
 3. **Circuit protection.** One of the `F1`..`F6` fuse footprints, span 19.85. Pick one that is not visually crowded by a tall neighbour.
-4. **Power output distribution.** The largest front-layer connector, likely `J11` at span 31.16, or the e-stop relay `K1` at span 20.63. Pick whichever the project description supports as a headline feature.
+4. **Power entry and distribution.** The largest front-layer connector, `J11` at span 31.16, or the e-stop relay `K1` at span 20.63. Read the silkscreen before writing the copy: `J11` is legended `BATTERY` and is the pack inlet, not an output header.
 
-Record the chosen `ref`, `x`, `y`, and `span` for each.
+Record the chosen `ref` for each, and put them in the `refs` arrays from Step 1. Then run `npx pnpm@10.17.1 build:tour brick` and check the printed `x`, `y` and `span`.
 
 - [ ] **Step 3: Write the tour file**
 
@@ -415,9 +382,9 @@ The shape, with the `id` values fixed because Step 5's test pins one of them:
       "span": 19.85
     },
     {
-      "id": "distribution",
-      "label": "Power distribution",
-      "blurb": "The output header feeding the kart harness. Connector placement was kept aligned to the existing harness so this board can be swapped in without rework.",
+      "id": "battery-input",
+      "label": "Battery input",
+      "blurb": "The Mini-Fit Sr connector marked BATTERY. All pack current enters the board here before it is split between the brick converters, the 5V buck and the fused subsystem outputs.",
       "x": 0,
       "y": 0,
       "span": 0
@@ -434,7 +401,7 @@ The shell has a `?probe=<stop id>` mode that parks the camera straight down on a
 npx pnpm@10.17.1 dev
 ```
 
-Then, for each of the four ids (`brick-converter`, `buck-5v`, `protection`, `distribution`), open:
+Then, for each of the four ids (`brick-converter`, `buck-5v`, `protection`, `battery-input`), open:
 
 `http://localhost:5173/portfolio/assets/viewers/board-viewer-shell.html?asset=brick&mode=cinematic&probe=<id>`
 
@@ -513,14 +480,13 @@ Expected: all green.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add tools/board-tour-coords.mjs public/portfolio/assets/viewers/tours/brick.tour.json e2e/board-spin.spec.ts
+git add assets-src/board-tours/brick.json public/portfolio/assets/viewers/tours/brick.tour.json e2e/board-spin.spec.ts
 git commit -m "$(cat <<'EOM'
 feat: give the Brick Buck Board its own guided tour
 
 Four stops covering the Mornsun brick, the custom 12V to 5V buck, the
-per-rail protection and the output distribution. Coordinates come from the
-board's own IBOM, converted into the .pcbgeo model space by a new tool so
-the next board does not have to rediscover the transform.
+per-branch fusing and the battery input. Coordinates come from the board's
+own IBOM through the existing build:tour pipeline.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 EOM
@@ -970,7 +936,7 @@ EOM
 | Go through both current PCBs with 3D model viewers | Task 3 (container cycles a board list), Task 1 (the handover signal) |
 | Brick Buck Board comes after the Control PCB | Task 3 Step 5 fixes the order via `SHOWCASE_SLUGS` |
 | Circling the Brick board | Already provided by the shell's orbit phase for any asset; Task 2 gives it stops so the orbit is followed by a tour rather than looping bare |
-| Featuring the Brick board's specific sections | Task 2 (four stops: brick module, 12V to 5V buck, protection, distribution) |
+| Featuring the Brick board's specific sections | Task 2 (four stops: brick module, 12V to 5V buck, protection, battery input) |
 | Cycle, that is, repeat | Task 3, `(index + 1) % boards.length`, and the shell's own `% cycleMs` wrap |
 
 No gaps.
