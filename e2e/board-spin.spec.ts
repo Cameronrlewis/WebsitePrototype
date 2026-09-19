@@ -277,6 +277,44 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
   ]);
 });
 
+test("the shell announces each completed tour cycle to its host", async ({ page }) => {
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  // The cycle length is the timeline's own arithmetic, so it is pinned here
+  // rather than recomputed in the component that consumes the message.
+  const cycles = await page.evaluate(() => {
+    const fn = (window as unknown as { __tourCycleMs?: (n: number, t: unknown) => number }).__tourCycleMs!;
+    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
+    return [fn(0, t), fn(4, t), fn(5, t)];
+  });
+
+  // No stops: the bare orbit is the whole cycle. Otherwise orbit, then a
+  // travel and a hold per stop, then the travel back out to the orbit.
+  expect(cycles).toEqual([12000, 12000 + 4 * 4500 + 1500, 12000 + 5 * 4500 + 1500]);
+
+  // And the message actually fires. The power board has no tour file, so its
+  // cycle is the bare 12s orbit: one wrap is cheap to wait for.
+  const announced = await page.evaluate(() => {
+    return new Promise<string>((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error("no tour-cycle message within 40s")), 40_000);
+      window.addEventListener("message", function onMessage(event) {
+        if ((event.data as { type?: unknown } | null)?.type !== "tour-cycle") {
+          return;
+        }
+
+        window.removeEventListener("message", onMessage);
+        clearTimeout(deadline);
+        resolve("tour-cycle");
+      });
+
+      window.postMessage({ type: "play" }, window.location.origin);
+    });
+  });
+
+  expect(announced).toBe("tour-cycle");
+});
+
 test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
   await page.goto(`${SHELL}?asset=control&mode=cinematic`);
   await waitForScene(page);

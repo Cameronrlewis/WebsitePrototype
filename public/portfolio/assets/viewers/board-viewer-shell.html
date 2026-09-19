@@ -200,6 +200,10 @@
         let renderPending = 0;
         let tourStops = [];
         let tourPhaseNow = { kind: "orbit", progress: 0 };
+        // Which cycle of the tour timeline the last applied frame fell in, so
+        // a wrap can be announced exactly once. -1 means nothing applied yet,
+        // which keeps the very first frame from counting as a completed cycle.
+        let lastCycleIndex = -1;
         const TOUR_TIMING = { orbitMs: 12000, travelMs: 1500, holdMs: 3000 };
         let mountWidth = 0;
         let mountHeight = 0;
@@ -292,12 +296,25 @@
           return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
         }
 
+        /**
+         * How long one full pass of the timeline takes: the orbit, then a
+         * travel and a hold for each stop, then the travel back out. A board
+         * with no tour file has no stops, so its cycle is the bare orbit.
+         */
+        function tourCycleMs(stopCount, timing) {
+          if (stopCount <= 0) {
+            return timing.orbitMs;
+          }
+
+          return timing.orbitMs + stopCount * (timing.travelMs + timing.holdMs) + timing.travelMs;
+        }
+
         function tourPhase(elapsedMs, stopCount, timing) {
           if (stopCount <= 0) {
             return { kind: "orbit", progress: (Math.max(0, elapsedMs) % timing.orbitMs) / timing.orbitMs };
           }
 
-          const cycleMs = timing.orbitMs + stopCount * (timing.travelMs + timing.holdMs) + timing.travelMs;
+          const cycleMs = tourCycleMs(stopCount, timing);
           let t = Math.max(0, elapsedMs) % cycleMs;
 
           if (t < timing.orbitMs) {
@@ -384,6 +401,18 @@
         function applyTour(elapsedMs) {
           const phase = tourPhase(elapsedMs, tourStops.length, TOUR_TIMING);
           tourPhaseNow = phase;
+
+          // The host swaps to the next board on this, so it has to fire on the
+          // wrap itself rather than on a phase transition: a board with no tour
+          // file never leaves the orbit phase and would otherwise never hand over.
+          const cycleIndex = Math.floor(Math.max(0, elapsedMs) / tourCycleMs(tourStops.length, TOUR_TIMING));
+          if (cycleIndex !== lastCycleIndex) {
+            if (lastCycleIndex >= 0) {
+              notifyHost("tour-cycle");
+            }
+
+            lastCycleIndex = cycleIndex;
+          }
 
           if (phase.kind === "orbit") {
             applySpin(phase.progress);
@@ -832,6 +861,7 @@
             // in real time. The play loop calls applyTour(orbitElapsed) every
             // frame, so anything driven here is overwritten on play.
             window.__applyTour = applyTour;
+            window.__tourCycleMs = tourCycleMs;
 
             fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
               .then(function (response) { return response.ok ? response.json() : null; })
@@ -843,6 +873,9 @@
                   // used before stops existed. Fold it back into range so the
                   // camera does not jump straight into a travel or hold leg.
                   orbitElapsed %= TOUR_TIMING.orbitMs;
+                  // The cycle length just changed underneath the counter, so
+                  // the index it holds is from the old, stop-free timeline.
+                  lastCycleIndex = -1;
 
                   if (probeStop) {
                     const stop = tour.stops.filter(function (s) { return s.id === probeStop; })[0];
@@ -878,11 +911,10 @@
         // Lets the embedding page swap its loading skeleton for the live canvas
         // only once geometry is actually on screen.
         function notifyHost(type) {
-          if (window.parent === window) {
-            return;
-          }
-
-          window.parent.postMessage({ type: type }, window.location.origin);
+          // Top level (no embedding page) posts to itself, so the shell's own
+          // page can observe the same messages an embedder would receive.
+          const target = window.parent === window ? window : window.parent;
+          target.postMessage({ type: type }, window.location.origin);
         }
 
         window.addEventListener("message", function (event) {
