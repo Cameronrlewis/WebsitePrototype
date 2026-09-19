@@ -38,6 +38,18 @@ function readOrbit(target: Page | Frame) {
   );
 }
 
+// The tour hooks the cinematic shell exposes. __applyTour and __tourTiming are
+// optional because they only appear once the tour file has been fetched.
+interface TourHooks {
+  __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
+  __applyTour?: (elapsedMs: number) => void;
+  __tourTiming?: { orbitMs: number; travelMs: number };
+}
+
+function readTour(target: Page | Frame) {
+  return target.evaluate(() => (window as unknown as Partial<TourHooks>).__boardTour?.());
+}
+
 function post(target: Page | Frame, message: Record<string, unknown>) {
   return target.evaluate((value) => window.postMessage(value, window.location.origin), message);
 }
@@ -319,53 +331,32 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
   await page.goto(`${SHELL}?asset=control&mode=cinematic`);
   await waitForScene(page);
 
-  const readTour = () =>
-    page.evaluate(
-      () => (window as unknown as { __boardTour?: () => { phase: string; stop: number; label: string | null } }).__boardTour?.(),
-    );
-
   // Nothing runs until play, so the tour starts in its orbit phase.
-  expect((await readTour())?.phase).toBe("orbit");
+  expect((await readTour(page))?.phase).toBe("orbit");
 
   // Claim 1 pins the short-arc camera blend (blendPose in
   // board-viewer-shell.html): without wrapping the heading delta into
   // [-pi, pi], the orbit-into-first-stop leg sweeps nearly a full revolution
-  // the long way round. Measure it as the largest heading offset from the
-  // orbit's end pose seen anywhere in that leg, which stays under pi on the
-  // short arc by definition.
-  //
-  // The leg is walked synthetically through __applyTour rather than by
-  // watching the animation arrive: it is only travelMs wide, and CI's
-  // software renderer starves in-page timers badly enough to miss that window
-  // on consecutive 36s cycles, which is what made the wall-clock version
-  // flake. Stepping the elapsed time by hand samples the same arithmetic the
-  // play loop feeds applyTour, with no frame budget in the way.
+  // the long way round, so the largest heading offset from the orbit's end
+  // pose seen in that leg exceeds pi. Walking the leg through __applyTour
+  // rather than waiting for it keeps CI's starved frame budget out of it: the
+  // leg is only travelMs wide and was missed on consecutive 36s cycles.
   const ORBIT_END_THETA = -0.5 + Math.PI * 2;
 
-  // The tour file is fetched after the scene reports ready, and until it
-  // lands there are no stops, so every elapsed time still reports an orbit.
+  // No stops until the tour file lands, and until then every elapsed time
+  // still reports an orbit.
   await page.waitForFunction(() => {
-    const view = window as unknown as {
-      __applyTour?: (elapsedMs: number) => void;
-      __tourTiming?: { orbitMs: number; travelMs: number };
-      __boardTour: () => { phase: string; from: number | null };
-    };
-
+    const view = window as unknown as TourHooks;
     if (!view.__applyTour || !view.__tourTiming) {
       return false;
     }
 
     view.__applyTour(view.__tourTiming.orbitMs + view.__tourTiming.travelMs / 2);
-    const tour = view.__boardTour();
-    return tour.phase === "travel" && tour.from === -1;
+    return view.__boardTour().from === -1;
   });
 
   const maxOffset = await page.evaluate((orbitEnd: number) => {
-    const view = window as unknown as {
-      __applyTour: (elapsedMs: number) => void;
-      __tourTiming: { orbitMs: number; travelMs: number };
-      __boardViewerState: { theta: number };
-    };
+    const view = window as unknown as Required<TourHooks> & { __boardViewerState: CameraState };
     const { orbitMs, travelMs } = view.__tourTiming;
     let worst = 0;
 
@@ -383,39 +374,31 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
 
   expect(maxOffset).toBeLessThanOrEqual(Math.PI);
 
-  // Claim 2 is the STM32 label on the first stop. The hold lasts holdMs, so
-  // the tour state and the DOM it drives must be read in the same tick:
-  // polling for the label and then asserting the class separately let the
-  // hold expire in between. This one does wait for the real animation, but a
-  // hold is twice as wide as a travel leg and needs no earlier phase
-  // observed, so a starved cycle costs a retry rather than the whole run.
-  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
+  // Claim 2 is the STM32 label on the first stop, which does wait for the real
+  // animation. A hold needs no earlier phase observed, so a starved cycle
+  // costs a retry rather than the run.
+  await post(page, { type: "play" });
 
-  const label = await page.evaluate(async () => {
-    const getTour = (window as unknown as {
-      __boardTour: () => { phase: string; stop: number; label: string | null };
-    }).__boardTour;
-
-    return new Promise<{ label: string | null; visible: boolean; title: string | null }>((resolve, reject) => {
-      const deadline = Date.now() + 70_000;
-
-      const timer = setInterval(() => {
-        const tour = getTour();
-
-        if (tour.phase === "hold" && tour.stop === 0) {
-          clearInterval(timer);
-          resolve({
-            label: tour.label,
-            visible: document.getElementById("stop-label")!.classList.contains("visible"),
-            title: document.getElementById("stop-title")!.textContent,
-          });
-        } else if (Date.now() > deadline) {
-          clearInterval(timer);
-          reject(new Error("tour never reached its first hold within 70s"));
+  const label = await page
+    .waitForFunction(
+      () => {
+        const tour = (window as unknown as TourHooks).__boardTour();
+        if (tour.phase !== "hold" || tour.stop !== 0) {
+          return null;
         }
-      }, 20);
-    });
-  });
+
+        // Read in the same tick as the phase: polling for the label and then
+        // asserting the class separately let the hold expire in between.
+        return {
+          label: tour.label,
+          visible: document.getElementById("stop-label")!.classList.contains("visible"),
+          title: document.getElementById("stop-title")!.textContent,
+        };
+      },
+      null,
+      { polling: 20, timeout: 70_000 },
+    )
+    .then((handle) => handle.jsonValue());
 
   expect(label).toEqual({
     label: "STM32G474",
@@ -424,7 +407,7 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
   });
 
   // Pausing must clear the label rather than leave it stranded.
-  await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));
+  await post(page, { type: "pause" });
   await expect(page.locator("#stop-label")).not.toHaveClass(/visible/);
 });
 
@@ -436,9 +419,7 @@ test("a board with no tour file just orbits", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);
 
-  const tour = await page.evaluate(
-    () => (window as unknown as { __boardTour?: () => { phase: string; stop: number } }).__boardTour?.(),
-  );
+  const tour = await readTour(page);
   expect(tour?.phase).toBe("orbit");
   expect(tour?.stop).toBe(-1);
   expect(failures).toEqual([]);
