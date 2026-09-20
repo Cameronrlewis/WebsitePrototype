@@ -847,21 +847,24 @@ with:
       {showcaseBoards.length ? <BoardShowcase boards={showcaseBoards} /> : null}
 ```
 
-and add this above the component, below the imports, so the list is computed once rather than rebuilt every render:
+`showcaseBoards` is imported from `../data/portfolio`, not computed in this component. CLAUDE.md
+makes `portfolio.ts` the single source of truth for page content, and which boards the showcase
+plays (and in what order) is content, so it is a derived export there, added right after
+`featuredBoardProjects`:
 
-```tsx
-// The two boards that have a guided tour, in the order the showcase plays
-// them. Driven by slug rather than by featured order so that featuring
+```ts
+// The two boards that have a guided tour, in the order the homepage showcase
+// plays them. Driven by slug rather than by featured order so that featuring
 // another board does not silently change what the homepage animates.
 const SHOWCASE_SLUGS = ["aux-control-board", "brick-buck-board"];
 
-const showcaseBoards = SHOWCASE_SLUGS.flatMap((slug) => {
-  const project = featuredBoardProjects.find((candidate) => candidate.slug === slug);
+export const showcaseBoards: ShowcaseBoard[] = SHOWCASE_SLUGS.flatMap((slug) => {
+  const project = getProjectBySlug(slug);
   return project?.viewerAsset ? [{ asset: project.viewerAsset, title: project.title }] : [];
 });
 ```
 
-`featuredBoardProjects` is already imported in this file. Confirm no other import needs adding.
+`featuredBoardProjects` and `showcaseBoards` are both imported in `Home.tsx`. Confirm no other import needs adding.
 
 - [ ] **Step 6: Run typecheck**
 

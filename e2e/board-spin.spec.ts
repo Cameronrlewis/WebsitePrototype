@@ -597,6 +597,55 @@ test("a board that fails to load geometry while it is the active one hands over 
   await expect(showcase).toContainText("Brick Buck Board");
 });
 
+test("a failed lead board keeps the skeleton up until its fallback is actually ready", async ({ page }) => {
+  // Deliberately held open rather than timed: the lead fails immediately
+  // (aborted), and the fallback's geometry request is not allowed to
+  // complete until this test says so. That makes the "still loading" window
+  // exact rather than a guess at how long it takes in practice, so there is
+  // nothing here for a slow runner to race.
+  await page.route("**/geometry/control.pcbgeo", (route) => route.abort());
+  let releaseBrick = () => {};
+  const brickGate = new Promise<void>((resolve) => {
+    releaseBrick = resolve;
+  });
+  await page.route("**/geometry/brick.pcbgeo", async (route) => {
+    await brickGate;
+    await route.continue();
+  });
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  // Confirm the lead's failure has actually landed (not just that the route
+  // matched) before asserting on the skeleton - otherwise this assertion
+  // could pass on a lucky read before the state update rather than because
+  // the fix holds it up. This is exactly the point at which the old code
+  // (skeleton tied to leadReady rather than to the active board's own
+  // readiness) would have dismissed the skeleton already.
+  const control = await waitForCinematicFrame(page, "control");
+  await expect
+    .poll(
+      async () =>
+        control.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // The lead has failed and the fallback is still being held back: there is
+  // nothing ready to show, so the skeleton must still be up.
+  await expect(showcase.locator(".skeleton-board")).toBeVisible();
+
+  releaseBrick();
+
+  // Once the fallback's geometry is allowed through and it reports ready,
+  // the skeleton comes down - not before, per the fix.
+  await expect(showcase.locator(".skeleton-board")).toBeHidden({ timeout: 30_000 });
+});
+
 // The last two load no WebGL scene at all, which is why they stay separate:
 // they assert what happens BEFORE the iframe is ever mounted.
 

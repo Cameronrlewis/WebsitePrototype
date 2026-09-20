@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
+import type { BoardAsset } from "../data/portfolio";
+
 interface BoardShowcaseFrameProps {
-  asset: "power" | "control" | "brick";
+  asset: BoardAsset;
   title: string;
   playing: boolean;
   onReady: (ok: boolean) => void;

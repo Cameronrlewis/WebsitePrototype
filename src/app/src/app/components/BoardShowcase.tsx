@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { ShowcaseBoard } from "../data/portfolio";
 import { BoardShowcaseFrame } from "./BoardShowcaseFrame";
 import { BoardViewerSkeleton, FORCE_SKELETONS } from "./Skeletons";
-
-interface ShowcaseBoard {
-  asset: "power" | "control" | "brick";
-  title: string;
-}
 
 interface BoardShowcaseProps {
   boards: ShowcaseBoard[];
@@ -46,6 +42,12 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
   // Only this - whether the lead specifically has failed - needs to be state,
   // since it changes what gets rendered (see the reduced-motion mount gate).
   const [leadErrored, setLeadErrored] = useState(false);
+  // Assets whose shell has reported ready OR error - i.e. that have something
+  // real to show (a rendered frame or an error card) rather than nothing yet.
+  // The skeleton is held until the *active* board specifically is in this
+  // set, not merely until the lead is, so a lead that fails does not dismiss
+  // the skeleton onto an empty box while its fallback is still loading.
+  const [readyAssets, setReadyAssets] = useState<ReadonlySet<string>>(() => new Set());
   const [reducedMotion, setReducedMotion] = useState(false);
 
   // One observer drives both jobs: the first intersection mounts the iframe
@@ -145,6 +147,8 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
         erroredAssetsRef.current.add(asset);
       }
 
+      setReadyAssets((prev) => (prev.has(asset) ? prev : new Set(prev).add(asset)));
+
       // A failed lead board must still open the gate for the other boards, or
       // one failure turns into a blank block instead of a partial cycle.
       if (index === 0) {
@@ -168,7 +172,7 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
   );
 
   const current = boards[active];
-  const showBoard = leadReady && !FORCE_SKELETONS;
+  const showBoard = readyAssets.has(current.asset) && !FORCE_SKELETONS;
 
   return (
     <div
@@ -211,7 +215,21 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(12,12,20,0.94)] via-[rgba(12,12,20,0.6)] to-transparent px-6 pb-5 pt-14">
         <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-white/45">In motion</p>
-        <p className="mt-1 font-display text-lg text-white">{current.title}</p>
+        {/* Stacked in one grid cell and crossfaded on the same duration-700 as
+            the board frames above, so the caption never reads a title for a
+            board that has not visually arrived yet. */}
+        <div className="mt-1 grid">
+          {boards.map((board, index) => (
+            <p
+              key={board.asset}
+              className={`col-start-1 row-start-1 font-display text-lg text-white transition-opacity duration-700 ${
+                index === active && showBoard ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {board.title}
+            </p>
+          ))}
+        </div>
       </div>
     </div>
   );
