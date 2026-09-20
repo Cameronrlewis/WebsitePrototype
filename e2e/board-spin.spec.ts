@@ -43,7 +43,7 @@ function readOrbit(target: Page | Frame) {
 interface TourHooks {
   __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
   __applyTour?: (elapsedMs: number) => void;
-  __tourTiming?: { orbitMs: number; travelMs: number };
+  __tourTiming?: { orbitMs: number; travelMs: number; holdMs: number };
 }
 
 function readTour(target: Page | Frame) {
@@ -471,39 +471,43 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
 
   expect(maxOffset).toBeLessThanOrEqual(Math.PI);
 
-  // Claim 2 is the STM32 label on the first stop, which does wait for the real
-  // animation. A hold needs no earlier phase observed, so a starved cycle
-  // costs a retry rather than the run.
-  await post(page, { type: "play" });
+  // Claim 2 is the STM32 label on the first stop. Driven through __applyTour
+  // for the same reason as claim 1: waiting for the real animation to reach
+  // hold 0 spent a 70s budget on a starved runner and took the whole serial
+  // group down with it. applyTour calls renderStopLabel synchronously in the
+  // same call, so one evaluate can drive the timeline and read both the tour
+  // state and the DOM it produced with no frame budget and no wall clock in
+  // between. That is more atomic than the same-tick waitForFunction it
+  // replaces, which still had to wait for a frame to arrive.
+  //
+  // The elapsed time is derived rather than hard-coded so it survives the next
+  // timing change: the middle of the first hold is one orbit, one travel leg
+  // and half a hold in.
+  const label = await page.evaluate(() => {
+    const view = window as unknown as Required<TourHooks>;
+    const { orbitMs, travelMs, holdMs } = view.__tourTiming;
+    view.__applyTour(orbitMs + travelMs + holdMs / 2);
 
-  const label = await page
-    .waitForFunction(
-      () => {
-        const tour = (window as unknown as TourHooks).__boardTour();
-        if (tour.phase !== "hold" || tour.stop !== 0) {
-          return null;
-        }
-
-        // Read in the same tick as the phase: polling for the label and then
-        // asserting the class separately let the hold expire in between.
-        return {
-          label: tour.label,
-          visible: document.getElementById("stop-label")!.classList.contains("visible"),
-          title: document.getElementById("stop-title")!.textContent,
-        };
-      },
-      null,
-      { polling: 20, timeout: 70_000 },
-    )
-    .then((handle) => handle.jsonValue());
+    const tour = view.__boardTour();
+    return {
+      phase: tour.phase,
+      stop: tour.stop,
+      label: tour.label,
+      visible: document.getElementById("stop-label")!.classList.contains("visible"),
+      title: document.getElementById("stop-title")!.textContent,
+    };
+  });
 
   expect(label).toEqual({
+    phase: "hold",
+    stop: 0,
     label: "STM32G474",
     visible: true,
     title: "STM32G474",
   });
 
-  // Pausing must clear the label rather than leave it stranded.
+  // Pausing must clear the label rather than leave it stranded. The label is
+  // genuinely visible above, so this still removes a class that is really set.
   await post(page, { type: "pause" });
   await expect(page.locator("#stop-label")).not.toHaveClass(/visible/);
 });
