@@ -32,14 +32,6 @@
       "x": -9.949,
       "y": -25.455,
       "span": 7.45
-    },
-    {
-      "id": "usb-uart",
-      "label": "USB to UART",
-      "blurb": "CP2104 bridge. Exposes the debug console over the USB port without a separate programmer.",
-      "x": 10.742,
-      "y": -16.163,
-      "span": 5.625
     }
   ]
 }

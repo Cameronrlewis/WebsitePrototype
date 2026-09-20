@@ -236,8 +236,8 @@ test("the showcase orbits while on screen, pauses off screen, and hands over to 
   await page.waitForTimeout(750);
   expect((await readOrbit(control!))!.elapsed).toBe(parked);
 
-  // Back on screen, and the control tour runs to the end of its cycle: five
-  // stops is 36s, so this waits out one whole pass plus slack.
+  // Back on screen, and the control tour runs to the end of its cycle: four
+  // stops is 25.5s, so this waits out one whole pass plus slack.
   await showcase.scrollIntoViewIfNeeded();
   const brick = await waitForCinematicFrame(page, "brick");
   await waitForScene(brick);
@@ -322,12 +322,12 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
   // The shell owns the only copy of this arithmetic; this test pins it
   // directly against the fixture table below.
   const timing = await page.evaluate(() => (window as unknown as { __tourTiming?: unknown }).__tourTiming);
-  expect(timing).toEqual({ orbitMs: 12000, travelMs: 1500, holdMs: 3000 });
+  expect(timing).toEqual({ orbitMs: 6000, travelMs: 1500, holdMs: 3000 });
 
   const phases = await page.evaluate(() => {
     const fn = (window as unknown as { __tourPhase?: (e: number, n: number, t: unknown) => unknown }).__tourPhase!;
     const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
-    return [0, 6000, 12750, 15000, 17250, 35250].map((ms) => fn(ms, 5, t));
+    return [0, 3000, 6750, 9000, 11250, 24750].map((ms) => fn(ms, 4, t));
   });
 
   expect(phases).toEqual([
@@ -336,7 +336,7 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
     { kind: "travel", from: -1, to: 0, progress: 0.5 },
     { kind: "hold", stop: 0, progress: 0.5 },
     { kind: "travel", from: 0, to: 1, progress: 0.5 },
-    { kind: "travel", from: 4, to: -1, progress: 0.5 },
+    { kind: "travel", from: 3, to: -1, progress: 0.5 },
   ]);
 });
 
@@ -354,10 +354,10 @@ test("the shell announces each completed tour cycle to its host", async ({ page 
 
   // No stops: the bare orbit is the whole cycle. Otherwise orbit, then a
   // travel and a hold per stop, then the travel back out to the orbit.
-  expect(cycles).toEqual([12000, 12000 + 4 * 4500 + 1500, 12000 + 5 * 4500 + 1500]);
+  expect(cycles).toEqual([6000, 6000 + 4 * 4500 + 1500, 6000 + 5 * 4500 + 1500]);
 
   // And the message actually fires. The power board has no tour file, so its
-  // cycle is the bare 12s orbit: one wrap is cheap to wait for.
+  // cycle is the bare 6s orbit: one wrap is cheap to wait for.
   const announced = await page.evaluate(() => {
     return new Promise<string>((resolve, reject) => {
       const deadline = setTimeout(() => reject(new Error("no tour-cycle message within 40s")), 40_000);
@@ -380,11 +380,17 @@ test("the shell announces each completed tour cycle to its host", async ({ page 
 
 test("a slow tour fetch does not post a premature tour-cycle before it settles", async ({ page }) => {
   // The bug this guards: while the fetch is in flight, tourStops is still
-  // empty, so the shell would compute the bare 12s orbit as the whole cycle
-  // and announce a wrap at 12s even though the real, stop-filled timeline
+  // empty, so the shell would compute the bare 6s orbit as the whole cycle
+  // and announce a wrap at 6s even though the real, stop-filled timeline
   // (once the fetch lands) is longer. Delay the response comfortably past
-  // that 12s mark so a regression has time to fire within the watch window.
-  const FETCH_DELAY_MS = 13_500;
+  // that 6s mark so a regression has time to fire within the watch window.
+  //
+  // Sized off orbitMs, not scaled with it: the watch window is orbitMs plus
+  // 500ms and the delay is the window plus 1000ms, and those two margins are
+  // absolute slack for a starved CI runner rather than fractions of the
+  // orbit. Halving them with the orbit would have bought ~750ms and made a
+  // deploy-gating test flakier.
+  const FETCH_DELAY_MS = 7_500;
 
   await page.route("**/tours/control.tour.json", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
@@ -431,7 +437,7 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
   // the long way round, so the largest heading offset from the orbit's end
   // pose seen in that leg exceeds pi. Walking the leg through __applyTour
   // rather than waiting for it keeps CI's starved frame budget out of it: the
-  // leg is only travelMs wide and was missed on consecutive 36s cycles.
+  // leg is only travelMs wide and was missed on consecutive full cycles.
   const ORBIT_END_THETA = -0.5 + Math.PI * 2;
 
   // No stops until the tour file lands, and until then every elapsed time
@@ -545,7 +551,7 @@ test("a board that fails to load geometry does not become a dead end for the cyc
     .toBe(true);
 
   // The real trigger for a handover is the control board's own tour wrapping,
-  // which takes a genuine 36s. This file already spends that time once in
+  // which takes a genuine 25.5s. This file already spends that time once in
   // "hands over to the next board" above, and doing it again here would add
   // another ~40s to the deploy-gating e2e:preview run for no new coverage of
   // the timing itself. So this simulates the boundary the same way the shell

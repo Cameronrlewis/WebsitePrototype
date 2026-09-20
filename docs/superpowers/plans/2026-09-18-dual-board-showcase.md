@@ -25,7 +25,7 @@ Scope decision recorded here so the executor does not have to guess: **two** boa
 - No em-dashes (—) in user-facing portfolio copy. Tour `label` and `blurb` strings are user-facing copy and are covered by this rule.
 - `board-viewer-shell.html` is a plain ES5-style `<script>` with no module loader and no bundler. Use `var`/`let`/`const` and `function` declarations that run directly in the browser. No imports, no optional chaining in that file (match the surrounding style, which uses `&&` guards).
 - CI runners have no GPU. They fall back to SwiftShader on two cores, which starves `requestAnimationFrame` and drops in-page `setInterval` samples. Never assert a property across two CDP round trips over a short window, and never measure a camera path by accumulating per-sample deltas. Assert single-sample properties, and identify a tour leg via `__boardTour().from`.
-- Existing tour timing, unchanged by this plan: `orbitMs: 12000`, `travelMs: 1500`, `holdMs: 3000`. Full cycle for N stops is `12000 + N * 4500 + 1500` ms.
+- Tour timing: `orbitMs: 6000`, `travelMs: 1500`, `holdMs: 3000`. Full cycle for N stops is `6000 + N * 4500 + 1500` ms. The orbit was halved from 12000 after this plan shipped, because a 36s first board meant most visitors never reached the second one.
 - `e2e/board-spin.spec.ts` runs `test.describe.configure({ mode: "serial", timeout: 150_000 })`. Keep it serial; `waitForScene` alone can consume 60s of the budget.
 - `pages.yml` runs `pnpm e2e:preview` between Build and Upload artifact. A flaky bundle e2e blocks the deploy. The fix for a flake is always to make the test deterministic, never to move the step after the upload.
 - Use explicit pathspecs on `git commit`. Never `git add -A`.
@@ -83,7 +83,7 @@ test("the shell announces each completed tour cycle to its host", async ({ page 
 
   // No stops: the bare orbit is the whole cycle. Otherwise orbit, then a
   // travel and a hold per stop, then the travel back out to the orbit.
-  expect(cycles).toEqual([12000, 12000 + 4 * 4500 + 1500, 12000 + 5 * 4500 + 1500]);
+  expect(cycles).toEqual([6000, 6000 + 4 * 4500 + 1500, 6000 + 5 * 4500 + 1500]);
 
   // And the message actually fires. The power board has no tour file, so its
   // cycle is the bare 12s orbit: one wrap is cheap to wait for.
@@ -338,7 +338,7 @@ The build tool prints only the stops you asked for, so to survey the board first
 
 Expected: the two `KUB4812_QB-10A` brick modules are the largest footprints at span 59.9.
 
-Now choose **four** stops. Four keeps the brick's cycle at `12000 + 4 * 4500 + 1500 = 31500`ms, so the pair of boards loops in just over a minute rather than well over two. Pick one footprint for each of these four subsystems. Confirm each reference designator is the part you think it is: the BOM fields give the manufacturer part number and footprint name, and the 3D render carries the board's own silkscreen legends, which name most subsystems outright.
+Now choose **four** stops. Four keeps the brick's cycle at `6000 + 4 * 4500 + 1500 = 25500`ms, matching the control board's and putting the pair's full loop at 51s. Pick one footprint for each of these four subsystems. Confirm each reference designator is the part you think it is: the BOM fields give the manufacturer part number and footprint name, and the 3D render carries the board's own silkscreen legends, which name most subsystems outright.
 
 1. **The Mornsun 48V to 12V brick.** One of the two `KUB4812_QB-10A` footprints. Pick whichever is on the front (`F`) layer and nearer the board centre, and check that its footprint extent stays inside the outline (half-width 79.02mm).
 2. **The on-board 12V to 5V buck.** Find the switching regulator IC and its inductor. Use the IC footprint.
@@ -540,8 +540,8 @@ test("the showcase orbits while on screen, pauses off screen, and hands over to 
   await page.waitForTimeout(750);
   expect((await readOrbit(control!))!.elapsed).toBe(parked);
 
-  // Back on screen, and the control tour runs to the end of its cycle: five
-  // stops is 36s, so this waits out one whole pass plus slack.
+  // Back on screen, and the control tour runs to the end of its cycle: four
+  // stops is 25.5s, so this waits out one whole pass plus slack.
   await showcase.scrollIntoViewIfNeeded();
   const brick = cinematicFrameFor(page, "brick");
   expect(brick).toBeTruthy();
