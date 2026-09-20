@@ -24,12 +24,6 @@
       "label": "Level shifter",
       "blurb": "A 2N7002 pair. Translates between the 3V3 logic and 5V peripherals in both directions.",
       "refs": ["Q3", "Q4"]
-    },
-    {
-      "id": "usb-uart",
-      "label": "USB to UART",
-      "blurb": "CP2104 bridge. Exposes the debug console over the USB port without a separate programmer.",
-      "refs": ["U3"]
     }
   ]
 }

@@ -15,6 +15,7 @@ import {
   getOrganizationById,
   organizationKindLabel,
   profile,
+  showcaseBoards,
   socialLinks,
   stats,
 } from "../data/portfolio";
@@ -264,12 +265,7 @@ export function Home({ onNavigate, onOpenProject, onOpenOrganization, onOpenResu
         </div>
       </motion.section>
 
-      {featuredBoardProjects[0] ? (
-        <BoardShowcase
-          asset={featuredBoardProjects[0].viewerAsset ?? "power"}
-          title={featuredBoardProjects[0].title}
-        />
-      ) : null}
+      {showcaseBoards.length ? <BoardShowcase boards={showcaseBoards} /> : null}
 
       <motion.section
         initial={{ opacity: 0, y: 18 }}

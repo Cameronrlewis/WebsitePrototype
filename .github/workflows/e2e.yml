@@ -43,6 +43,20 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      # The tour files under public/ are generated from assets-src/board-tours
+      # and checked in, so they can drift from their sources or from the
+      # geometry that built them. tests/board-tour-sync.test.ts covers the copy
+      # and ordering without a browser; this covers everything, coordinates
+      # included, by rebuilding both boards and failing on any diff. It reuses
+      # the Chromium installed above, which the generator needs to read an
+      # Interactive BOM. It lives here rather than in pages.yml so it does not
+      # add browser time to the deploy-gating job.
+      - name: Tour files are up to date
+        run: |
+          pnpm build:tour control
+          pnpm build:tour brick
+          git diff --exit-code public/portfolio/assets/viewers/tours
+
       - name: Run e2e
         run: pnpm e2e
 

@@ -10,6 +10,11 @@ export type PageId =
 export type ProjectStatus = "in-progress" | "completed";
 export type OrganizationKind = "team" | "work" | "personal" | "coursework";
 
+// The 3D viewer assets a project can point at. Named once here so
+// ProjectRecord.viewerAsset and the homepage showcase's board list share one
+// definition instead of three copies of the same union.
+export type BoardAsset = "power" | "control" | "brick";
+
 export interface SocialLink {
   label: string;
   value: string;
@@ -93,7 +98,7 @@ export interface ProjectRecord {
   reportPages?: string[];
   viewer3d?: boolean;
   viewerMode?: "bundle" | "wrl";
-  viewerAsset?: "power" | "control" | "brick";
+  viewerAsset?: BoardAsset;
   viewerModelUrl?: string;
   bomUrl?: string;
   designDecisions?: string;
@@ -802,6 +807,21 @@ export function getProjectBySlug(projectSlug: string) {
 }
 
 export const featuredBoardProjects = projects.filter((project) => project.featured && project.viewer3d);
+
+export interface ShowcaseBoard {
+  asset: BoardAsset;
+  title: string;
+}
+
+// The two boards that have a guided tour, in the order the homepage showcase
+// plays them. Driven by slug rather than by featured order so that featuring
+// another board does not silently change what the homepage animates.
+const SHOWCASE_SLUGS = ["aux-control-board", "brick-buck-board"];
+
+export const showcaseBoards: ShowcaseBoard[] = SHOWCASE_SLUGS.flatMap((slug) => {
+  const project = getProjectBySlug(slug);
+  return project?.viewerAsset ? [{ asset: project.viewerAsset, title: project.title }] : [];
+});
 
 export interface UpdateFeedEntry {
   orgId: string;

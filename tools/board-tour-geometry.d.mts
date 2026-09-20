@@ -12,7 +12,7 @@ export interface Footprint {
   // type, so TypeScript infers bbox.pos/size as number[]. A tuple type here
   // fails `tsc --noEmit` on that literal even though the values always have
   // exactly two elements at runtime.
-  bbox: { pos: number[]; size: number[] };
+  bbox: { pos: number[]; relpos: number[]; size: number[]; angle: number };
 }
 
 export declare function toBoardLocal(

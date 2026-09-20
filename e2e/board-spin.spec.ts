@@ -38,6 +38,18 @@ function readOrbit(target: Page | Frame) {
   );
 }
 
+// The tour hooks the cinematic shell exposes. __applyTour and __tourTiming are
+// optional because they only appear once the tour file has been fetched.
+interface TourHooks {
+  __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
+  __applyTour?: (elapsedMs: number) => void;
+  __tourTiming?: { orbitMs: number; travelMs: number; holdMs: number };
+}
+
+function readTour(target: Page | Frame) {
+  return target.evaluate(() => (window as unknown as Partial<TourHooks>).__boardTour?.());
+}
+
 function post(target: Page | Frame, message: Record<string, unknown>) {
   return target.evaluate((value) => window.postMessage(value, window.location.origin), message);
 }
@@ -80,8 +92,16 @@ async function waitForScene(target: Page | Frame) {
   throw new Error("Board viewer never became ready within 60s, and reported no error.");
 }
 
-function cinematicFrame(page: Page) {
-  return page.frames().find((candidate) => candidate.url().includes("mode=cinematic"));
+function cinematicFrameFor(page: Page, asset: string) {
+  return page.frames().find((candidate) => candidate.url().includes(`asset=${asset}&mode=cinematic`));
+}
+
+// The iframe being attached to the DOM does not guarantee its child frame has
+// committed a navigation to its src yet, so page.frames() can still miss it
+// for a moment. Poll rather than read once.
+async function waitForCinematicFrame(page: Page, asset: string) {
+  await expect.poll(() => Boolean(cinematicFrameFor(page, asset)), { timeout: 30_000 }).toBe(true);
+  return cinematicFrameFor(page, asset)!;
 }
 
 test("the cinematic shell is inert, holds its curve, and obeys play and pause", async ({ page }) => {
@@ -181,32 +201,55 @@ test("the interactive shell still drags, and repaints when it does", async ({ pa
   expect((await canvas.screenshot()).equals(pixelsBefore)).toBe(false);
 });
 
-test("the showcase orbits while on screen and pauses once it scrolls away", async ({ page }) => {
+test("the showcase orbits while on screen, pauses off screen, and hands over to the next board", async ({ page }) => {
+  // Two boards mean two scenes on a software renderer, so this one test asks
+  // for its own 450s (test.describe.configure's 150_000ms timeout is per
+  // test, not a shared file budget) rather than being split up.
+  test.slow();
+
   await page.goto("/");
 
   const showcase = page.locator("[data-board-showcase]");
   await showcase.scrollIntoViewIfNeeded();
-  await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
+  await expect(page.frameLocator("[data-board-frame='control'] iframe").locator("#viewer canvas")).toBeAttached({
     timeout: 60_000,
   });
 
-  const frame = cinematicFrame(page);
-  expect(frame).toBeTruthy();
-  await waitForScene(frame!);
+  const control = await waitForCinematicFrame(page, "control");
+  await waitForScene(control);
 
-  // On screen: playing, with no scrolling involved at all.
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(true);
+  // On screen: the first board plays, with no scrolling involved at all.
+  await expect.poll(async () => (await readOrbit(control!))?.playing, { timeout: 30_000 }).toBe(true);
+
+  // The second board is mounted only once the first is ready, so its 4MB of
+  // geometry never competes with the first paint.
+  await expect(page.locator("[data-board-frame='brick'] iframe")).toBeAttached({ timeout: 30_000 });
 
   // Scrolled away: paused. The board sits near the top of the page, so the
   // contact section is well past it.
   await page.locator("[data-section='contact']").scrollIntoViewIfNeeded();
   await expect(showcase).not.toBeInViewport();
-  await expect.poll(async () => (await readOrbit(frame!))?.playing, { timeout: 30_000 }).toBe(false);
+  await expect.poll(async () => (await readOrbit(control!))?.playing, { timeout: 30_000 }).toBe(false);
 
   // And it stays parked rather than drifting on.
-  const parked = (await readOrbit(frame!))!.elapsed;
+  const parked = (await readOrbit(control!))!.elapsed;
   await page.waitForTimeout(750);
-  expect((await readOrbit(frame!))!.elapsed).toBe(parked);
+  expect((await readOrbit(control!))!.elapsed).toBe(parked);
+
+  // Back on screen, and the control tour runs to the end of its cycle: four
+  // stops is 25.5s, so this waits out one whole pass plus slack.
+  await showcase.scrollIntoViewIfNeeded();
+  const brick = await waitForCinematicFrame(page, "brick");
+  await waitForScene(brick);
+
+  // The handover: the brick board takes over and the control board stops.
+  // Polled rather than timed, because a software renderer advances the
+  // timeline in wall-clock time but delivers frames far slower than 60fps.
+  await expect.poll(async () => (await readOrbit(brick!))?.playing, { timeout: 90_000 }).toBe(true);
+  expect((await readOrbit(control!))?.playing).toBe(false);
+
+  // The caption follows the board that is actually on screen.
+  await expect(showcase).toContainText("Brick Buck Board");
 });
 
 test("reduced motion holds the board on the mid-orbit pose", async ({ browser }) => {
@@ -215,12 +258,12 @@ test("reduced motion holds the board on the mid-orbit pose", async ({ browser })
   await page.goto("/");
 
   await page.locator("[data-board-showcase]").scrollIntoViewIfNeeded();
-  await expect(page.frameLocator("[data-board-showcase] iframe").locator("#viewer canvas")).toBeAttached({
+  await expect(page.frameLocator("[data-board-frame='control'] iframe").locator("#viewer canvas")).toBeAttached({
     timeout: 60_000,
   });
 
-  const frame = cinematicFrame(page);
-  await waitForScene(frame!);
+  const frame = await waitForCinematicFrame(page, "control");
+  await waitForScene(frame);
 
   // Not merely "unchanging" - it must be parked on the mid-orbit pose, which is
   // what the spec asks for. A component that sent nothing would sit at progress
@@ -252,6 +295,26 @@ test("tour stops land on the board where the BOM says they do", async ({ page })
   expect(probe.world.z).toBeCloseTo(-10.591, 1);
 });
 
+test("the brick board's tour aims at the part the BOM puts there", async ({ page }) => {
+  await page.goto(`${SHELL}?asset=brick&mode=cinematic&probe=brick-converter`);
+  await waitForScene(page);
+
+  const probe = await page
+    .waitForFunction(() => (window as unknown as { __boardProbe?: () => unknown }).__boardProbe?.(), null, {
+      timeout: 30_000,
+    })
+    .then((handle) => handle.jsonValue() as Promise<{ id: string; world: { x: number; y: number; z: number } }>);
+
+  expect(probe.id).toBe("brick-converter");
+
+  // Signed, not hypot: a y-sign error in the IBOM-to-model conversion mirrors
+  // the stop across the board and leaves the distance from the origin intact.
+  // These are the coordinates the Mornsun brick was confirmed to sit at by
+  // rendering the stop straight down and looking at the part under it.
+  expect(probe.world.x).toBeCloseTo(54.8, 1);
+  expect(probe.world.z).toBeCloseTo(0.9, 1);
+});
+
 test("the shell's tour timeline matches the pinned fixture table", async ({ page }) => {
   await page.goto(CINEMATIC);
   await waitForScene(page);
@@ -259,12 +322,12 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
   // The shell owns the only copy of this arithmetic; this test pins it
   // directly against the fixture table below.
   const timing = await page.evaluate(() => (window as unknown as { __tourTiming?: unknown }).__tourTiming);
-  expect(timing).toEqual({ orbitMs: 12000, travelMs: 1500, holdMs: 3000 });
+  expect(timing).toEqual({ orbitMs: 6000, travelMs: 1500, holdMs: 3000 });
 
   const phases = await page.evaluate(() => {
     const fn = (window as unknown as { __tourPhase?: (e: number, n: number, t: unknown) => unknown }).__tourPhase!;
     const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
-    return [0, 6000, 12750, 15000, 17250, 35250].map((ms) => fn(ms, 5, t));
+    return [0, 3000, 6750, 9000, 11250, 24750].map((ms) => fn(ms, 4, t));
   });
 
   expect(phases).toEqual([
@@ -273,61 +336,124 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
     { kind: "travel", from: -1, to: 0, progress: 0.5 },
     { kind: "hold", stop: 0, progress: 0.5 },
     { kind: "travel", from: 0, to: 1, progress: 0.5 },
-    { kind: "travel", from: 4, to: -1, progress: 0.5 },
+    { kind: "travel", from: 3, to: -1, progress: 0.5 },
   ]);
+});
+
+test("the shell announces each completed tour cycle to its host", async ({ page }) => {
+  await page.goto(CINEMATIC);
+  await waitForScene(page);
+
+  // The cycle length is the timeline's own arithmetic, so it is pinned here
+  // rather than recomputed in the component that consumes the message.
+  const cycles = await page.evaluate(() => {
+    const fn = (window as unknown as { __tourCycleMs?: (n: number, t: unknown) => number }).__tourCycleMs!;
+    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
+    return [fn(0, t), fn(4, t), fn(5, t)];
+  });
+
+  // No stops: the bare orbit is the whole cycle. Otherwise orbit, then a
+  // travel and a hold per stop, then the travel back out to the orbit.
+  expect(cycles).toEqual([6000, 6000 + 4 * 4500 + 1500, 6000 + 5 * 4500 + 1500]);
+
+  // And the message actually fires. The power board has no tour file, so its
+  // cycle is the bare 6s orbit: one wrap is cheap to wait for.
+  const announced = await page.evaluate(() => {
+    return new Promise<string>((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error("no tour-cycle message within 40s")), 40_000);
+      window.addEventListener("message", function onMessage(event) {
+        if ((event.data as { type?: unknown } | null)?.type !== "tour-cycle") {
+          return;
+        }
+
+        window.removeEventListener("message", onMessage);
+        clearTimeout(deadline);
+        resolve("tour-cycle");
+      });
+
+      window.postMessage({ type: "play" }, window.location.origin);
+    });
+  });
+
+  expect(announced).toBe("tour-cycle");
+});
+
+test("a slow tour fetch does not post a premature tour-cycle before it settles", async ({ page }) => {
+  // The bug this guards: while the fetch is in flight, tourStops is still
+  // empty, so the shell would compute the bare 6s orbit as the whole cycle
+  // and announce a wrap at 6s even though the real, stop-filled timeline
+  // (once the fetch lands) is longer. Delay the response comfortably past
+  // that 6s mark so a regression has time to fire within the watch window.
+  //
+  // Sized off orbitMs, not scaled with it: the watch window is orbitMs plus
+  // 500ms and the delay is the window plus 1000ms, and those two margins are
+  // absolute slack for a starved CI runner rather than fractions of the
+  // orbit. Halving them with the orbit would have bought ~750ms and made a
+  // deploy-gating test flakier.
+  const FETCH_DELAY_MS = 7_500;
+
+  await page.route("**/tours/control.tour.json", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+    await route.continue();
+  });
+
+  await page.goto(`${SHELL}?asset=control&mode=cinematic`);
+  await waitForScene(page);
+
+  // Watch from just after play starts for less than the fetch delay, so the
+  // window closes before the delayed response can land and leaves a clean
+  // reason for either outcome: an early message is the bug, silence for the
+  // whole window is the fix.
+  const outcome = await page.evaluate((watchMs) => {
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => resolve("no-early-message"), watchMs);
+      window.addEventListener("message", function onMessage(event) {
+        if ((event.data as { type?: unknown } | null)?.type !== "tour-cycle") {
+          return;
+        }
+
+        window.removeEventListener("message", onMessage);
+        clearTimeout(timer);
+        resolve("tour-cycle");
+      });
+
+      window.postMessage({ type: "play" }, window.location.origin);
+    });
+  }, FETCH_DELAY_MS - 1000);
+
+  expect(outcome).toBe("no-early-message");
 });
 
 test("the tour halts the orbit on each stop and names the part", async ({ page }) => {
   await page.goto(`${SHELL}?asset=control&mode=cinematic`);
   await waitForScene(page);
 
-  const readTour = () =>
-    page.evaluate(
-      () => (window as unknown as { __boardTour?: () => { phase: string; stop: number; label: string | null } }).__boardTour?.(),
-    );
-
   // Nothing runs until play, so the tour starts in its orbit phase.
-  expect((await readTour())?.phase).toBe("orbit");
+  expect((await readTour(page))?.phase).toBe("orbit");
 
   // Claim 1 pins the short-arc camera blend (blendPose in
   // board-viewer-shell.html): without wrapping the heading delta into
   // [-pi, pi], the orbit-into-first-stop leg sweeps nearly a full revolution
-  // the long way round. Measure it as the largest heading offset from the
-  // orbit's end pose seen anywhere in that leg, which stays under pi on the
-  // short arc by definition.
-  //
-  // The leg is walked synthetically through __applyTour rather than by
-  // watching the animation arrive: it is only travelMs wide, and CI's
-  // software renderer starves in-page timers badly enough to miss that window
-  // on consecutive 36s cycles, which is what made the wall-clock version
-  // flake. Stepping the elapsed time by hand samples the same arithmetic the
-  // play loop feeds applyTour, with no frame budget in the way.
+  // the long way round, so the largest heading offset from the orbit's end
+  // pose seen in that leg exceeds pi. Walking the leg through __applyTour
+  // rather than waiting for it keeps CI's starved frame budget out of it: the
+  // leg is only travelMs wide and was missed on consecutive full cycles.
   const ORBIT_END_THETA = -0.5 + Math.PI * 2;
 
-  // The tour file is fetched after the scene reports ready, and until it
-  // lands there are no stops, so every elapsed time still reports an orbit.
+  // No stops until the tour file lands, and until then every elapsed time
+  // still reports an orbit.
   await page.waitForFunction(() => {
-    const view = window as unknown as {
-      __applyTour?: (elapsedMs: number) => void;
-      __tourTiming?: { orbitMs: number; travelMs: number };
-      __boardTour: () => { phase: string; from: number | null };
-    };
-
+    const view = window as unknown as TourHooks;
     if (!view.__applyTour || !view.__tourTiming) {
       return false;
     }
 
     view.__applyTour(view.__tourTiming.orbitMs + view.__tourTiming.travelMs / 2);
-    const tour = view.__boardTour();
-    return tour.phase === "travel" && tour.from === -1;
+    return view.__boardTour().from === -1;
   });
 
   const maxOffset = await page.evaluate((orbitEnd: number) => {
-    const view = window as unknown as {
-      __applyTour: (elapsedMs: number) => void;
-      __tourTiming: { orbitMs: number; travelMs: number };
-      __boardViewerState: { theta: number };
-    };
+    const view = window as unknown as Required<TourHooks> & { __boardViewerState: CameraState };
     const { orbitMs, travelMs } = view.__tourTiming;
     let worst = 0;
 
@@ -345,65 +471,189 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
 
   expect(maxOffset).toBeLessThanOrEqual(Math.PI);
 
-  // Claim 2 is the STM32 label on the first stop. The hold lasts holdMs, so
-  // the tour state and the DOM it drives must be read in the same tick:
-  // polling for the label and then asserting the class separately let the
-  // hold expire in between. This one does wait for the real animation, but a
-  // hold is twice as wide as a travel leg and needs no earlier phase
-  // observed, so a starved cycle costs a retry rather than the whole run.
-  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
+  // Claim 2 is the STM32 label on the first stop. Driven through __applyTour
+  // for the same reason as claim 1: waiting for the real animation to reach
+  // hold 0 spent a 70s budget on a starved runner and took the whole serial
+  // group down with it. applyTour calls renderStopLabel synchronously in the
+  // same call, so one evaluate can drive the timeline and read both the tour
+  // state and the DOM it produced with no frame budget and no wall clock in
+  // between. That is more atomic than the same-tick waitForFunction it
+  // replaces, which still had to wait for a frame to arrive.
+  //
+  // The elapsed time is derived rather than hard-coded so it survives the next
+  // timing change: the middle of the first hold is one orbit, one travel leg
+  // and half a hold in.
+  const label = await page.evaluate(() => {
+    const view = window as unknown as Required<TourHooks>;
+    const { orbitMs, travelMs, holdMs } = view.__tourTiming;
+    view.__applyTour(orbitMs + travelMs + holdMs / 2);
 
-  const label = await page.evaluate(async () => {
-    const getTour = (window as unknown as {
-      __boardTour: () => { phase: string; stop: number; label: string | null };
-    }).__boardTour;
-
-    return new Promise<{ label: string | null; visible: boolean; title: string | null }>((resolve, reject) => {
-      const deadline = Date.now() + 70_000;
-
-      const timer = setInterval(() => {
-        const tour = getTour();
-
-        if (tour.phase === "hold" && tour.stop === 0) {
-          clearInterval(timer);
-          resolve({
-            label: tour.label,
-            visible: document.getElementById("stop-label")!.classList.contains("visible"),
-            title: document.getElementById("stop-title")!.textContent,
-          });
-        } else if (Date.now() > deadline) {
-          clearInterval(timer);
-          reject(new Error("tour never reached its first hold within 70s"));
-        }
-      }, 20);
-    });
+    const tour = view.__boardTour();
+    return {
+      phase: tour.phase,
+      stop: tour.stop,
+      label: tour.label,
+      visible: document.getElementById("stop-label")!.classList.contains("visible"),
+      title: document.getElementById("stop-title")!.textContent,
+    };
   });
 
   expect(label).toEqual({
+    phase: "hold",
+    stop: 0,
     label: "STM32G474",
     visible: true,
     title: "STM32G474",
   });
 
-  // Pausing must clear the label rather than leave it stranded.
-  await page.evaluate(() => window.postMessage({ type: "pause" }, window.location.origin));
+  // Pausing must clear the label rather than leave it stranded. The label is
+  // genuinely visible above, so this still removes a class that is really set.
+  await post(page, { type: "pause" });
   await expect(page.locator("#stop-label")).not.toHaveClass(/visible/);
 });
 
 test("a board with no tour file just orbits", async ({ page }) => {
-  // Only the control board has a tour. The power board must not error.
+  // The power board has no tour file, unlike the control and brick boards.
+  // Its fetch 404s, and that must fall back to a plain orbit rather than error.
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(error.message));
 
   await page.goto(CINEMATIC);
   await waitForScene(page);
 
-  const tour = await page.evaluate(
-    () => (window as unknown as { __boardTour?: () => { phase: string; stop: number } }).__boardTour?.(),
-  );
+  const tour = await readTour(page);
   expect(tour?.phase).toBe("orbit");
   expect(tour?.stop).toBe(-1);
   expect(failures).toEqual([]);
+});
+
+test("a board that fails to load geometry does not become a dead end for the cycle", async ({ page }) => {
+  // Fail only the brick board's geometry fetch, so its shell can never build
+  // a scene and can never post tour-cycle on its own.
+  await page.route("**/geometry/brick.pcbgeo", (route) => route.abort());
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  const control = await waitForCinematicFrame(page, "control");
+  await waitForScene(control);
+
+  const brick = await waitForCinematicFrame(page, "brick");
+
+  // Confirm the failure actually landed: the brick shell shows its own error
+  // card rather than ever building a scene.
+  await expect
+    .poll(
+      async () =>
+        brick.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // The real trigger for a handover is the control board's own tour wrapping,
+  // which takes a genuine 25.5s. This file already spends that time once in
+  // "hands over to the next board" above, and doing it again here would add
+  // another ~40s to the deploy-gating e2e:preview run for no new coverage of
+  // the timing itself. So this simulates the boundary the same way the shell
+  // signals it - posting the exact message type, origin, and source window
+  // it posts when its own timeline wraps - which exercises the real
+  // onCycleEnd/advance code path without waiting out the wall-clock timer.
+  await control.evaluate(() => window.parent.postMessage({ type: "tour-cycle" }, window.location.origin));
+  await page.waitForTimeout(500);
+
+  // The broken board must never become the active one: the showcase still
+  // shows, and keeps playing, the control board.
+  await expect(showcase).toContainText("Aux Control Board");
+  expect((await readOrbit(control))?.playing).toBe(true);
+});
+
+test("a board that fails to load geometry while it is the active one hands over on its own", async ({ page }) => {
+  // Here it is the lead board itself - the one active from the start - that
+  // fails. Nothing else in the system can ever trigger a handover away from
+  // it: its own shell can never finish buildScene, so it can never enter its
+  // orbit loop or post tour-cycle, and no other board's tour-cycle is wired
+  // to it either. The recovery has to happen the moment the failure is known,
+  // not on some later event that will never arrive.
+  await page.route("**/geometry/control.pcbgeo", (route) => route.abort());
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  const control = await waitForCinematicFrame(page, "control");
+
+  // Confirm the failure actually landed on the board that starts active.
+  await expect
+    .poll(
+      async () =>
+        control.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // Assert on the board that ends up actually playing, not merely on the DOM
+  // or the caption text alone - that is the only way to prove the cycle
+  // really moved rather than the fallback iframe simply having mounted.
+  const brick = await waitForCinematicFrame(page, "brick");
+  await waitForScene(brick);
+  await expect.poll(async () => (await readOrbit(brick))?.playing, { timeout: 30_000 }).toBe(true);
+  await expect(showcase).toContainText("Brick Buck Board");
+});
+
+test("a failed lead board keeps the skeleton up until its fallback is actually ready", async ({ page }) => {
+  // Deliberately held open rather than timed: the lead fails immediately
+  // (aborted), and the fallback's geometry request is not allowed to
+  // complete until this test says so. That makes the "still loading" window
+  // exact rather than a guess at how long it takes in practice, so there is
+  // nothing here for a slow runner to race.
+  await page.route("**/geometry/control.pcbgeo", (route) => route.abort());
+  let releaseBrick = () => {};
+  const brickGate = new Promise<void>((resolve) => {
+    releaseBrick = resolve;
+  });
+  await page.route("**/geometry/brick.pcbgeo", async (route) => {
+    await brickGate;
+    await route.continue();
+  });
+
+  await page.goto("/");
+  const showcase = page.locator("[data-board-showcase]");
+  await showcase.scrollIntoViewIfNeeded();
+
+  // Confirm the lead's failure has actually landed (not just that the route
+  // matched) before asserting on the skeleton - otherwise this assertion
+  // could pass on a lucky read before the state update rather than because
+  // the fix holds it up. This is exactly the point at which the old code
+  // (skeleton tied to leadReady rather than to the active board's own
+  // readiness) would have dismissed the skeleton already.
+  const control = await waitForCinematicFrame(page, "control");
+  await expect
+    .poll(
+      async () =>
+        control.evaluate(() => {
+          const card = document.getElementById("error");
+          return Boolean(card && card.classList.contains("visible"));
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // The lead has failed and the fallback is still being held back: there is
+  // nothing ready to show, so the skeleton must still be up.
+  await expect(showcase.locator(".skeleton-board")).toBeVisible();
+
+  releaseBrick();
+
+  // Once the fallback's geometry is allowed through and it reports ready,
+  // the skeleton comes down - not before, per the fix.
+  await expect(showcase.locator(".skeleton-board")).toBeHidden({ timeout: 30_000 });
 });
 
 // The last two load no WebGL scene at all, which is why they stay separate:
@@ -412,9 +662,13 @@ test("a board with no tour file just orbits", async ({ page }) => {
 test("a short viewport does not fetch geometry until the block is scrolled to", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  // Scoped to the control board's geometry specifically: it is the lead board
+  // and mounts first, but the brick board mounts right behind it once the
+  // control board reports ready, so an unscoped counter would tick past 1 and
+  // this assertion would only pass by catching a transient value.
   let requested = 0;
   page.on("request", (request) => {
-    if (request.url().includes(".pcbgeo")) {
+    if (request.url().includes("control.pcbgeo")) {
       requested += 1;
     }
   });
@@ -436,10 +690,14 @@ test("a tall viewport defers the mount past load so the hero paints first", asyn
   // all, purely from React effect ordering.
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  // Scoped to the control board specifically: once it reports ready the brick
+  // board mounts right behind it, so an unscoped count of every showcase
+  // iframe would tick past 1 and this would only pass by catching a
+  // transient value.
   await page.goto("/", { waitUntil: "load" });
   await expect(page.locator("h1").first()).toBeVisible();
-  expect(await page.locator("[data-board-showcase] iframe").count()).toBe(0);
+  expect(await page.locator("[data-board-frame='control'] iframe").count()).toBe(0);
 
   // It still mounts promptly once the browser goes idle, just not before.
-  await expect(page.locator("[data-board-showcase] iframe")).toHaveCount(1, { timeout: 60_000 });
+  await expect(page.locator("[data-board-frame='control'] iframe")).toHaveCount(1, { timeout: 60_000 });
 });

@@ -38,7 +38,10 @@ async function readPcbData(bomPath) {
     await page.waitForFunction(() => typeof window.pcbdata !== "undefined", null, { timeout: 30000 });
     return await page.evaluate(() => ({
       edges_bbox: window.pcbdata.edges_bbox,
-      footprints: window.pcbdata.footprints.map((f) => ({ ref: f.ref, bbox: { pos: f.bbox.pos, size: f.bbox.size } })),
+      footprints: window.pcbdata.footprints.map((f) => ({
+        ref: f.ref,
+        bbox: { pos: f.bbox.pos, relpos: f.bbox.relpos, size: f.bbox.size, angle: f.bbox.angle },
+      })),
     }));
   } finally {
     await browser.close();
