@@ -11,7 +11,9 @@
       "id": "buck-5v",
       "label": "12V to 5V buck",
       "blurb": "A TPS54824 synchronous buck regulator with its output inductor alongside. This is the one power stage kept custom, sized around the low voltage loads on the kart.",
-      "refs": ["U2"]
+      "refs": ["U2"],
+      "phi": 0.45,
+      "thetaOffset": 3.14159
     },
     {
       "id": "protection",

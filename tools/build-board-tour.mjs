@@ -60,7 +60,20 @@ async function build(asset) {
   const stops = source.stops.map((stop) => {
     const { pos, span } = stopCenter(stop.refs, footprints);
     const local = toBoardLocal(pos, edges, FLIP_Y);
-    return { id: stop.id, label: stop.label, blurb: stop.blurb, x: local.x, y: local.y, span };
+    const out = { id: stop.id, label: stop.label, blurb: stop.blurb, x: local.x, y: local.y, span };
+
+    // Camera overrides are hand-tuned per stop and pass straight through. A
+    // part can be geometrically correct and still be hidden behind a tall
+    // neighbour, which no amount of arithmetic over its own footprint can see.
+    if (typeof stop.phi === "number") {
+      out.phi = stop.phi;
+    }
+
+    if (typeof stop.thetaOffset === "number") {
+      out.thetaOffset = stop.thetaOffset;
+    }
+
+    return out;
   });
 
   const outDir = path.join(root, "public/portfolio/assets/viewers/tours");
