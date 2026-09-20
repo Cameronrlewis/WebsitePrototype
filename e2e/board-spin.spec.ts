@@ -34,7 +34,8 @@ function readCameraState(target: Page | Frame) {
 
 function readOrbit(target: Page | Frame) {
   return target.evaluate(
-    () => (window as unknown as { __boardViewerOrbit?: () => { playing: boolean; elapsed: number } }).__boardViewerOrbit?.(),
+    () =>
+      (window as unknown as { __boardViewerOrbit?: () => { playing: boolean; elapsed: number; frames: number } }).__boardViewerOrbit?.(),
   );
 }
 
@@ -175,6 +176,37 @@ test("the cinematic shell is inert, holds its curve, and obeys play and pause", 
   // A spin command parks the orbit rather than fighting it.
   await post(page, { type: "spin", progress: 0.5 });
   expect((await readOrbit(page))?.playing).toBe(false);
+
+  // Losing the WebGL context at runtime is recoverable - three.js preventDefaults
+  // the loss and re-initialises on the restore - but the shell only paints on
+  // demand, so a board that is NOT playing (which is exactly the state this test
+  // has just left it in) has nothing to repaint it and comes back live but blank.
+  // Asserted on the frame counter rather than the wall clock: nothing else in
+  // this shell asks for a frame while it sits paused and unresized, so any
+  // increment here came from the restore handler.
+  const paintedBefore = await page.locator("#viewer canvas").screenshot();
+  const beforeLoss = (await readOrbit(page))!.frames;
+
+  await page.evaluate(() => {
+    const canvas = document.querySelector("#viewer canvas") as HTMLCanvasElement;
+    const gl = (canvas.getContext("webgl2") || canvas.getContext("webgl")) as WebGLRenderingContext;
+    (window as unknown as { __loseContext: WEBGL_lose_context }).__loseContext = gl.getExtension("WEBGL_lose_context")!;
+    (window as unknown as { __gl: WebGLRenderingContext }).__gl = gl;
+    (window as unknown as { __loseContext: WEBGL_lose_context }).__loseContext.loseContext();
+  });
+
+  // The loss is delivered asynchronously, and restoreContext is only valid once
+  // it has landed, so wait for the context to actually report itself lost.
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __gl: WebGLRenderingContext }).__gl.isContextLost()), { polling: 100 })
+    .toBe(true);
+  const lostPixels = await page.locator("#viewer canvas").screenshot();
+  expect(lostPixels.equals(paintedBefore)).toBe(false);
+
+  await page.evaluate(() => (window as unknown as { __loseContext: WEBGL_lose_context }).__loseContext.restoreContext());
+
+  await expect.poll(async () => (await readOrbit(page))!.frames, { timeout: 30_000, polling: 100 }).toBeGreaterThan(beforeLoss);
+  expect((await page.locator("#viewer canvas").screenshot()).equals(lostPixels)).toBe(false);
 });
 
 test("the interactive shell still drags, and repaints when it does", async ({ page }) => {

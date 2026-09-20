@@ -198,6 +198,10 @@
         let orbitElapsed = 0;
         let orbitLast = 0;
         let renderPending = 0;
+        // Frames actually painted. Only e2e reads it (through __boardViewerOrbit),
+        // to assert that a repaint happened at all - which is the only way to
+        // catch a canvas that is live but stale.
+        let renderCount = 0;
         let tourStops = [];
         let tourPhaseNow = { kind: "orbit", progress: 0 };
         // Which cycle of the tour timeline the last applied frame fell in, so
@@ -290,6 +294,7 @@
         function renderFrame() {
           resize();
           renderer.render(scene, camera);
+          renderCount += 1;
         }
 
         /**
@@ -800,6 +805,23 @@
           renderer.toneMappingExposure = brickLightingBoost ? 1.23 : 1.15;
           mount.appendChild(renderer.domElement);
 
+          // A lost context is recoverable rather than fatal: three.js calls
+          // preventDefault on the loss and re-initialises its GL state on the
+          // restore, so the board is never permanently dead and must not be
+          // reported to the host as a viewer-error - that would strand a board
+          // that is about to come back. What it does not do is draw. Neither
+          // mode runs a permanent loop, so a board that is not playing (a
+          // showcase board waiting its turn, or the interactive modal, which
+          // only paints when the camera moves) comes back with a live context
+          // and a blank canvas until something happens to ask for a frame.
+          // Ask for one here. requestRender no-ops while the orbit is playing,
+          // which is already painting every frame.
+          renderer.domElement.addEventListener("webglcontextrestored", function () {
+            if (camera && boardGroup) {
+              requestRender();
+            }
+          });
+
           scene = new THREE.Scene();
           camera = new THREE.PerspectiveCamera(52, 1, 0.1, 5000);
           boardGroup = createBundleGroup(await fetchBoardGeometry(asset));
@@ -847,7 +869,7 @@
           // Lets e2e assert the play/pause state machine directly. Frame rate
           // is not a contract: a software renderer may deliver very few frames.
           window.__boardViewerOrbit = function () {
-            return { playing: playing, elapsed: orbitElapsed };
+            return { playing: playing, elapsed: orbitElapsed, frames: renderCount };
           };
           updateCamera();
           resize();
