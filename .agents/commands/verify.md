@@ -39,11 +39,15 @@ The real application lives under `src/app/src/app/`, **not** `src/`. Live styles
 `CircuitTrace.tsx` measures the rendered layout at runtime rather than dictating it. Two
 constraints drop content with no error:
 
-- Inter-section gaps must stay `>= MIN_GAP_DEPTH` (70px). `Layout.tsx` uses
-  `space-y-16 lg:space-y-24`. Reducing the desktop gap below ~70px drops **every** IC block and
-  leaves only the bare spine.
-- The buck block needs `>= 340px` of horizontal room (`CENTERPIECE_SPECS.buck.minAvail`). Below
-  that, `planCenterpiece` returns null and every downstream rail stage disappears with it.
+Both thresholds are defined once, in `src/app/src/app/lib/circuit-geometry.ts` — read the
+values there, never from this file:
+
+- Inter-section gaps must stay `>= MIN_GAP_DEPTH`. `Layout.tsx` uses
+  `space-y-16 lg:space-y-24`. Reducing the desktop gap below that drops **every** IC block and
+  leaves only the bare spine. `tests/layout-trace-constraints.test.ts` asserts this against the
+  constant.
+- The buck block needs `CENTERPIECE_SPECS.buck.minAvail` of horizontal room. Below that,
+  `planCenterpiece` returns null and every downstream rail stage disappears with it.
 
 Both warn in dev only, via `import.meta.env.DEV` in `CircuitTrace.tsx`. Neither fails a build. If
 you changed section spacing or `<main>`'s width, load the page and confirm the rail labels read
