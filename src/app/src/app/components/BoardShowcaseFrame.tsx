@@ -4,8 +4,8 @@ import type { BoardAsset } from "../data/portfolio";
 
 interface BoardShowcaseFrameProps {
   asset: BoardAsset;
-  title: string;
   playing: boolean;
+  reducedMotion: boolean;
   onReady: (ok: boolean) => void;
   onCycleEnd: () => void;
 }
@@ -15,7 +15,7 @@ interface BoardShowcaseFrameProps {
  * play/pause messages. It owns no layout and no visibility logic; the
  * container decides which board is playing and which one is on top.
  */
-export function BoardShowcaseFrame({ asset, title, playing, onReady, onCycleEnd }: BoardShowcaseFrameProps) {
+export function BoardShowcaseFrame({ asset, playing, reducedMotion, onReady, onCycleEnd }: BoardShowcaseFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
 
@@ -62,33 +62,22 @@ export function BoardShowcaseFrame({ asset, title, playing, onReady, onCycleEnd 
       iframeRef.current?.contentWindow?.postMessage(message, window.location.origin);
     };
 
-    const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-
-    const apply = () => {
-      if (motionQuery?.matches) {
-        // One fixed mid-orbit pose, and the orbit never starts. With the orbit
-        // parked there is no tour-cycle either, so the boards do not rotate.
-        send({ type: "pause" });
-        send({ type: "spin", progress: 0.5 });
-        return;
-      }
-
-      send({ type: playing ? "play" : "pause" });
-    };
-
-    apply();
-    motionQuery?.addEventListener("change", apply);
-    return () => {
-      motionQuery?.removeEventListener("change", apply);
+    if (reducedMotion) {
+      // One fixed mid-orbit pose, and the orbit never starts. With the orbit
+      // parked there is no tour-cycle either, so the boards do not rotate.
       send({ type: "pause" });
-    };
-  }, [sceneReady, playing]);
+      send({ type: "spin", progress: 0.5 });
+    } else {
+      send({ type: playing ? "play" : "pause" });
+    }
+
+    return () => send({ type: "pause" });
+  }, [sceneReady, playing, reducedMotion]);
 
   return (
     <iframe
       ref={iframeRef}
       aria-hidden="true"
-      title={`${title} rotating board render`}
       src={`/portfolio/assets/viewers/board-viewer-shell.html?asset=${asset}&mode=cinematic`}
       sandbox="allow-scripts allow-same-origin"
       tabIndex={-1}

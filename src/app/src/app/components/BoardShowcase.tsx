@@ -10,25 +10,19 @@ interface BoardShowcaseProps {
 
 /**
  * A framed block that cycles through several non-interactive boards, each
- * orbiting on a loop while it is active, the way a looping clip would, and
- * handing over to the next board each time one finishes its guided tour. It
- * reuses the modal viewer's iframe shell in `mode=cinematic`, so no geometry,
- * renderer, or dependency is duplicated.
+ * orbiting while it is active and handing over to the next when it finishes
+ * its guided tour. It reuses the modal viewer's iframe shell in
+ * `mode=cinematic`.
  *
- * Three things are gated rather than left running. The geometry payload runs
- * from roughly 1MB to 4MB depending on the board, so the first iframe is not
- * mounted until the block is near the viewport and the browser is idle, and
- * the rest are not mounted until the first one is live. And the shell only
- * renders frames between `play` and `pause`, so a board that is off screen or
- * waiting its turn burns no frames - though it still holds a live WebGL
- * context, its decoded geometry in GPU memory, and a completed multi-megabyte
- * download, so this block now carries two permanent WebGL contexts where the
- * single-board version carried one.
+ * Geometry runs 1MB to 4MB per board, so the lead iframe waits for the block
+ * to be near the viewport AND the browser to be idle, and the rest wait for
+ * the lead to be live. A mounted board still holds a WebGL context and its
+ * decoded geometry even while paused, so this block carries one permanent
+ * context per board.
  */
 export function BoardShowcase({ boards }: BoardShowcaseProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [leadReady, setLeadReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
   // Assets whose shell reported viewer-error. Read by advance() to skip a
@@ -150,12 +144,10 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
       setReadyAssets((prev) => (prev.has(asset) ? prev : new Set(prev).add(asset)));
 
       // A failed lead board must still open the gate for the other boards, or
-      // one failure turns into a blank block instead of a partial cycle.
-      if (index === 0) {
-        setLeadReady(true);
-        if (!ok) {
-          setLeadErrored(true);
-        }
+      // one failure turns into a blank block instead of a partial cycle - so
+      // the gate is readyAssets (ready OR errored), not success.
+      if (index === 0 && !ok) {
+        setLeadErrored(true);
       }
 
       // A board's own shell is the only thing that can ever post tour-cycle,
@@ -173,6 +165,9 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
 
   const current = boards[active];
   const showBoard = readyAssets.has(current.asset) && !FORCE_SKELETONS;
+  // The lead has something real to show - a frame or an error card - which is
+  // exactly what readyAssets records, so it needs no state of its own.
+  const leadReady = readyAssets.has(boards[0].asset);
 
   return (
     <div
@@ -201,8 +196,8 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
               >
                 <BoardShowcaseFrame
                   asset={board.asset}
-                  title={board.title}
                   playing={visible && index === active}
+                  reducedMotion={reducedMotion}
                   onReady={(ok) => handleReady(board.asset, index, ok)}
                   onCycleEnd={advance}
                 />

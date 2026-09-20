@@ -357,9 +357,8 @@ test("the shell's tour timeline matches the pinned fixture table", async ({ page
   expect(timing).toEqual({ orbitMs: 6000, travelMs: 1500, holdMs: 3000 });
 
   const phases = await page.evaluate(() => {
-    const fn = (window as unknown as { __tourPhase?: (e: number, n: number, t: unknown) => unknown }).__tourPhase!;
-    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
-    return [0, 3000, 6750, 9000, 11250, 24750].map((ms) => fn(ms, 4, t));
+    const fn = (window as unknown as { __tourPhase?: (e: number, n: number) => unknown }).__tourPhase!;
+    return [0, 3000, 6750, 9000, 11250, 24750].map((ms) => fn(ms, 4));
   });
 
   expect(phases).toEqual([
@@ -379,9 +378,8 @@ test("the shell announces each completed tour cycle to its host", async ({ page 
   // The cycle length is the timeline's own arithmetic, so it is pinned here
   // rather than recomputed in the component that consumes the message.
   const cycles = await page.evaluate(() => {
-    const fn = (window as unknown as { __tourCycleMs?: (n: number, t: unknown) => number }).__tourCycleMs!;
-    const t = (window as unknown as { __tourTiming?: unknown }).__tourTiming;
-    return [fn(0, t), fn(4, t), fn(5, t)];
+    const fn = (window as unknown as { __tourCycleMs?: (n: number) => number }).__tourCycleMs!;
+    return [fn(0), fn(4), fn(5)];
   });
 
   // No stops: the bare orbit is the whole cycle. Otherwise orbit, then a

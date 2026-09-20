@@ -312,7 +312,8 @@
          * travel and a hold for each stop, then the travel back out. A board
          * with no tour file has no stops, so its cycle is the bare orbit.
          */
-        function tourCycleMs(stopCount, timing) {
+        function tourCycleMs(stopCount) {
+          const timing = TOUR_TIMING;
           if (stopCount <= 0) {
             return timing.orbitMs;
           }
@@ -320,12 +321,13 @@
           return timing.orbitMs + stopCount * (timing.travelMs + timing.holdMs) + timing.travelMs;
         }
 
-        function tourPhase(elapsedMs, stopCount, timing) {
+        function tourPhase(elapsedMs, stopCount) {
+          const timing = TOUR_TIMING;
           if (stopCount <= 0) {
             return { kind: "orbit", progress: (Math.max(0, elapsedMs) % timing.orbitMs) / timing.orbitMs };
           }
 
-          const cycleMs = tourCycleMs(stopCount, timing);
+          const cycleMs = tourCycleMs(stopCount);
           let t = Math.max(0, elapsedMs) % cycleMs;
 
           if (t < timing.orbitMs) {
@@ -417,13 +419,13 @@
         }
 
         function applyTour(elapsedMs) {
-          const phase = tourPhase(elapsedMs, tourStops.length, TOUR_TIMING);
+          const phase = tourPhase(elapsedMs, tourStops.length);
           tourPhaseNow = phase;
 
           // The host swaps to the next board on this, so it has to fire on the
           // wrap itself rather than on a phase transition: a board with no tour
           // file never leaves the orbit phase and would otherwise never hand over.
-          const cycleIndex = Math.floor(Math.max(0, elapsedMs) / tourCycleMs(tourStops.length, TOUR_TIMING));
+          const cycleIndex = Math.floor(Math.max(0, elapsedMs) / tourCycleMs(tourStops.length));
           if (cycleIndex !== lastCycleIndex) {
             if (lastCycleIndex >= 0 && tourFetchSettled) {
               notifyHost("tour-cycle");
