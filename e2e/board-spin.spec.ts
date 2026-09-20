@@ -289,83 +289,97 @@ test("the tour halts the orbit on each stop and names the part", async ({ page }
   // Nothing runs until play, so the tour starts in its orbit phase.
   expect((await readTour())?.phase).toBe("orbit");
 
-  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
-
-  // One in-page pass covers both claims below, on the same play() call and
-  // page load, so neither costs an extra scene. It loops inside the page
-  // because a runner slow enough to stall CDP is exactly the runner that
-  // makes wall-clock sampling from the test side unreliable.
-  //
   // Claim 1 pins the short-arc camera blend (blendPose in
   // board-viewer-shell.html): without wrapping the heading delta into
   // [-pi, pi], the orbit-into-first-stop leg sweeps nearly a full revolution
   // the long way round. Measure it as the largest heading offset from the
   // orbit's end pose seen anywhere in that leg, which stays under pi on the
-  // short arc by definition. An offset is a property of a single sample, so
-  // unlike accumulating per-sample deltas it survives dropped samples --
-  // that accumulation read the jump across a 3s hold into the next leg as
-  // part of one sweep and failed on CI at 5.05 rad.
+  // short arc by definition.
   //
-  // Claim 2 is the STM32 label. The hold lasts 3000ms, so the tour state and
-  // the DOM it drives must be read in the same tick: polling for the label
-  // and then asserting the class separately let the hold expire in between.
-  //
-  // Both are pinned to the FIRST leg and FIRST stop of a cycle. If a starved
-  // frame budget skips the travel leg outright, the run is discarded and the
-  // next 36s cycle is tried rather than asserting on a leg never observed.
+  // The leg is walked synthetically through __applyTour rather than by
+  // watching the animation arrive: it is only travelMs wide, and CI's
+  // software renderer starves in-page timers badly enough to miss that window
+  // on consecutive 36s cycles, which is what made the wall-clock version
+  // flake. Stepping the elapsed time by hand samples the same arithmetic the
+  // play loop feeds applyTour, with no frame budget in the way.
   const ORBIT_END_THETA = -0.5 + Math.PI * 2;
 
-  interface TourProbe {
-    maxOffset: number;
-    label: string | null;
-    visible: boolean;
-    title: string | null;
-  }
+  // The tour file is fetched after the scene reports ready, and until it
+  // lands there are no stops, so every elapsed time still reports an orbit.
+  await page.waitForFunction(() => {
+    const view = window as unknown as {
+      __applyTour?: (elapsedMs: number) => void;
+      __tourTiming?: { orbitMs: number; travelMs: number };
+      __boardTour: () => { phase: string; from: number | null };
+    };
 
-  const probe = await page.evaluate(async (orbitEnd: number) => {
+    if (!view.__applyTour || !view.__tourTiming) {
+      return false;
+    }
+
+    view.__applyTour(view.__tourTiming.orbitMs + view.__tourTiming.travelMs / 2);
+    const tour = view.__boardTour();
+    return tour.phase === "travel" && tour.from === -1;
+  });
+
+  const maxOffset = await page.evaluate((orbitEnd: number) => {
+    const view = window as unknown as {
+      __applyTour: (elapsedMs: number) => void;
+      __tourTiming: { orbitMs: number; travelMs: number };
+      __boardViewerState: { theta: number };
+    };
+    const { orbitMs, travelMs } = view.__tourTiming;
+    let worst = 0;
+
+    // Half-open, as the leg itself is: at exactly orbitMs + travelMs the tour
+    // is already holding, and a hold applies the stop's raw heading rather
+    // than the blend's. That is the same camera angle the blend ends on, only
+    // wrapped by 2pi, so including it would read a 6 rad jump that is not one.
+    for (let step = 0; step < 60; step += 1) {
+      view.__applyTour(orbitMs + (travelMs * step) / 60);
+      worst = Math.max(worst, Math.abs(view.__boardViewerState.theta - orbitEnd));
+    }
+
+    return worst;
+  }, ORBIT_END_THETA);
+
+  expect(maxOffset).toBeLessThanOrEqual(Math.PI);
+
+  // Claim 2 is the STM32 label on the first stop. The hold lasts holdMs, so
+  // the tour state and the DOM it drives must be read in the same tick:
+  // polling for the label and then asserting the class separately let the
+  // hold expire in between. This one does wait for the real animation, but a
+  // hold is twice as wide as a travel leg and needs no earlier phase
+  // observed, so a starved cycle costs a retry rather than the whole run.
+  await page.evaluate(() => window.postMessage({ type: "play" }, window.location.origin));
+
+  const label = await page.evaluate(async () => {
     const getTour = (window as unknown as {
-      __boardTour: () => { phase: string; stop: number; from: number | null; label: string | null };
+      __boardTour: () => { phase: string; stop: number; label: string | null };
     }).__boardTour;
-    const getTheta = () => (window as unknown as { __boardViewerState: { theta: number } }).__boardViewerState.theta;
 
-    return new Promise<TourProbe>((resolve, reject) => {
-      let maxOffset = 0;
-      let sawLeg = false;
+    return new Promise<{ label: string | null; visible: boolean; title: string | null }>((resolve, reject) => {
       const deadline = Date.now() + 70_000;
 
       const timer = setInterval(() => {
         const tour = getTour();
 
-        if (tour.phase === "travel" && tour.from === -1) {
-          sawLeg = true;
-          maxOffset = Math.max(maxOffset, Math.abs(getTheta() - orbitEnd));
-        } else if (tour.phase === "hold" && tour.stop === 0) {
-          if (!sawLeg) {
-            return; // Leg was skipped; wait for the next cycle to come round.
-          }
-
+        if (tour.phase === "hold" && tour.stop === 0) {
           clearInterval(timer);
           resolve({
-            maxOffset,
             label: tour.label,
             visible: document.getElementById("stop-label")!.classList.contains("visible"),
             title: document.getElementById("stop-title")!.textContent,
           });
-        } else if (tour.phase === "orbit") {
-          sawLeg = false;
-          maxOffset = 0;
-        }
-
-        if (Date.now() > deadline) {
+        } else if (Date.now() > deadline) {
           clearInterval(timer);
-          reject(new Error("tour never completed an observed first leg and hold within 70s"));
+          reject(new Error("tour never reached its first hold within 70s"));
         }
       }, 20);
     });
-  }, ORBIT_END_THETA);
+  });
 
-  expect(probe.maxOffset).toBeLessThanOrEqual(Math.PI);
-  expect({ label: probe.label, visible: probe.visible, title: probe.title }).toEqual({
+  expect(label).toEqual({
     label: "STM32G474",
     visible: true,
     title: "STM32G474",
