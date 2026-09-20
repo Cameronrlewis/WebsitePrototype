@@ -369,8 +369,15 @@
             // of 20 verified against the 7.45mm level-shift transistor pair;
             // the 1.5x scale keeps the 13.45mm MCU at roughly the same 20mm.
             r: Math.max(20, stop.span * 1.5),
-            phi: 0.55,
-            theta: theta,
+            // A stop may override the framing. The defaults look in from the
+            // part's own side at a low angle, which is right until a tall
+            // neighbour sits on that side: the brick board's 12V to 5V buck is
+            // squarely behind an electrolytic capacitor from its outward
+            // heading. thetaOffset rotates the approach, phi raises it. Both
+            // are hand-tuned per stop because occlusion is a property of the
+            // whole board, not of the part's own footprint.
+            phi: typeof stop.phi === "number" ? stop.phi : 0.55,
+            theta: theta + (typeof stop.thetaOffset === "number" ? stop.thetaOffset : 0),
           };
         }
 

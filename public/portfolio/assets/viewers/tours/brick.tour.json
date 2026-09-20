@@ -15,7 +15,9 @@
       "blurb": "A TPS54824 synchronous buck regulator with its output inductor alongside. This is the one power stage kept custom, sized around the low voltage loads on the kart.",
       "x": 14.206,
       "y": 16.998,
-      "span": 5.145
+      "span": 5.145,
+      "phi": 0.45,
+      "thetaOffset": 3.14159
     },
     {
       "id": "protection",
