@@ -15,6 +15,11 @@ __pycache__/
 graphify-out/
 output/
 
+# regenerable VRML flatten intermediates written by tools/build-board-vrml.mjs;
+# nothing reads them back (the converter parses the in-memory string, not the
+# file) — re-derive with `npx pnpm@10.17.1 build:vrml <asset>` if needed
+*-flattened.wrl
+
 # SDD scratch
 .superpowers/
 
