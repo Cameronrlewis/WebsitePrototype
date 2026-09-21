@@ -236,10 +236,14 @@ if (dryRun) {
   const marker = board.marker;
   const at = source.indexOf(marker);
   if (at === -1) throw new Error(`Missing marker ${marker} in ${bundlePath}`);
-  const nextMarkers = Object.values(BOARDS)
-    .map((b) => source.indexOf(b.marker, at + marker.length))
-    .filter((index) => index !== -1);
-  const end = nextMarkers.length ? Math.min(...nextMarkers) : source.length;
+  // Bound the splice by the NEXT top-level `const NAME = ` block actually
+  // present in the file, not by the boards this tool happens to manage - the
+  // bundle also holds an unmanaged `const PCB_GEO = ` (power) block, and its
+  // position in the file isn't something this tool should assume.
+  const topLevelMarkerPattern = /^const \w+ = /gm;
+  topLevelMarkerPattern.lastIndex = at + marker.length;
+  const nextMatch = topLevelMarkerPattern.exec(source);
+  const end = nextMatch ? nextMatch.index : source.length;
   const next = `${source.slice(0, at)}${marker}${JSON.stringify(payload)};\n${source.slice(end)}`;
   await fs.writeFile(bundlePath, next, "utf8");
   console.log(`Wrote ${marker.trim()} to ${bundlePath}`);
