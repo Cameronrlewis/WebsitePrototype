@@ -17,7 +17,7 @@ const MARKERS = [
 interface Mesh { color: number[]; v: number[]; i: number[] }
 interface Board { meshes: Mesh[] }
 
-export function readBundleBoards(): Map<string, Board> {
+function readBundleBoards(): Map<string, Board> {
   const source = readFileSync(bundlePath, "utf8");
   const starts = MARKERS.map(([name, marker]) => {
     const at = source.indexOf(marker);

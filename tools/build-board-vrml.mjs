@@ -123,6 +123,10 @@ function appendGeometry(target, positions, normals, indices, color, scale) {
   }
   const vertexOffset = entry.v.length / 3;
   for (const value of positions) entry.v.push(roundNumber(value * scale));
+  // `n` is retained deliberately even though no downstream consumer reads it
+  // (build-board-geometry-bin.mjs only counts it to report droppedNormals):
+  // dropping it would change this converter's output and break the brick
+  // byte-reproduction that validates `scale: 1000`.
   for (const value of normals) entry.n.push(roundNumber(value));
   for (const index of indices) entry.i.push(index + vertexOffset);
 }
@@ -194,9 +198,9 @@ async function buildPayload(board, { dryRun }) {
   const flattened = await flattenFile(path.join(board.dir, board.source), board.prefix);
   const flattenedVrml = `#VRML V2.0 utf8\n${flattened}\n`;
 
-  // A dry run must not touch the tracked *-flattened.wrl artifact (55 MB for
-  // brick), so the flattened string is parsed in memory here and only
-  // written to disk once we're actually about to rewrite the bundle.
+  // A dry run must not touch the *-flattened.wrl artifact (55 MB for brick),
+  // so the flattened string is parsed in memory here and only written to
+  // disk once we're actually about to rewrite the bundle.
   if (!dryRun) {
     await fs.writeFile(path.join(board.dir, board.flattened), flattenedVrml, "utf8");
   }
