@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 const root = path.resolve(__dirname, "..");
 const bundlePath = path.join(root, "assets-src/board-geometry/board-model-data.js");
+const geometryDir = path.join(root, "public/portfolio/assets/viewers/geometry");
 
 const MARKERS = [
   ["power", "const PCB_GEO = "],
@@ -85,5 +87,54 @@ describe("board geometry bundle", () => {
         expect(mesh.v.length % 3, `${name} mesh vertex count`).toBe(0);
       }
     }
+  });
+});
+
+/** Mirrors encodeMesh's min/scale derivation in build-board-geometry-bin.mjs. */
+function meshBounds(mesh: Mesh) {
+  const vertexCount = mesh.v.length / 3;
+  const min = [0, 0, 0];
+  const scale = [0, 0, 0];
+  for (let axis = 0; axis < 3; axis += 1) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let v = 0; v < vertexCount; v += 1) {
+      const value = mesh.v[v * 3 + axis];
+      if (value < lo) lo = value;
+      if (value > hi) hi = value;
+    }
+    min[axis] = lo;
+    scale[axis] = hi - lo;
+  }
+  return { min, scale };
+}
+
+function decodePcbgeoHeader(asset: string) {
+  const buf = gunzipSync(readFileSync(path.join(geometryDir, `${asset}.pcbgeo`)));
+  if (buf.toString("ascii", 0, 4) !== "PCBG") throw new Error(`${asset}: bad magic`);
+  const headerLength = buf.readUInt32LE(8);
+  const json = buf.toString("utf8", 12, 12 + headerLength).replace(/\0+$/, "");
+  return JSON.parse(json) as {
+    meshes: { color: number[]; vertexCount: number; indexCount: number; min: number[]; scale: number[] }[];
+  };
+}
+
+describe("shipped .pcbgeo binaries stay in sync with the bundle", () => {
+  const boards = readBundleBoards();
+
+  it.each(["power", "control", "brick"] as const)("%s binary matches its bundle block", (name) => {
+    const bundle = boards.get(name)!;
+    const shipped = decodePcbgeoHeader(name);
+
+    expect(shipped.meshes.length).toBe(bundle.meshes.length);
+    bundle.meshes.forEach((mesh, i) => {
+      const shippedMesh = shipped.meshes[i];
+      const { min, scale } = meshBounds(mesh);
+      expect(shippedMesh.color).toEqual(mesh.color);
+      expect(shippedMesh.vertexCount).toBe(mesh.v.length / 3);
+      expect(shippedMesh.indexCount).toBe(mesh.i.length);
+      shippedMesh.min.forEach((v, axis) => expect(v).toBeCloseTo(min[axis], 6));
+      shippedMesh.scale.forEach((v, axis) => expect(v).toBeCloseTo(scale[axis], 6));
+    });
   });
 });
