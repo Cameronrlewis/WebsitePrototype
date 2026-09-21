@@ -8,7 +8,8 @@
  * own file, positions are quantized to Uint16 against a per-mesh/per-axis
  * bounding box, indices take the narrowest type that fits, and normals are
  * dropped (the viewer calls computeVertexNormals() whenever they are absent,
- * which is already what the power and control boards rely on).
+ * which is what all three boards rely on regardless of whether their bundle
+ * block happens to carry normals).
  *
  *   node tools/build-board-geometry-bin.mjs
  *
