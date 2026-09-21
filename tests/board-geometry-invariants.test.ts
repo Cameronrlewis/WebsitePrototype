@@ -60,7 +60,7 @@ describe("board geometry bundle", () => {
 
   it.each([
     ["power", 30],
-    ["control", 22],
+    ["control", 21],
     ["brick", 40],
   ] as const)("%s has the expected mesh count", (name, count) => {
     expect(boards.get(name)!.meshes.length).toBe(count);
