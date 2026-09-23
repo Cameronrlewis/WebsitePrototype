@@ -40,6 +40,7 @@ export function Projects({
           <div className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1">
             <Button
               size="sm"
+              aria-pressed={viewMode === "all"}
               onClick={() => onViewModeChange("all")}
               className={
                 viewMode === "all"
@@ -51,6 +52,7 @@ export function Projects({
             </Button>
             <Button
               size="sm"
+              aria-pressed={viewMode === "featured"}
               onClick={() => onViewModeChange("featured")}
               className={
                 viewMode === "featured"

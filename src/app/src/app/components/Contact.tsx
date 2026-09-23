@@ -151,6 +151,9 @@ export function Contact({ onOpenResume }: ContactProps) {
               </AnimatePresence>
             </span>
           </button>
+          <span role="status" aria-live="polite" className="sr-only">
+            {copyFailed ? "Couldn't copy, select to copy manually" : copied ? "Copied to clipboard" : ""}
+          </span>
           <a
             href={emailHref}
             aria-label="Compose an email"

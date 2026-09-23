@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { cn } from "./ui/utils";
 
@@ -143,12 +143,11 @@ export function SkeletonImage({
   /** Applied to the well only while loading - e.g. a min-height to reserve space. */
   pendingWellClassName?: string;
 }) {
-  const [loaded, setLoaded] = useState(false);
+  // Tracks which src finished, so a src change reads as unloaded without an effect.
+  const src = props.src ?? "";
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const loaded = loadedSrc === src;
   const settled = loaded && !FORCE_SKELETONS;
-
-  useEffect(() => {
-    setLoaded(false);
-  }, [props.src]);
 
   // A cached image is already complete by the time the ref fires, and its
   // `load` event may have been missed entirely. Without this the skeleton
@@ -157,7 +156,7 @@ export function SkeletonImage({
   // as loading.
   const captureImage = (node: HTMLImageElement | null) => {
     if (node?.complete && node.naturalWidth > 0) {
-      setLoaded(true);
+      setLoadedSrc(src);
     }
   };
 
@@ -172,11 +171,11 @@ export function SkeletonImage({
         // set their own opacity (hero art at 80%) keep it once loaded.
         style={settled ? style : { ...style, opacity: 0 }}
         onLoad={(event) => {
-          setLoaded(true);
+          setLoadedSrc(src);
           onLoad?.(event);
         }}
         onError={(event) => {
-          setLoaded(true);
+          setLoadedSrc(src);
           onError?.(event);
         }}
       />

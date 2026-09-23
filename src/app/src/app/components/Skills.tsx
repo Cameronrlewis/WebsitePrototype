@@ -47,7 +47,7 @@ export function Skills() {
       />
 
       <div
-        role="tablist"
+        role="group"
         aria-label="Skill tracks"
         className="inline-flex rounded-full border border-[color:var(--toggle-border)] bg-[var(--toggle-shell-bg)] p-1 shadow-[var(--shadow-soft)]"
       >
@@ -65,10 +65,7 @@ export function Skills() {
               ) : null}
               <Button
                 size="sm"
-                role="tab"
-                id={`skills-tab-${track.id}`}
-                aria-selected={isActive}
-                aria-controls="skills-panel"
+                aria-pressed={isActive}
                 onClick={() => setCurrentTrack(track.id)}
                 className={
                   isActive
@@ -113,9 +110,6 @@ export function Skills() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentTrack}
-              role="tabpanel"
-              id="skills-panel"
-              aria-labelledby={`skills-tab-${currentTrack}`}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.16 }}
               className="col-start-1 row-start-1 flex flex-wrap content-start items-start gap-3"
