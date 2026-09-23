@@ -11,6 +11,9 @@ const baseURL = `http://localhost:${port}`;
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // One worker on CI: a 4-vCPU runner otherwise gets 2, and the second one
+  // starves beside board-spin's software-rendered WebGL scene.
+  workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 1 : 0,
   webServer: {
     command: isPreview ? "pnpm preview" : "pnpm dev",

@@ -30,30 +30,34 @@ function walk(dir: string, exts: string[], out: string[] = []): string[] {
  *  this codebase: a direct string literal ("/portfolio/assets/...", optionally
  *  prefixed with the production origin as in index.html's meta tags), and a
  *  template literal built from portfolio.ts's `assetBase` constant
- *  (`${assetBase}/media/...`). */
-function extractAssetPaths(text: string): string[] {
-  const paths = new Set<string>();
+ *  (`${assetBase}/media/...`). `truncated` marks a path cut off by a further
+ *  `${...}` interpolation, so only the captured prefix is known. */
+function extractAssetPaths(text: string): { path: string; truncated: boolean }[] {
+  // A path seen both whole and cut off is held to the stricter, whole check.
+  const paths = new Map<string, boolean>();
+  const add = (assetPath: string, truncated: boolean) =>
+    paths.set(assetPath, (paths.get(assetPath) ?? true) && truncated);
 
-  const directRe = /(?:https:\/\/cameron-lewis\.com)?(\/portfolio\/[A-Za-z0-9._\-/]+)/g;
+  const directRe = /(?:https:\/\/cameron-lewis\.com)?(\/portfolio\/[A-Za-z0-9._\-/]+)(\$\{)?/g;
   for (const match of text.matchAll(directRe)) {
-    paths.add(match[1]);
+    add(match[1], match[2] !== undefined);
   }
 
-  const templateRe = /\$\{assetBase\}([A-Za-z0-9._\-/]+)/g;
+  const templateRe = /\$\{assetBase\}([A-Za-z0-9._\-/]+)(\$\{)?/g;
   for (const match of text.matchAll(templateRe)) {
-    paths.add(`/portfolio/assets${match[1]}`);
+    add(`/portfolio/assets${match[1]}`, match[2] !== undefined);
   }
 
-  return [...paths];
+  return [...paths].map(([assetPath, truncated]) => ({ path: assetPath, truncated }));
 }
 
-/** A path resolves either directly, or - for a template literal with a
- *  second, unsupported interpolation (e.g. reportPages' per-page
- *  `page-${page}.webp` loop, captured only up to "page-") - if some file in
- *  the target directory starts with the captured prefix. */
-function resolves(assetPath: string): boolean {
+/** A path must exist exactly. Only one cut off by an interpolation (e.g.
+ *  reportPages' per-page `page-${page}.webp` loop, captured only up to
+ *  "page-") may instead match some file in its directory by prefix. */
+function resolves({ path: assetPath, truncated }: { path: string; truncated: boolean }): boolean {
   const resolved = path.join(publicDir, assetPath.replace(/^\//, ""));
   if (existsSync(resolved)) return true;
+  if (!truncated) return false;
 
   const dir = path.dirname(resolved);
   const prefix = path.basename(resolved);
@@ -73,13 +77,28 @@ describe("every /portfolio/assets reference resolves to a real file", () => {
 
     for (const file of sourceFiles) {
       const text = readFileSync(file, "utf-8");
-      for (const assetPath of extractAssetPaths(text)) {
-        if (!resolves(assetPath)) {
-          missing.push(`${path.relative(repoRoot, file)}: ${assetPath}`);
+      for (const ref of extractAssetPaths(text)) {
+        if (!resolves(ref)) {
+          missing.push(`${path.relative(repoRoot, file)}: ${ref.path}`);
         }
       }
     }
 
     expect(missing).toEqual([]);
+  });
+});
+
+describe("the prefix fallback only covers paths cut off by an interpolation", () => {
+  it("rejects a truncated literal path that merely prefixes a real file", () => {
+    const text = [
+      '"/portfolio/assets/media/projects/aux-power-board-banner.web"',
+      "`${assetBase}/media/projects/aux`",
+    ].join("\n");
+    expect(extractAssetPaths(text).filter((ref) => !resolves(ref))).toHaveLength(2);
+  });
+
+  it("still accepts a path cut off at a second interpolation", () => {
+    const text = "`${assetBase}/media/reports/engineering-1030/page-${page}.webp`";
+    expect(extractAssetPaths(text).filter((ref) => !resolves(ref))).toEqual([]);
   });
 });
