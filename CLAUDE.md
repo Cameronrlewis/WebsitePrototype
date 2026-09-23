@@ -49,9 +49,9 @@ The main trunk carries a power-rail narrative (`AC IN → +12V → +3V3 → +1V8
 
 **Content is data-driven.** `src/app/src/app/data/portfolio.ts` is the single source of truth for all page content — `profile`, `stats`, `experience`, `education`, `coursework`, `skillSets`, `projects`, `organizations`, and derived exports (`featuredBoardProjects`, and `updateFeed`, which is flattened from `organizations[].builds` where `showInUpdates`, sorted by `sortKey`). It also exports helpers `getOrganizationById` / `getProjectBySlug`. Editing content means editing this file, not the components. `lib/board-assets.ts` only handles the BOM — `loadInteractiveBom()` selects the IBOM/BOM per `project.viewerAsset`. **3D geometry never passes through the React app**: `board-viewer-shell.html` fetches its own board inside the viewer iframe (see Board geometry below).
 
-**Styling.** Tailwind CSS v4 CSS-first via `@tailwindcss/vite` — **there is no `tailwind.config.*`** and no PostCSS config (the empty `postcss.config.mjs` was deleted; Vite auto-detects any root `postcss.config.*`, so don't reintroduce one). The CSS entry `src/app/src/styles/index.css` imports `default_theme.css` then `globals.css`:
-- `src/app/src/styles/default_theme.css` holds the `@theme inline` block (colors, radii, `--font-display` / `--font-mono`).
-- `src/app/src/styles/globals.css` holds the `:root` + `.dark` semantic tokens used directly in components as arbitrary values — `--surface-1..4`, `--text-strong/body/soft/muted`, `--outline-soft/strong`, `--shadow-card/soft/strong/button`, `--chip-*`, `--toggle-*`.
+**Styling.** Tailwind CSS v4 CSS-first via `@tailwindcss/vite` — **there is no `tailwind.config.*`** and no PostCSS config (the empty `postcss.config.mjs` was deleted; Vite auto-detects any root `postcss.config.*`, so don't reintroduce one). The CSS entry `src/app/src/styles/index.css` imports `globals.css`, which holds both:
+- the `@theme inline` block (colors, radii, `--font-display` / `--font-mono`), and
+- the `:root` + `.dark` semantic tokens used directly in components as arbitrary values — `--surface-1..4`, `--text-strong/body/soft/muted`, `--outline-soft/strong`, `--shadow-card/soft/strong/button`, `--chip-*`, `--toggle-*`.
 
 **Dark mode is the design target** (the `#10141c` / `#ff6b35` palette); the light theme exists but is secondary. Shared header styling is centralized in `components/SectionHeader.tsx` (mono numbered kicker + display title); titles use `font-display`, labels/eyebrows use `font-mono`, cards use `rounded-2xl` / `rounded-xl`.
 

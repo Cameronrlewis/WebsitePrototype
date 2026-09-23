@@ -22,6 +22,10 @@ describe("parsePeriodStart", () => {
     expect(parsePeriodStart("Jan 2026 - Mar 2026")).toBe(0);
   });
 
+  it("parses a full month name", () => {
+    expect(parsePeriodStart("September 2025 — Present")).toBe(20250900);
+  });
+
   it("defaults an unknown month abbreviation to January instead of failing loudly", () => {
     expect(parsePeriodStart("Xyz 2026")).toBe(20260100);
   });
@@ -34,6 +38,10 @@ describe("parseWeekSortKey", () => {
 
   it("returns 0 when the string does not match the expected pattern", () => {
     expect(parseWeekSortKey("TBD")).toBe(0);
+  });
+
+  it("parses a full month name instead of defaulting it to January", () => {
+    expect(parseWeekSortKey("September 12th - 18th, 2026")).toBe(20260912);
   });
 });
 

@@ -6,12 +6,8 @@
   --foreground: #2a2520;
   --card: rgba(253, 252, 248, 0.82);
   --card-foreground: #2a2520;
-  --popover: #fdfcf8;
-  --popover-foreground: #2a2520;
   --primary: #e85d2a;
   --primary-foreground: #1a0d05;
-  --secondary: #efeae0;
-  --secondary-foreground: #2a2520;
   --muted: #ece7dc;
   --muted-foreground: #7d766b;
   --accent: #f0ebe1;
@@ -19,26 +15,10 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #ddd6c8;
-  --input: #fdfcf8;
-  --input-background: #fdfcf8;
-  --switch-background: #e0d9ca;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #e85d2a;
-  --chart-1: #e85d2a;
-  --chart-2: #6b6357;
-  --chart-3: #a89f90;
-  --chart-4: #d8d1c2;
-  --chart-5: #c4bcab;
   --radius: 1.1rem;
-  --sidebar: #fdfcf8;
-  --sidebar-foreground: #2a2520;
-  --sidebar-primary: #e85d2a;
-  --sidebar-primary-foreground: #1a0d05;
-  --sidebar-accent: #f0ebe1;
-  --sidebar-accent-foreground: #2a2520;
-  --sidebar-border: #ddd6c8;
-  --sidebar-ring: #e85d2a;
   --surface-1: rgba(253, 252, 248, 0.82);
   --surface-2: rgba(247, 244, 236, 0.82);
   --surface-3: #f0ece2;
@@ -114,29 +94,14 @@
   --foreground: #f0f2f7;
   --card: rgba(22, 28, 40, 0.82);
   --card-foreground: #f0f2f7;
-  --popover: #161c28;
-  --popover-foreground: #f0f2f7;
   --primary: #ff6b35;
   --primary-foreground: #1a0d05;
-  --secondary: #1e2533;
-  --secondary-foreground: #f0f2f7;
   --muted: #1c2330;
   --muted-foreground: #94a0b8;
   --accent: #212939;
   --accent-foreground: #f0f2f7;
   --border: #2c3649;
-  --input: #1e2533;
-  --input-background: #181f2b;
-  --switch-background: #3d4861;
   --ring: #ff8a5c;
-  --sidebar: #131825;
-  --sidebar-foreground: #f0f2f7;
-  --sidebar-primary: #ff6b35;
-  --sidebar-primary-foreground: #1a0d05;
-  --sidebar-accent: #1b2230;
-  --sidebar-accent-foreground: #f0f2f7;
-  --sidebar-border: #2c3649;
-  --sidebar-ring: #ff8a5c;
   --surface-1: rgba(22, 28, 40, 0.82);
   --surface-2: rgba(27, 34, 48, 0.82);
   --surface-3: #20283a;
@@ -209,12 +174,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
@@ -222,15 +183,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -238,14 +191,6 @@
   --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
   --font-sans: "Inter", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
@@ -253,8 +198,12 @@
     @apply border-border outline-ring/50;
   }
 
-  html {
-    scroll-behavior: smooth;
+  /* Gated so the reduced-motion "auto" scroll in useHashRoute is honoured:
+     below lg the document is the scroller, and "auto" defers to this. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   body {

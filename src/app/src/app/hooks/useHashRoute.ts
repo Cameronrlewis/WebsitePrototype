@@ -147,5 +147,5 @@ export function useHashRoute({ mainRef, sectionRefs }: UseHashRouteOptions) {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [scrollToPendingSection]);
 
-  return { view, activeSection, selectedProject, setView, setActiveSection, setSelectedProject, navigate };
+  return { view, activeSection, selectedProject, setSelectedProject, navigate };
 }
