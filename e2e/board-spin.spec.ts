@@ -712,22 +712,49 @@ test("a short viewport does not fetch geometry until the block is scrolled to", 
   await expect.poll(() => requested, { timeout: 60_000 }).toBe(1);
 });
 
-test("a tall viewport defers the mount past load so the hero paints first", async ({ page }) => {
+test("a tall viewport defers the mount to the idle gate so the hero paints first", async ({ page }) => {
   // Here the block IS on screen at first paint, so the only thing standing
-  // between the hero and the geometry fetch is the idle gate. Assert the gate
-  // directly: the iframe must not be in the DOM yet when load fires. Checking
-  // only that the fetch lands after the hero would pass without any gate at
-  // all, purely from React effect ordering.
+  // between the hero and the geometry fetch is the idle gate. Hold the gate
+  // shut by capturing requestIdleCallback, then open it by hand: racing the
+  // real idle period against load is timing-dependent on a starved runner.
+  // Checking only that the fetch lands after the hero would pass without any
+  // gate at all, purely from React effect ordering.
+  await page.addInitScript(() => {
+    const pending = new Map<number, IdleRequestCallback>();
+    let nextId = 1;
+    const w = window as Window & { __runIdle?: () => number; __idlePending?: () => number };
+    w.requestIdleCallback = (callback) => {
+      pending.set(nextId, callback);
+      return nextId++;
+    };
+    w.cancelIdleCallback = (id) => {
+      pending.delete(id);
+    };
+    w.__idlePending = () => pending.size;
+    w.__runIdle = () => {
+      const callbacks = [...pending.values()];
+      pending.clear();
+      callbacks.forEach((callback) => callback({ didTimeout: false, timeRemaining: () => 50 }));
+      return callbacks.length;
+    };
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // Scoped to the control board specifically: once it reports ready the brick
   // board mounts right behind it, so an unscoped count of every showcase
   // iframe would tick past 1 and this would only pass by catching a
   // transient value.
+  const controlFrame = page.locator("[data-board-frame='control'] iframe");
   await page.goto("/", { waitUntil: "load" });
   await expect(page.locator("h1").first()).toBeVisible();
-  expect(await page.locator("[data-board-frame='control'] iframe").count()).toBe(0);
 
-  // It still mounts promptly once the browser goes idle, just not before.
-  await expect(page.locator("[data-board-frame='control'] iframe")).toHaveCount(1, { timeout: 60_000 });
+  // The block is on screen, so the gate is armed - and holding.
+  await expect
+    .poll(() => page.evaluate(() => (window as Window & { __idlePending?: () => number }).__idlePending?.()))
+    .toBeGreaterThan(0);
+  expect(await controlFrame.count()).toBe(0);
+
+  // Opening the gate mounts it.
+  await page.evaluate(() => (window as Window & { __runIdle?: () => number }).__runIdle?.());
+  await expect(controlFrame).toHaveCount(1, { timeout: 60_000 });
 });
