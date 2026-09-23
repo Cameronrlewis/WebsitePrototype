@@ -538,9 +538,9 @@
             return;
           }
 
-          // rAF pauses while the tab is hidden but `playing` stays true, so
-          // clamp the delta or the first frame back jumps the whole gap.
-          orbitElapsed += Math.min(now - orbitLast, 100);
+          // max(0): the frame timestamp can sit a hair before the
+          // performance.now() the visibilitychange reset below stamped.
+          orbitElapsed += Math.max(0, now - orbitLast);
           orbitLast = now;
           applyTour(orbitElapsed);
           renderFrame();
@@ -558,6 +558,15 @@
           orbitLast = performance.now();
           orbitFrame = requestAnimationFrame(orbitLoop);
         }
+
+        // rAF stops while the tab is hidden but `playing` stays true, since
+        // IntersectionObserver does not fire on a tab switch. Restart the frame
+        // clock on return so the hidden gap adds nothing to the tour.
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) {
+            orbitLast = performance.now();
+          }
+        });
 
         function pauseOrbit() {
           playing = false;
