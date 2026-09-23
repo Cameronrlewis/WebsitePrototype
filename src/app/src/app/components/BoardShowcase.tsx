@@ -217,6 +217,7 @@ export function BoardShowcase({ boards }: BoardShowcaseProps) {
           {boards.map((board, index) => (
             <p
               key={board.asset}
+              aria-hidden={!(index === active && showBoard)}
               className={`col-start-1 row-start-1 font-display text-lg text-white transition-opacity duration-700 ${
                 index === active && showBoard ? "opacity-100" : "opacity-0"
               }`}

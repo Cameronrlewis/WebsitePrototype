@@ -68,3 +68,17 @@ test("report viewer returns to the project modal that opened it", async ({ page 
   await expect(modal).toBeVisible();
   await expect(page.getByRole("button", { name: "View Report" })).toBeVisible();
 });
+
+test("organization opened from a project modal returns to that project", async ({ page }) => {
+  await page.goto("/#/projects/aux-control-board");
+
+  await page.getByRole("button", { name: /Open .* Context/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Paradigm Engineering");
+  // The project modal is closed, not merely aria-hidden behind the organization.
+  await expect(page.locator('[role="dialog"]')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Close" }).click();
+
+  // openOrganization(project, true) must stash the project and restore it on close.
+  await expect(page.getByRole("button", { name: "Explore 3D Board" })).toBeVisible();
+});

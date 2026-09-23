@@ -38,7 +38,6 @@ export function OrganizationContextModal({
         overlayClassName="bg-[var(--org-overlay)] backdrop-blur-md"
         closeClassName="border-[color:var(--org-close-border)] bg-[var(--org-close-bg)] text-[var(--org-close-text)] shadow-none hover:bg-[var(--surface-4)]"
       >
-        <DialogTitle className="sr-only">{organization.name}</DialogTitle>
         <DialogDescription className="sr-only">{organization.cardSummary}</DialogDescription>
         <div className="h-full overflow-y-auto bg-[var(--org-shell)]">
           <div className="mx-auto max-w-[1220px] px-6 py-8 sm:px-8 sm:py-10">
@@ -48,9 +47,9 @@ export function OrganizationContextModal({
                   <OrganizationAvatar organization={organization} size="lg" tone={theme === "dark" ? "dark" : "light"} />
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-[2.6rem] font-semibold tracking-[-0.05em] text-[var(--org-text)] sm:text-[3.25rem]">
+                      <DialogTitle className="text-[2.6rem] leading-normal font-semibold tracking-[-0.05em] text-[var(--org-text)] sm:text-[3.25rem]">
                         {organization.name}
-                      </h3>
+                      </DialogTitle>
                       <span className="rounded-full border border-[color:var(--org-badge-border)] bg-[var(--org-badge-bg)] px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-[var(--org-badge-text)]">
                         {organizationKindLabel[organization.kind]}
                       </span>

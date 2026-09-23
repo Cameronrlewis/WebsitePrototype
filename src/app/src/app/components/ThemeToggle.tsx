@@ -42,6 +42,7 @@ export function ThemeToggle({
     >
       <button
         type="button"
+        aria-pressed={theme === "light"}
         onClick={() => setTheme("light")}
         className={cn(
           "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
@@ -55,6 +56,7 @@ export function ThemeToggle({
       </button>
       <button
         type="button"
+        aria-pressed={theme === "dark"}
         onClick={() => setTheme("dark")}
         className={cn(
           "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",

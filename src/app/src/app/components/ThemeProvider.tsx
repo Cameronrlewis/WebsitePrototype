@@ -28,6 +28,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(resolveInitialTheme);
   const poweringTimeout = useRef<number | null>(null);
+  const themeRef = useRef(theme);
 
   useLayoutEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -35,6 +36,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const setTheme = useCallback((nextTheme: ThemeMode) => {
+    // Re-selecting the active theme would replay the cascade for no change.
+    if (nextTheme === themeRef.current) return;
+    themeRef.current = nextTheme;
+
     // Run the power-on cascade for the duration of the switch.
     const root = document.documentElement;
     root.classList.add("theme-powering");

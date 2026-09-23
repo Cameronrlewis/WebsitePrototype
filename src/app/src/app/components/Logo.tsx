@@ -38,5 +38,3 @@ export function Logo({ className }: LogoProps) {
     </svg>
   );
 }
-
-export default Logo;
