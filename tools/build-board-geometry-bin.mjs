@@ -29,8 +29,9 @@
 import { gzipSync } from "node:zlib";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = path.join(rootDir, "assets-src/board-geometry/board-model-data.js");
 const outputDir = path.join(rootDir, "public/portfolio/assets/viewers/geometry");
 
@@ -140,7 +141,7 @@ function encodeMesh(mesh, positionOffset) {
   };
 }
 
-function encodeBoard(geometry) {
+export function encodeBoard(geometry) {
   const entries = [];
   const blocks = [];
   let offset = 0;
@@ -221,4 +222,7 @@ async function main() {
   );
 }
 
-await main();
+// Run only as a CLI, so tests can import encodeBoard without rewriting the binaries.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}

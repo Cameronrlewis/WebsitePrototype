@@ -18,7 +18,6 @@ interface CircuitTraceProps {
   pageKey: string;
 }
 
-const MAX_BRANCHES = 8;
 // Parts are placed by power-chain stage (see buildTrace), not by cosmetic
 // cycles: the whole page reads as one AC→DC system — AC input → fuse/switch
 // → bridge rectifier → +12V rail → buck converter → +3V3 rail → MCU →
@@ -673,9 +672,9 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
     let lastNow = performance.now();
     let settledAt = lastNow;
     let prevPct = -1;
-    const prevVia: boolean[] = new Array(geometry.vias.length).fill(false);
-    const prevJunction: boolean[] = new Array(geometry.junctions.length).fill(false);
-    const prevFlag: boolean[] = new Array(geometry.netFlags.length).fill(false);
+    const prevVia: boolean[] = new Array(geometry.vias.length);
+    const prevJunction: boolean[] = new Array(geometry.junctions.length);
+    const prevFlag: boolean[] = new Array(geometry.netFlags.length);
     const branchT: number[] = new Array(geometry.branches.length).fill(0);
     const branchStart: number[] = new Array(geometry.branches.length).fill(Number.NaN);
     const prevBranchT: number[] = new Array(geometry.branches.length).fill(-1);
@@ -907,7 +906,7 @@ export function CircuitTrace({ scrollRef, pageKey }: CircuitTraceProps) {
         glow.style.strokeDashoffset = `${length}`;
       }
     }
-    prevLitRef.current = new Array(geometry.components.length).fill(false);
+    prevLitRef.current = new Array(geometry.components.length);
     // Snap to the current scroll position so rebuilds (resize, content
     // changes) don't replay the reveal from the top.
     shown = targetDistance();
