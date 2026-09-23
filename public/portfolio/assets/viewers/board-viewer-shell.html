@@ -538,7 +538,9 @@
             return;
           }
 
-          orbitElapsed += now - orbitLast;
+          // max(0): the frame timestamp can sit a hair before the
+          // performance.now() the visibilitychange reset below stamped.
+          orbitElapsed += Math.max(0, now - orbitLast);
           orbitLast = now;
           applyTour(orbitElapsed);
           renderFrame();
@@ -556,6 +558,15 @@
           orbitLast = performance.now();
           orbitFrame = requestAnimationFrame(orbitLoop);
         }
+
+        // rAF stops while the tab is hidden but `playing` stays true, since
+        // IntersectionObserver does not fire on a tab switch. Restart the frame
+        // clock on return so the hidden gap adds nothing to the tour.
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) {
+            orbitLast = performance.now();
+          }
+        });
 
         function pauseOrbit() {
           playing = false;
@@ -900,7 +911,12 @@
             window.__applyTour = applyTour;
             window.__tourCycleMs = tourCycleMs;
 
-            fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
+            // Same timeout as the geometry fetch: a request that never settles
+            // would leave tourFetchSettled false and stall the showcase forever.
+            fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json",
+              typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+                ? { signal: AbortSignal.timeout(15000) }
+                : {})
               .then(function (response) { return response.ok ? response.json() : null; })
               .then(function (tour) {
                 if (tour && tour.stops) {
