@@ -538,7 +538,9 @@
             return;
           }
 
-          orbitElapsed += now - orbitLast;
+          // rAF pauses while the tab is hidden but `playing` stays true, so
+          // clamp the delta or the first frame back jumps the whole gap.
+          orbitElapsed += Math.min(now - orbitLast, 100);
           orbitLast = now;
           applyTour(orbitElapsed);
           renderFrame();
@@ -900,7 +902,12 @@
             window.__applyTour = applyTour;
             window.__tourCycleMs = tourCycleMs;
 
-            fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json")
+            // Same timeout as the geometry fetch: a request that never settles
+            // would leave tourFetchSettled false and stall the showcase forever.
+            fetch("/portfolio/assets/viewers/tours/" + asset + ".tour.json",
+              typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+                ? { signal: AbortSignal.timeout(15000) }
+                : {})
               .then(function (response) { return response.ok ? response.json() : null; })
               .then(function (tour) {
                 if (tour && tour.stops) {

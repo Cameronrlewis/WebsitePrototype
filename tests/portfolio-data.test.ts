@@ -37,7 +37,7 @@ describe("portfolio content integrity", () => {
     const missing: string[] = [];
 
     for (const project of projects) {
-      const assets = [project.cardImg, project.bannerImg, project.hoverImg, project.bomUrl];
+      const assets = [project.cardImg, project.bannerImg, project.hoverImg];
       for (const asset of assets) {
         if (typeof asset === "string" && asset.startsWith("/") && !existsSync(resolveAsset(asset))) {
           missing.push(`${project.slug}: ${asset}`);

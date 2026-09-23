@@ -24,13 +24,6 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
 
     setFailed(false);
 
-    if (project.bomUrl) {
-      setIframeUrl(project.bomUrl);
-      return () => {
-        setIframeUrl(null);
-      };
-    }
-
     let active = true;
     let createdUrl: string | null = null;
 
@@ -88,7 +81,7 @@ export function InteractiveBomViewer({ project, open, onOpenChange }: Interactiv
               <iframe
                 title={`${project.title} interactive BOM`}
                 src={iframeUrl}
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 className="block h-full w-full bg-white"
               />
             ) : (

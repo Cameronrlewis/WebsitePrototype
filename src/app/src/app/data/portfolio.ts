@@ -100,7 +100,6 @@ export interface ProjectRecord {
   viewerMode?: "bundle" | "wrl";
   viewerAsset?: BoardAsset;
   viewerModelUrl?: string;
-  bomUrl?: string;
   designDecisions?: string;
   challenges?: string;
   takeaways?: string;
@@ -464,7 +463,6 @@ export const projects: ProjectRecord[] = [
     viewer3d: true,
     viewerMode: "bundle",
     viewerAsset: "brick",
-    bomUrl: `${assetBase}/bom/brick-buck/IBOM.html`,
     description:
       "A backup competition power board for Paradigm Engineering that replaces the custom 48V to 12V stage with a premade Mornsun DC-DC brick while keeping a custom on-board 12V to 5V buck for the lower-voltage electronics.",
     tags: ["12-5V Buck Converter", "48-12V Brick Buck Converters", "Circuit Protection"],
