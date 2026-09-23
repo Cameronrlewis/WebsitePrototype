@@ -14,12 +14,13 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { BufferGeometry, Matrix4 } from "three";
 import { VRMLLoader } from "three/examples/jsm/loaders/VRMLLoader.js";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-const rootDir = path.resolve(new URL("..", import.meta.url).pathname);
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bundlePath = path.join(rootDir, "assets-src/board-geometry/board-model-data.js");
 
 const REFERENCE_COLORS = {

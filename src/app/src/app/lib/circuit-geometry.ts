@@ -88,22 +88,6 @@ export function takeCenterpiece(queue: CenterpieceKind[], avail: number): Center
   return plan;
 }
 
-/**
- * Drain the queue across the usable gaps, one attempt per gap — the same walk
- * buildTrace performs while emitting, minus the drawing.
- */
-export function placeCenterpieces(gaps: SectionGap[], avail: number, span = avail): CenterpiecePlan[] {
-  const queue = centerpieceQueueFor(span);
-  const placed: CenterpiecePlan[] = [];
-  for (const _gap of usableGaps(gaps)) {
-    const plan = takeCenterpiece(queue, avail);
-    if (plan) {
-      placed.push(plan);
-    }
-  }
-  return placed;
-}
-
 // ---- Moved from CircuitTrace.tsx (M7): buildTrace and its pure deps. ----
 // Overlay/schematic types shared with the renderer.
 export type OverlayType =
@@ -366,11 +350,6 @@ function horizontalInductor(pb: PathBuilder, y: number, dir: number) {
 // side of the page; every IC stage hangs off it as a branch sub-network
 // with timed pin fan-outs, and power rails split off the stage outputs to
 // run down the rest of the page in parallel — no serpentine snake.
-// Alias avoiding shadowing by buildTrace's local `usableGaps` (the gaps
-// remaining after the 70px filter), preserved from the original import
-// aliasing `usableGaps as filterUsableGaps` in CircuitTrace.tsx.
-const filterUsableGaps = usableGaps;
-
 export function buildTrace(width: number, height: number, gaps: SectionGap[]): TraceGeometry {
   const rightX = Math.max(width - 26, LEFT_X + 200);
   const span = rightX - LEFT_X;
@@ -1482,16 +1461,16 @@ export function buildTrace(width: number, height: number, gaps: SectionGap[]): T
     emitVerticalLeg(yEnd);
   };
 
-  const usableGaps = filterUsableGaps(gaps);
+  const deepGaps = usableGaps(gaps);
 
   // The chain starts at the mains. Anchored on the trunk column itself (the
   // bus descends from y = 0 at x = pb.x); the tag body extends right, clear
   // of the wire.
   netFlags.push({ x: pb.x, y: 14, text: "AC IN", triggerDist: 0, side: "right" });
 
-  usableGaps.forEach((gap, gapIndex) => {
+  deepGaps.forEach((gap, gapIndex) => {
     const gapDepth = gap.bottom - gap.top;
-    const isLastGap = gapIndex === usableGaps.length - 1;
+    const isLastGap = gapIndex === deepGaps.length - 1;
     const crossY = gap.top + gapDepth * between(0.3, 0.5);
 
     emitWander(crossY);
