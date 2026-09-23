@@ -54,4 +54,21 @@ describe("resolveInitialTheme", () => {
 
     expect(resolveInitialTheme()).toBe("light");
   });
+
+  it("falls back to prefers-color-scheme when localStorage throws", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage blocked");
+    });
+    mockPrefersDark(true);
+
+    expect(resolveInitialTheme()).toBe("dark");
+  });
+
+  it("falls back to light when matchMedia throws", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(() => {
+      throw new Error("matchMedia unavailable");
+    });
+
+    expect(resolveInitialTheme()).toBe("light");
+  });
 });

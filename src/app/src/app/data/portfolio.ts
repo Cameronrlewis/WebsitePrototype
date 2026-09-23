@@ -374,7 +374,7 @@ export const projects: ProjectRecord[] = [
     tags: ["ESP32", "ILI9341 LCD Screen", "MLX90640 Thermal Sensor"],
     github: "https://github.com/Cameronrlewis/Thermal-Camera-Project",
     designDecisions:
-      "The ESP32 was chosen as the core processor for its dual-core architecture and how easily its configurability allows sensor polling and display rendering to run in parallel without blocking each other. Its native SPI and I2C peripheral support simplified the hardware interface to both the IR sensor array and the colour display, reducing the amount of manual bit-banging needed at the firmware level. The mature development ecosystem around the ESP32 was equally important, as having reliable community libraries for display drivers and sensor communication meant the early stages of the build could focus on system-level integration rather than low-level peripheral bring-up.\n\nThe AMG8833 IR array was selected for its I2C simplicity and its 8x8 native resolution, which provides a 64-point temperature grid that the firmware scales up through bicubic interpolation into a smooth, readable colour map. The colour palette is computed from a pre-built lookup table rather than floating-point math at runtime, which keeps the rendering loop tight enough to maintain a responsive frame rate within the microcontroller's clock constraints. Power architecture was deliberately kept simple with a single lithium cell and a 3.3V LDO, prioritising a compact BOM and a portable form factor over the added complexity of a switching regulator for a device that draws modest current.",
+      "The ESP32 was chosen as the core processor for its dual-core architecture and how easily its configurability allows sensor polling and display rendering to run in parallel without blocking each other. Its native SPI and I2C peripheral support simplified the hardware interface to both the IR sensor array and the colour display, reducing the amount of manual bit-banging needed at the firmware level. The mature development ecosystem around the ESP32 was equally important, as having reliable community libraries for display drivers and sensor communication meant the early stages of the build could focus on system-level integration rather than low-level peripheral bring-up.\n\nThe MLX90640 IR array was selected for its I2C simplicity and its 32x24 native resolution, which provides a 768-point temperature grid that the firmware scales up through bicubic interpolation into a smooth, readable colour map. The colour palette is computed from a pre-built lookup table rather than floating-point math at runtime, which keeps the rendering loop tight enough to maintain a responsive frame rate within the microcontroller's clock constraints. Power architecture was deliberately kept simple with a single lithium cell and a 3.3V LDO, prioritising a compact BOM and a portable form factor over the added complexity of a switching regulator for a device that draws modest current.",
     challenges:
       "With the schematic complete and the layout now underway, the main challenge is translating the design intent into a physical board that meets the project's size and thermal constraints. The IR sensor needs to be positioned far enough from the display, voltage regulator, and battery that their radiated heat does not introduce offset errors in the temperature readings, but the enclosure target is compact enough that every millimetre of separation has to be justified. Routing the SPI bus to the display and the I2C bus to the sensor cleanly on a two-layer board while maintaining short return paths and avoiding crosstalk between the high-speed display lines and the sensitive analog sensor traces is the central layout challenge at this stage.\n\nOn the firmware side, the interpolation and colour-mapping pipeline will need careful profiling once hardware is in hand. The bicubic interpolation that makes the thermal image usable adds meaningful computation per frame, and ensuring the rendering loop maintains a responsive frame rate within the ESP32's processing headroom will likely require optimising the lookup table access pattern and minimising redundant memory operations. Every stage of the pipeline has knock-on effects on the others, so getting the balance right between rendering quality and throughput will be an iterative process once bench testing begins.",
     takeaways:
@@ -522,8 +522,8 @@ export const organizations: OrganizationRecord[] = [
     id: "paradigm-engineering",
     name: "Paradigm Engineering",
     kind: "team",
-    role: "Electrical Team",
-    period: "Jan 2026 — Present",
+    role: "Electrical Team Lead",
+    period: "September 2025 — Present",
     showInUpdates: true,
     cardSummary:
       "Autonomous kart design team work spanning power distribution, control hardware, board bring-up, and system integration.",
@@ -743,13 +743,13 @@ export const organizations: OrganizationRecord[] = [
         period: "2026 — Present",
         week: "Jan 11th - 17th, 2026",
         summary:
-          "Designing a handheld thermal imager around an ESP32 and AMG8833 sensor array, with the current focus on completing layout and validating the embedded rendering pipeline.",
+          "Designing a handheld thermal imager around an ESP32 and MLX90640 sensor array, with the current focus on completing layout and validating the embedded rendering pipeline.",
         bullets: [
           "Mapped the full data path from sensor acquisition through bicubic interpolation, color mapping, and display output before committing to layout.",
           "Chose a compact single-cell architecture and 3.3V rail to keep the hardware portable while still supporting the display and sensing pipeline cleanly.",
           "Using the layout phase to work through routing, thermal separation, and practical enclosure constraints before hardware bring-up.",
         ],
-        tags: ["ESP32", "AMG8833", "Display Pipeline", "PCB Layout"],
+        tags: ["ESP32", "MLX90640", "Display Pipeline", "PCB Layout"],
         media: `${assetBase}/media/projects/thermal-camera-schematic-card.webp`,
         mediaBackground: "#f5f4ef",
         mediaContain: true,
@@ -848,7 +848,7 @@ export function parseWeekSortKey(week: string): number {
   const m = week.match(/^([A-Za-z]+)\s+(\d+)/);
   const y = week.match(/(\d{4})$/);
   if (!m || !y) return 0;
-  const month = MONTH_MAP[m[1]] ?? 1;
+  const month = MONTH_MAP[m[1].slice(0, 3)] ?? 1;
   return parseInt(y[1]) * 10000 + month * 100 + parseInt(m[2]);
 }
 
@@ -856,7 +856,7 @@ export function parsePeriodStart(period: string): number {
   const token = period.split("—")[0].trim();
   const monthMatch = token.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (monthMatch) {
-    return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1]] ?? 1) * 100;
+    return parseInt(monthMatch[2]) * 10000 + (MONTH_MAP[monthMatch[1].slice(0, 3)] ?? 1) * 100;
   }
   const yearMatch = token.match(/^(\d{4})/);
   if (yearMatch) return parseInt(yearMatch[1]) * 10000;
